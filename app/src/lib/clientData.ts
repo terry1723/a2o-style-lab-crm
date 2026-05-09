@@ -24,6 +24,7 @@ export interface ClientData {
   plan_price: number
   amount_paid: number
   balance_due: number
+  pic?: string
   before_photo?: string
   seasonal_type?: string
   suitable_colors?: string[]
