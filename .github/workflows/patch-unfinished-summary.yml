@@ -1,0 +1,67 @@
+name: Patch unfinished service summary
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-unfinished-summary.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch unfinished service summary into staff portal
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const portalPath = 'app/src/pages/PortalStaff.tsx'
+          let src = fs.readFileSync(portalPath, 'utf8')
+
+          if (!src.includes('const [serviceSummaries, setServiceSummaries]')) {
+            src = src.replace(
+              "  const [dbMode, setDbMode] = useState<'supabase' | 'local'>('local')\n",
+              "  const [dbMode, setDbMode] = useState<'supabase' | 'local'>('local')\n  const [serviceSummaries, setServiceSummaries] = useState<Record<string, string[]>>({})\n"
+            )
+          }
+
+          if (!src.includes('const buildServiceSummaries = async')) {
+            src = src.replace(
+              "  const refresh = useCallback(async () => {\n    setLoading(true)\n    const data = await getAllClients()\n    setClients(data)\n    setDbMode(isSupabaseConfigured() ? 'supabase' : 'local')\n    setLoading(false)\n  }, [])",
+              `  const buildServiceSummaries = async (clientList: ClientData[]) => {\n    const entries = await Promise.all(clientList.map(async (client) => {\n      const [services, sessions] = await Promise.all([\n        getClientServices(client.id),\n        getServiceSessions(client.id),\n      ])\n\n      const unfinished = services\n        .map(service => {\n          const completed = sessions.filter(session =>\n            session.service_id === service.service_id && session.status === 'completed'\n          ).length\n          const remaining = Math.max(0, Number(service.count || 0) - completed)\n          return remaining > 0 ? \`\${service.name}(\${remaining})\` : null\n        })\n        .filter(Boolean) as string[]\n\n      return [client.id, unfinished.slice(0, 5)] as const\n    }))\n\n    setServiceSummaries(Object.fromEntries(entries))\n  }\n\n  const refresh = useCallback(async () => {\n    setLoading(true)\n    const data = await getAllClients()\n    setClients(data)\n    setDbMode(isSupabaseConfigured() ? 'supabase' : 'local')\n    await buildServiceSummaries(data)\n    setLoading(false)\n  }, [])`
+            )
+          }
+
+          if (!src.includes('未完成：')) {
+            src = src.replace(
+              `                <div className="flex items-center gap-3">\n                  <span className="text-xs bg-a2o-beige px-2 py-1 rounded-full text-a2o-black/60">\n                    Plan {client.plan}\n                  </span>`,
+              `                <div className="flex-1 px-4 hidden md:block">\n                  {serviceSummaries[client.id]?.length ? (\n                    <div className="flex flex-wrap items-center gap-1.5 text-xs">\n                      <span className="text-a2o-black/40">未完成：</span>\n                      {serviceSummaries[client.id].map(item => (\n                        <span key={item} className="px-2 py-1 rounded-full bg-a2o-beige text-a2o-black/60">\n                          {item}\n                        </span>\n                      ))}\n                    </div>\n                  ) : (\n                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">全部服務已完成</span>\n                  )}\n                </div>\n\n                <div className="flex items-center gap-3">\n                  <span className="text-xs bg-a2o-beige px-2 py-1 rounded-full text-a2o-black/60">\n                    Plan {client.plan}\n                  </span>`
+            )
+          }
+
+          if (!src.includes('md:hidden px-4 pb-3')) {
+            src = src.replace(
+              `              <AnimatePresence>`,
+              `              <div className="md:hidden px-4 pb-3">\n                {serviceSummaries[client.id]?.length ? (\n                  <div className="flex flex-wrap items-center gap-1.5 text-xs">\n                    <span className="text-a2o-black/40">未完成：</span>\n                    {serviceSummaries[client.id].map(item => (\n                      <span key={item} className="px-2 py-1 rounded-full bg-a2o-beige text-a2o-black/60">\n                        {item}\n                      </span>\n                    ))}\n                  </div>\n                ) : (\n                  <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">全部服務已完成</span>\n                )}\n              </div>\n\n              <AnimatePresence>`
+            )
+          }
+
+          fs.writeFileSync(portalPath, src)
+          NODE
+
+      - name: Commit patched files
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/pages/PortalStaff.tsx
+          git commit -m "Show unfinished service summaries in staff portal"
+          git push
