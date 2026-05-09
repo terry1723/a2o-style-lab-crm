@@ -28,13 +28,38 @@ export default function PortalStaff() {
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(false)
   const [dbMode, setDbMode] = useState<'supabase' | 'local'>('local')
+  const [serviceSummaries, setServiceSummaries] = useState<Record<string, string[]>>({})
   const [savingPic, setSavingPic] = useState<string | null>(null)
+
+  const buildServiceSummaries = async (clientList: ClientData[]) => {
+    const entries = await Promise.all(clientList.map(async (client) => {
+      const [services, sessions] = await Promise.all([
+        getClientServices(client.id),
+        getServiceSessions(client.id),
+      ])
+
+      const unfinished = services
+        .map(service => {
+          const completed = sessions.filter(session =>
+            session.service_id === service.service_id && session.status === 'completed'
+          ).length
+          const remaining = Math.max(0, Number(service.count || 0) - completed)
+          return remaining > 0 ? `${service.name}(${remaining})` : null
+        })
+        .filter(Boolean) as string[]
+
+      return [client.id, unfinished.slice(0, 5)] as const
+    }))
+
+    setServiceSummaries(Object.fromEntries(entries))
+  }
 
   const refresh = useCallback(async () => {
     setLoading(true)
     const data = await getAllClients()
     setClients(data)
     setDbMode(isSupabaseConfigured() ? 'supabase' : 'local')
+    await buildServiceSummaries(data)
     setLoading(false)
   }, [])
 
@@ -286,6 +311,21 @@ ${client.watch ? `手錶：${client.watch}` : ''}
                     </p>
                   </div>
                 </div>
+                <div className="flex-1 px-4 hidden md:block">
+                  {serviceSummaries[client.id]?.length ? (
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="text-a2o-black/40">未完成：</span>
+                      {serviceSummaries[client.id].map(item => (
+                        <span key={item} className="px-2 py-1 rounded-full bg-a2o-beige text-a2o-black/60">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">全部服務已完成</span>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-3">
                   <span className="text-xs bg-a2o-beige px-2 py-1 rounded-full text-a2o-black/60">
                     Plan {client.plan}
@@ -293,6 +333,21 @@ ${client.watch ? `手錶：${client.watch}` : ''}
                   {expandedId === client.id ? <ChevronUp className="w-4 h-4 text-a2o-black/40" /> : <ChevronDown className="w-4 h-4 text-a2o-black/40" />}
                 </div>
               </button>
+
+              <div className="md:hidden px-4 pb-3">
+                {serviceSummaries[client.id]?.length ? (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-a2o-black/40">未完成：</span>
+                    {serviceSummaries[client.id].map(item => (
+                      <span key={item} className="px-2 py-1 rounded-full bg-a2o-beige text-a2o-black/60">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">全部服務已完成</span>
+                )}
+              </div>
 
               <AnimatePresence>
                 {expandedId === client.id && (
