@@ -4,6 +4,11 @@ import { motion } from 'framer-motion'
 import { saveClient, saveClientServices, getLoggedInUser, type ServiceItem } from '../lib/clientData'
 import { ArrowLeft, Upload, Plus, Minus, CheckCircle2 } from 'lucide-react'
 
+const ADDITIONAL_RELATIONSHIP_SERVICES: ServiceItem[] = [
+  { service_id: 'communication_skills', name: '溝通技巧', count: 1 },
+  { service_id: 'matching_event', name: '配對活動', count: 1 },
+]
+
 const PLAN_TEMPLATES: Record<string, { price: number; services: ServiceItem[] }> = {
   'A': {
     price: 3980,
@@ -13,6 +18,7 @@ const PLAN_TEMPLATES: Record<string, { price: number; services: ServiceItem[] }>
       { service_id: 'hair_design', name: '髮型設計', count: 1 },
       { service_id: 'skin_cleaning', name: '臉部清潔修眉療程', count: 1 },
       { service_id: 'photography', name: '個人攝影服務', count: 1 },
+      ...ADDITIONAL_RELATIONSHIP_SERVICES,
     ]
   },
   'B': {
@@ -25,6 +31,7 @@ const PLAN_TEMPLATES: Record<string, { price: number; services: ServiceItem[] }>
       { service_id: 'skin_cleaning', name: '臉部清潔修眉療程', count: 1 },
       { service_id: 'photography', name: '個人攝影服務', count: 1 },
       { service_id: 'small_face', name: '日本小顏術療程', count: 1 },
+      ...ADDITIONAL_RELATIONSHIP_SERVICES,
     ]
   },
   'C': {
@@ -37,6 +44,7 @@ const PLAN_TEMPLATES: Record<string, { price: number; services: ServiceItem[] }>
       { service_id: 'skin_cleaning', name: '臉部清潔修眉療程', count: 1 },
       { service_id: 'photography', name: '個人攝影服務', count: 2 },
       { service_id: 'small_face', name: '日本小顏術療程', count: 2 },
+      ...ADDITIONAL_RELATIONSHIP_SERVICES,
     ]
   },
   'StylePass': {
@@ -44,6 +52,7 @@ const PLAN_TEMPLATES: Record<string, { price: number; services: ServiceItem[] }>
     services: [
       { service_id: 'styling_advice', name: '造型建議', count: 1 },
       { service_id: 'styling_clothing', name: '造型服飾', count: 1 },
+      ...ADDITIONAL_RELATIONSHIP_SERVICES,
     ]
   },
   'custom': {
@@ -56,6 +65,7 @@ const PLAN_TEMPLATES: Record<string, { price: number; services: ServiceItem[] }>
       { service_id: 'skin_cleaning', name: '臉部清潔修眉療程', count: 1 },
       { service_id: 'photography', name: '個人攝影服務', count: 1 },
       { service_id: 'small_face', name: '日本小顏術療程', count: 1 },
+      ...ADDITIONAL_RELATIONSHIP_SERVICES,
     ]
   }
 }
