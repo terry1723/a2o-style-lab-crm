@@ -462,14 +462,31 @@ function ServiceEditor({ clientId, editing, onSave }: { clientId: string; editin
     }
   }
 
-  const handleComplete = async (session: ServiceSession) => {
-    const updated = { ...session, status: 'completed' as const, completed_at: new Date().toISOString() }
-    const ok = await saveServiceSession(updated)
-    if (ok) {
-      const refreshed = await getServiceSessions(clientId)
-      setSessions(refreshed)
-    }
+const handleComplete = async (session: ServiceSession) => {
+  if (!session.id) {
+    alert('❌ 無法完成：此預約缺少 session ID，請刪除後重新新增預約。')
+    return
   }
+
+  const okConfirm = confirm(`確認完成這次預約？\n\n${session.date} ${session.time}\n${session.location}\n${session.staff}`)
+  if (!okConfirm) return
+
+  const updated = {
+    ...session,
+    status: 'completed' as const,
+    completed_at: new Date().toISOString(),
+  }
+
+  const ok = await saveServiceSession(updated)
+
+  if (ok) {
+    const refreshed = await getServiceSessions(clientId)
+    setSessions(refreshed)
+    alert('✅ 已標記為完成')
+  } else {
+    alert('❌ 更新失敗，請重新整理後再試')
+  }
+}
 
   const handleDeleteSession = async (id: string) => {
     if (!confirm('確定刪除此預約？')) return
