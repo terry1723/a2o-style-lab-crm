@@ -1,0 +1,659 @@
+import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  getAllClients, getClientServices, saveClient, saveClientServices,
+  saveServiceSession, deleteServiceSession, getServiceSessions,
+  type ClientData, type ServiceItem, type ServiceSession
+} from '../lib/clientData'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import {
+  ArrowLeft, LogOut, Search, ChevronDown, ChevronUp, Edit3,
+  Plus, Minus, Copy, CheckCircle2, User, Phone, Palette, X, RefreshCw,
+  Calendar, Check
+} from 'lucide-react'
+import ColorEditor from '../components/ColorEditor'
+import ColorReport from '../components/ColorReport'
+
+export default function PortalStaff() {
+  const navigate = useNavigate()
+  const [clients, setClients] = useState<ClientData[]>([])
+  const [search, setSearch] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [editingColor, setEditingColor] = useState<string | null>(null)
+  const [editingServices, setEditingServices] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [filter, setFilter] = useState('all')
+  const [loading, setLoading] = useState(false)
+  const [dbMode, setDbMode] = useState<'supabase' | 'local'>('local')
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    const data = await getAllClients()
+    setClients(data)
+    setDbMode(isSupabaseConfigured() ? 'supabase' : 'local')
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (!localStorage.getItem('a2o_staff_auth')) {
+      navigate('/portal')
+      return
+    }
+    refresh()
+    // Refresh on window focus
+    const handleFocus = () => refresh()
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [navigate, refresh])
+
+  const filtered = clients.filter(c => {
+    const matchSearch = (c.name + c.phone).toLowerCase().includes(search.toLowerCase())
+    if (filter === 'all') return matchSearch
+    if (filter === 'active') return matchSearch && c.status === 'active'
+    if (filter === 'completed') return matchSearch && c.status === 'completed'
+    return matchSearch
+  })
+
+  const totalRevenue = clients.reduce((sum, c) => sum + (c.amount_paid || 0), 0)
+
+  const handleServiceSave = async (clientId: string, services: ServiceItem[]) => {
+    await saveClientServices(clientId, services)
+    setEditingServices(null)
+    await refresh()
+  }
+
+  // Robust clipboard copy with fallback
+  const safeCopy = async (text: string, clientId: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        // Fallback for non-HTTPS or older browsers
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      setCopiedId(clientId)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch (err) {
+      console.error('Copy failed:', err)
+      alert('複製失敗，請手動選取以下文字複製：\n\n' + text.slice(0, 200) + '...')
+    }
+  }
+
+  const copyBodyAnalysis = (client: ClientData) => {
+    const text = `📋 身型數據
+================
+姓名：${client.name}
+身高：${client.height || '-'}cm
+體重：${client.weight || '-'}kg
+肩闊：${client.shoulder_width || '-'}cm
+腰圍：${client.waist_size || '-'}cm
+褲長：${client.pant_length || '-'}cm
+鞋碼：${client.shoe_size || '-'}
+身型：${client.body_type || '-'}
+
+痛點：${client.pain_point || '-'}
+目的：${client.purpose || '-'}
+風格：${client.favorite_style || '-'}
+希望效果：${client.desired_effect || '-'}
+================`
+    safeCopy(text, client.id)
+  }
+
+  const copyColorReport = (client: ClientData) => {
+    const text = `🎨 顏色分析報告
+================
+姓名：${client.name}
+季節類型：${client.seasonal_type || '尚未分析'}
+
+${client.color_strategy ? `【核心策略】\n${client.color_strategy}\n` : ''}
+${client.suitable_colors?.length ? `【適合顏色】\n${client.suitable_colors.join('、')}\n` : ''}
+${client.avoid_colors?.length ? `【必須遠離】\n${client.avoid_colors.join('、')}\n` : ''}
+${client.materials?.length ? `【推薦材質】\n${client.materials.join('、')}\n` : ''}
+${client.metals?.length ? `【適合金屬】\n${client.metals.join('、')}\n` : ''}
+${client.glasses ? `【眼鏡框】\n${client.glasses}\n` : ''}
+${client.watch ? `【手錶】\n${client.watch}\n` : ''}
+${client.neutral_colors?.length ? `【最佳中性色】\n${client.neutral_colors.join('、')}\n` : ''}
+================`
+    safeCopy(text, client.id + '_color')
+  }
+
+  const copyFullAnalysis = (client: ClientData) => {
+    const text = `📋 A₂O Style Lab 客戶分析報告
+================
+姓名：${client.name}
+電話：${client.phone}
+職業：${client.occupation || '-'}
+
+【身型數據】
+身高：${client.height || '-'}cm
+體重：${client.weight || '-'}kg
+肩闊：${client.shoulder_width || '-'}cm
+腰圍：${client.waist_size || '-'}cm
+褲長：${client.pant_length || '-'}cm
+鞋碼：${client.shoe_size || '-'}
+身型：${client.body_type || '-'}
+
+【風格分析】
+痛點：${client.pain_point || '-'}
+目的：${client.purpose || '-'}
+喜愛風格：${client.favorite_style || '-'}
+希望效果：${client.desired_effect || '-'}
+
+【顏色分析】
+季節類型：${client.seasonal_type || '尚未分析'}
+${client.color_strategy ? `核心策略：${client.color_strategy}` : ''}
+${client.suitable_colors?.length ? `適合顏色：${client.suitable_colors.join('、')}` : ''}
+${client.avoid_colors?.length ? `必須遠離：${client.avoid_colors.join('、')}` : ''}
+${client.materials?.length ? `推薦材質：${client.materials.join('、')}` : ''}
+${client.metals?.length ? `適合金屬：${client.metals.join('、')}` : ''}
+${client.glasses ? `眼鏡框：${client.glasses}` : ''}
+${client.watch ? `手錶：${client.watch}` : ''}
+================`
+    safeCopy(text, client.id)
+  }
+
+  return (
+    <div className="min-h-screen bg-a2o-beige">
+      {/* Header */}
+      <div className="bg-white border-b border-a2o-warm sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/')} className="text-a2o-black/60 hover:text-a2o-pink">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="text-lg font-serif font-bold text-a2o-black">
+              A<span className="text-a2o-pink text-xs align-super">2</span>O 後台
+            </div>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider ${
+              dbMode === 'supabase' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+            }`}>
+              {dbMode === 'supabase' ? 'Supabase' : '本地'}
+            </span>
+          </div>
+          <button
+            onClick={() => { localStorage.removeItem('a2o_staff_auth'); navigate('/portal') }}
+            className="text-sm text-a2o-black/50 hover:text-red-500 flex items-center gap-1"
+          >
+            <LogOut className="w-4 h-4" /> 登出
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto p-4 pb-20">
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: '總客戶', value: clients.length },
+            { label: '進行中', value: clients.filter(c => c.status === 'active').length },
+            { label: '已完成', value: clients.filter(c => c.status === 'completed').length },
+            { label: '總收入', value: `HK$${totalRevenue.toLocaleString()}` },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-xl p-4 shadow-sm">
+              <p className="text-xs text-a2o-black/50 uppercase tracking-wider">{s.label}</p>
+              <p className="text-xl sm:text-2xl font-bold text-a2o-black mt-1">{s.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Search & Filter */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-a2o-black/30" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-a2o-warm bg-white focus:outline-none focus:ring-2 focus:ring-a2o-pink/50 text-sm"
+              placeholder="搜索姓名或電話..."
+            />
+          </div>
+          <select
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            className="px-4 py-2.5 rounded-xl border border-a2o-warm bg-white text-sm focus:outline-none focus:ring-2 focus:ring-a2o-pink/50"
+          >
+            <option value="all">全部</option>
+            <option value="active">進行中</option>
+            <option value="completed">已完成</option>
+          </select>
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="px-4 py-2.5 rounded-xl border border-a2o-warm bg-white text-sm text-a2o-black hover:bg-a2o-pink hover:text-white hover:border-a2o-pink transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">刷新</span>
+          </button>
+        </div>
+
+        {/* Client List */}
+        <div className="space-y-3">
+          {filtered.map((client) => (
+            <div key={client.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <button
+                onClick={() => setExpandedId(expandedId === client.id ? null : client.id)}
+                className="w-full px-4 py-4 flex items-center justify-between text-left"
+              >
+                <div className="flex items-center gap-3">
+                  {client.before_photo ? (
+                    <img src={client.before_photo} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-a2o-beige flex items-center justify-center">
+                      <User className="w-5 h-5 text-a2o-black/30" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-bold text-a2o-black text-sm">{client.name}</p>
+                    <p className="text-xs text-a2o-black/50 flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> {client.phone}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs bg-a2o-beige px-2 py-1 rounded-full text-a2o-black/60">
+                    Plan {client.plan}
+                  </span>
+                  {expandedId === client.id ? <ChevronUp className="w-4 h-4 text-a2o-black/40" /> : <ChevronDown className="w-4 h-4 text-a2o-black/40" />}
+                </div>
+              </button>
+
+              <AnimatePresence>
+                {expandedId === client.id && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                    <div className="px-4 pb-4 border-t border-a2o-warm/50 pt-4 space-y-4">
+                      {/* Basic Info */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                        <div><span className="text-a2o-black/50">身高</span> <span className="font-medium">{client.height || '-'}</span></div>
+                        <div><span className="text-a2o-black/50">體重</span> <span className="font-medium">{client.weight || '-'}</span></div>
+                        <div><span className="text-a2o-black/50">肩闊</span> <span className="font-medium">{client.shoulder_width || '-'}</span></div>
+                        <div><span className="text-a2o-black/50">腰圍</span> <span className="font-medium">{client.waist_size || '-'}</span></div>
+                        <div><span className="text-a2o-black/50">褲長</span> <span className="font-medium">{client.pant_length || '-'}</span></div>
+                        <div><span className="text-a2o-black/50">鞋碼</span> <span className="font-medium">{client.shoe_size || '-'}</span></div>
+                      </div>
+
+                      {/* Pain point & Purpose */}
+                      <div className="bg-a2o-beige rounded-xl p-3 space-y-2 text-sm">
+                        {client.pain_point && <p><span className="text-a2o-black/50">痛點：</span>{client.pain_point}</p>}
+                        {client.purpose && <p><span className="text-a2o-black/50">目的：</span>{client.purpose}</p>}
+                        {client.favorite_style && <p><span className="text-a2o-black/50">風格：</span>{client.favorite_style}</p>}
+                      </div>
+
+                      {/* Color Analysis */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Palette className="w-4 h-4 text-a2o-pink" />
+                            <span className="font-bold text-sm">顏色分析</span>
+                          </div>
+                          <button
+                            onClick={() => setEditingColor(editingColor === client.id ? null : client.id)}
+                            className="text-xs text-a2o-pink hover:underline flex items-center gap-1"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            {editingColor === client.id ? '取消' : '編輯'}
+                          </button>
+                        </div>
+
+                        {editingColor === client.id ? (
+                          <ColorEditor 
+                            client={client} 
+                            onSave={async (data) => {
+                              await saveClient({ id: client.id, ...data })
+                              setEditingColor(null)
+                              await refresh()
+                            }}
+                            onCancel={() => setEditingColor(null)}
+                          />
+                        ) : client.seasonal_type ? (
+                          <ColorReport client={client} />
+                        ) : (
+                          <p className="text-sm text-a2o-black/40">尚未進行顏色分析，點擊「編輯」開始</p>
+                        )}
+                      </div>
+
+                      {/* Services */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-sm">服務管理</span>
+                          <button
+                            onClick={() => setEditingServices(editingServices === client.id ? null : client.id)}
+                            className="text-xs text-a2o-pink hover:underline flex items-center gap-1"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            {editingServices === client.id ? '完成' : '編輯'}
+                          </button>
+                        </div>
+                        <ServiceEditor
+                          clientId={client.id}
+                          editing={editingServices === client.id}
+                          onSave={(services) => handleServiceSave(client.id, services)}
+                        />
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => copyBodyAnalysis(client)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-a2o-black text-white rounded-lg text-xs font-medium hover:bg-a2o-pink transition-colors"
+                        >
+                          {copiedId === client.id ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copiedId === client.id ? '已複製' : '複製身型數據'}
+                        </button>
+                        
+                        {client.seasonal_type && (
+                          <button
+                            onClick={() => copyColorReport(client)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-a2o-pink text-white rounded-lg text-xs font-medium hover:bg-a2o-pink-dark transition-colors"
+                          >
+                            {copiedId === client.id + '_color' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedId === client.id + '_color' ? '已複製' : '複製顏色報告'}
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => copyFullAnalysis(client)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-a2o-warm text-a2o-black rounded-lg text-xs font-medium hover:bg-a2o-black hover:text-white transition-colors"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          複製完整報告
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+
+          {filtered.length === 0 && (
+            <div className="text-center py-12 text-a2o-black/40">
+              <User className="w-10 h-10 mx-auto mb-3" />
+              <p>暫無客戶記錄</p>
+              {dbMode === 'supabase' && <p className="text-xs mt-2">已連接 Supabase，請確認表結構正確</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ServiceEditor({ clientId, editing, onSave }: { clientId: string; editing: boolean; onSave: (s: ServiceItem[]) => void }) {
+  const [services, setServices] = useState<ServiceItem[]>([])
+  const [sessions, setSessions] = useState<ServiceSession[]>([])
+  const [newName, setNewName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [addingSession, setAddingSession] = useState<string | null>(null)
+  const [newSession, setNewSession] = useState({ date: '', time: '', location: '', staff: '' })
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      const [svcData, sessData] = await Promise.all([
+        getClientServices(clientId),
+        getServiceSessions(clientId)
+      ])
+      setServices(svcData)
+      setSessions(sessData)
+      setLoading(false)
+    }
+    load()
+  }, [clientId])
+
+  const adjust = (sid: string, delta: number) => {
+    setServices(prev => prev.map(s => s.service_id === sid ? { ...s, count: Math.max(0, s.count + delta) } : s))
+  }
+
+  const addNew = () => {
+    if (!newName.trim()) return
+    const sid = 'svc_' + Math.random().toString(36).slice(2, 8)
+    setServices(prev => [...prev, { service_id: sid, name: newName.trim(), count: 1 }])
+    setNewName('')
+  }
+
+  const remove = (sid: string) => {
+    setServices(prev => prev.filter(s => s.service_id !== sid))
+  }
+
+  // Session management
+  const getSvcSessions = (sid: string) => sessions.filter(s => s.service_id === sid)
+
+  const getCompletedCount = (sid: string) => getSvcSessions(sid).filter(s => s.status === 'completed').length
+
+  const handleAddSession = async (sid: string) => {
+    if (!newSession.date || !newSession.time) {
+      alert('請選擇日期和時間')
+      return
+    }
+    const session: ServiceSession = {
+      client_id: clientId,
+      service_id: sid,
+      date: newSession.date,
+      time: newSession.time,
+      location: newSession.location || '荔枝角億利工業中心204',
+      staff: newSession.staff || '待定',
+      status: 'scheduled'
+    }
+    const ok = await saveServiceSession(session)
+    if (ok) {
+      // 檢查數據實際儲存位置
+      const { data: dbData } = await supabase.from('service_sessions').select('*').eq('client_id', clientId)
+      const isInSupabase = dbData && dbData.length > 0
+      
+      const updated = await getServiceSessions(clientId)
+      setSessions(updated)
+      setAddingSession(null)
+      setNewSession({ date: '', time: '', location: '', staff: '' })
+      
+      if (isInSupabase) {
+        alert('✅ 預約已添加成功！數據已永久儲存到 Supabase 雲端。')
+      } else {
+        alert('⚠️ 預約已添加成功！數據暫時儲存在瀏覽器本地（localStorage）。\n\n為確保數據永久保存，請聯繫開發人員檢查 Supabase 表結構。')
+      }
+    } else {
+      alert('❌ 添加預約失敗。')
+    }
+  }
+
+  const handleComplete = async (session: ServiceSession) => {
+    const updated = { ...session, status: 'completed' as const, completed_at: new Date().toISOString() }
+    const ok = await saveServiceSession(updated)
+    if (ok) {
+      const refreshed = await getServiceSessions(clientId)
+      setSessions(refreshed)
+    }
+  }
+
+  const handleDeleteSession = async (id: string) => {
+    if (!confirm('確定刪除此預約？')) return
+    const ok = await deleteServiceSession(id)
+    if (ok) {
+      const refreshed = await getServiceSessions(clientId)
+      setSessions(refreshed)
+    }
+  }
+
+  if (loading) return <p className="text-sm text-a2o-black/40">加載中...</p>
+
+  if (!editing) {
+    return (
+      <div className="space-y-3">
+        {services.map(s => {
+          const svcSessions = getSvcSessions(s.service_id)
+          const completed = getCompletedCount(s.service_id)
+          // const scheduled = svcSessions.filter(sess => sess.status === 'scheduled').length
+          return (
+            <div key={s.service_id} className="bg-a2o-beige rounded-xl p-3">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-a2o-black font-medium text-sm">{s.name}</span>
+                  <span className="text-xs bg-a2o-pink/10 text-a2o-pink px-2 py-0.5 rounded-full">{completed}/{s.count} 已完成</span>
+                </div>
+                <span className="text-xs text-a2o-black/50">總次數: x{s.count}</span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="h-1.5 bg-a2o-warm rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-a2o-pink rounded-full transition-all"
+                  style={{ width: `${Math.min(100, (completed / s.count) * 100)}%` }}
+                />
+              </div>
+
+              {/* Session list */}
+              {svcSessions.length > 0 && (
+                <div className="space-y-1.5 mt-2">
+                  {svcSessions.map(sess => (
+                    <div key={sess.id} className={`flex items-center justify-between text-xs rounded-lg px-2.5 py-1.5 ${
+                      sess.status === 'completed' ? 'bg-green-50 border border-green-200' : 'bg-white border border-a2o-warm'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {sess.status === 'completed' ? (
+                          <Check className="w-3.5 h-3.5 text-green-500" />
+                        ) : (
+                          <Calendar className="w-3.5 h-3.5 text-a2o-pink" />
+                        )}
+                        <span className={sess.status === 'completed' ? 'text-green-700 line-through' : 'text-a2o-black'}>
+                          {sess.date} {sess.time}
+                        </span>
+                        <span className="text-a2o-black/50">{sess.location}</span>
+                        <span className="text-a2o-black/50">{sess.staff}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {sess.status !== 'completed' && (
+                          <button
+                            onClick={() => handleComplete(sess)}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-600 hover:bg-green-100"
+                          >
+                            完成
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteSession(sess.id!)}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-400 hover:bg-red-100"
+                        >
+                          刪除
+                        </button>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          sess.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-600'
+                        }`}>
+                          {sess.status === 'completed' ? '已完成' : '已預約'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add session button */}
+              {addingSession === s.service_id ? (
+                <div className="mt-2 bg-white rounded-lg p-2.5 border border-a2o-warm space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                      <input
+                      type="date"
+                      value={newSession.date ? newSession.date.replace(/\//g, '-') : ''}
+                      onChange={e => setNewSession({ ...newSession, date: e.target.value.replace(/-/g, '/') })}
+                      className="px-2 py-1.5 border border-a2o-warm rounded text-xs"
+                    />
+                    <input
+                      type="time"
+                      value={newSession.time}
+                      onChange={e => setNewSession({ ...newSession, time: e.target.value })}
+                      className="px-2 py-1.5 border border-a2o-warm rounded text-xs"
+                    />
+                    <input
+                      type="text"
+                      placeholder="地點"
+                      value={newSession.location}
+                      onChange={e => setNewSession({ ...newSession, location: e.target.value })}
+                      className="px-2 py-1.5 border border-a2o-warm rounded text-xs"
+                    />
+                    <input
+                      type="text"
+                      placeholder="負責人"
+                      value={newSession.staff}
+                      onChange={e => setNewSession({ ...newSession, staff: e.target.value })}
+                      className="px-2 py-1.5 border border-a2o-warm rounded text-xs"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAddSession(s.service_id)}
+                      className="flex-1 py-1.5 bg-a2o-pink text-white rounded text-xs font-medium"
+                    >
+                      添加預約
+                    </button>
+                    <button
+                      onClick={() => { setAddingSession(null); setNewSession({ date: '', time: '', location: '', staff: '' }) }}
+                      className="px-3 py-1.5 border border-a2o-warm rounded text-xs"
+                    >
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAddingSession(s.service_id)}
+                  className="mt-2 flex items-center gap-1 text-xs text-a2o-pink hover:text-a2o-pink-dark"
+                >
+                  <Plus className="w-3 h-3" /> 新增預約
+                </button>
+              )}
+            </div>
+          )
+        })}
+        {services.length === 0 && <p className="text-sm text-a2o-black/40">暫無服務項目</p>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {services.map(s => (
+        <div key={s.service_id} className="flex items-center justify-between bg-white border border-a2o-warm rounded-lg px-3 py-2 text-sm">
+          <span className="text-a2o-black">{s.name}</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => adjust(s.service_id, -1)} className="w-6 h-6 rounded-full bg-a2o-beige flex items-center justify-center hover:bg-a2o-pink/20">
+              <Minus className="w-3 h-3" />
+            </button>
+            <span className="w-5 text-center font-bold">{s.count}</span>
+            <button onClick={() => adjust(s.service_id, 1)} className="w-6 h-6 rounded-full bg-a2o-beige flex items-center justify-center hover:bg-a2o-pink/20">
+              <Plus className="w-3 h-3" />
+            </button>
+            <button onClick={() => remove(s.service_id)} className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center hover:bg-red-100 ml-1">
+              <X className="w-3 h-3 text-red-500" />
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <div className="flex gap-2">
+        <input
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addNew()}
+          className="flex-1 px-3 py-2 rounded-lg border border-a2o-warm bg-white text-sm focus:outline-none focus:ring-2 focus:ring-a2o-pink/50"
+          placeholder="新增服務名稱..."
+        />
+        <button onClick={addNew} className="px-3 py-2 bg-a2o-pink text-white rounded-lg text-sm font-medium hover:bg-a2o-pink-dark">
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
+
+      <button
+        onClick={() => onSave(services)}
+        className="w-full py-2 bg-a2o-black text-white rounded-lg text-sm font-medium hover:bg-a2o-pink transition-colors"
+      >
+        保存服務變更
+      </button>
+    </div>
+  )
+}

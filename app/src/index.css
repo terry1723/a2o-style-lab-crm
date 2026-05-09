@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 30 20% 95%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 340 45% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 15% 90%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 30 10% 90%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 340 45% 67%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 10% 85%;
+    --input: 30 10% 85%;
+    --ring: 340 45% 67%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5% 26%;
+    --sidebar-primary: 340 45% 67%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 15% 92%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 30 10% 90%;
+    --sidebar-ring: 340 45% 67%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-a2o-beige text-a2o-black antialiased;
+    font-family: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', Georgia, serif;
+    @apply tracking-tight;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md rounded-2xl border border-white/50 shadow-lg;
+  }
+
+  .btn-primary {
+    @apply bg-a2o-black text-white px-6 py-3 rounded-full font-medium transition-all duration-300
+           hover:bg-a2o-pink hover:scale-105 hover:shadow-lg active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-a2o-black border border-a2o-black/20 px-6 py-3 rounded-full font-medium
+           transition-all duration-300 hover:border-a2o-pink hover:text-a2o-pink active:scale-95;
+  }
+
+  .section-padding {
+    @apply px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-a2o-pink to-a2o-pink-dark bg-clip-text text-transparent;
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+
+  .image-reveal {
+    @apply overflow-hidden;
+  }
+
+  .image-reveal img {
+    @apply transition-transform duration-700 hover:scale-105;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+/* Smooth scroll for anchor links */
+html {
+  scroll-padding-top: 80px;
+}
+
+/* Ken Burns effect for vertical gallery */
+@keyframes kenBurns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.08) translate(-1%, -1%);
+  }
+}
+
+
+.animate-kenburns {
+  animation: kenBurns 10s ease-in-out infinite alternate;
+}
