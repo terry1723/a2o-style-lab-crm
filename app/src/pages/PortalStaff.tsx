@@ -15,6 +15,8 @@ import {
 import ColorEditor from '../components/ColorEditor'
 import ColorReport from '../components/ColorReport'
 
+const PIC_OPTIONS = ['terry', 'andy', 'caren', 'ryan', 'martin']
+
 export default function PortalStaff() {
   const navigate = useNavigate()
   const [clients, setClients] = useState<ClientData[]>([])
@@ -26,6 +28,7 @@ export default function PortalStaff() {
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(false)
   const [dbMode, setDbMode] = useState<'supabase' | 'local'>('local')
+  const [savingPic, setSavingPic] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -55,12 +58,38 @@ export default function PortalStaff() {
     return matchSearch
   })
 
-  const totalRevenue = clients.reduce((sum, c) => sum + (c.amount_paid || 0), 0)
+  const totalSales = clients.reduce((sum, c) => sum + Number(c.plan_price || 0), 0)
+  const totalCollected = clients.reduce((sum, c) => sum + Number(c.amount_paid || 0), 0)
+
+  const formatClientDate = (value?: string) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleDateString('zh-HK', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+  }
 
   const handleServiceSave = async (clientId: string, services: ServiceItem[]) => {
     await saveClientServices(clientId, services)
     setEditingServices(null)
     await refresh()
+  }
+
+  const handlePicChange = async (client: ClientData, pic: string) => {
+    setSavingPic(client.id)
+
+    try {
+      await saveClient({ id: client.id, pic })
+      setClients(prev => prev.map(c => c.id === client.id ? { ...c, pic } : c))
+    } catch (err) {
+      console.error('PIC save error:', err)
+      alert('PIC 儲存失敗，請重新整理後再試。')
+    } finally {
+      setSavingPic(null)
+    }
   }
 
   // Robust clipboard copy with fallback
@@ -189,12 +218,13 @@ ${client.watch ? `手錶：${client.watch}` : ''}
 
       <div className="max-w-6xl mx-auto p-4 pb-20">
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           {[
             { label: '總客戶', value: clients.length },
             { label: '進行中', value: clients.filter(c => c.status === 'active').length },
             { label: '已完成', value: clients.filter(c => c.status === 'completed').length },
-            { label: '總收入', value: `HK$${totalRevenue.toLocaleString()}` },
+            { label: '總銷售額', value: `HK${totalSales.toLocaleString()}` },
+            { label: '已收款', value: `HK${totalCollected.toLocaleString()}` },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-xl p-4 shadow-sm">
               <p className="text-xs text-a2o-black/50 uppercase tracking-wider">{s.label}</p>
@@ -276,6 +306,26 @@ ${client.watch ? `手錶：${client.watch}` : ''}
                         <div><span className="text-a2o-black/50">腰圍</span> <span className="font-medium">{client.waist_size || '-'}</span></div>
                         <div><span className="text-a2o-black/50">褲長</span> <span className="font-medium">{client.pant_length || '-'}</span></div>
                         <div><span className="text-a2o-black/50">鞋碼</span> <span className="font-medium">{client.shoe_size || '-'}</span></div>
+                        <div><span className="text-a2o-black/50">新增日期</span> <span className="font-medium">{formatClientDate(client.created_at)}</span></div>
+                      </div>
+
+                      {/* PIC */}
+                      <div className="bg-a2o-beige rounded-xl p-3">
+                        <label className="block text-xs text-a2o-black/50 mb-1.5">負責 PIC</label>
+                        <select
+                          value={client.pic || ''}
+                          onChange={(e) => handlePicChange(client, e.target.value)}
+                          disabled={savingPic === client.id}
+                          className="w-full px-3 py-2 rounded-lg border border-a2o-warm bg-white text-sm focus:outline-none focus:ring-2 focus:ring-a2o-pink/50 disabled:opacity-50"
+                        >
+                          <option value="">未分配</option>
+                          {PIC_OPTIONS.map(pic => (
+                            <option key={pic} value={pic}>{pic}</option>
+                          ))}
+                        </select>
+                        {savingPic === client.id && (
+                          <p className="text-xs text-a2o-black/40 mt-1">儲存中...</p>
+                        )}
                       </div>
 
                       {/* Pain point & Purpose */}
