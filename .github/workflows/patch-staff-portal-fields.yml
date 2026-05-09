@@ -1,0 +1,102 @@
+name: Patch staff portal fields
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-staff-portal-fields.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch PortalStaff and client data
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          const clientPath = 'app/src/lib/clientData.ts'
+          let clientData = fs.readFileSync(clientPath, 'utf8')
+          if (!clientData.includes('pic?: string')) {
+            clientData = clientData.replace(
+              '  balance_due: number\n  before_photo?: string',
+              '  balance_due: number\n  pic?: string\n  before_photo?: string'
+            )
+            fs.writeFileSync(clientPath, clientData)
+          }
+
+          const portalPath = 'app/src/pages/PortalStaff.tsx'
+          let src = fs.readFileSync(portalPath, 'utf8')
+
+          if (!src.includes('const PIC_OPTIONS')) {
+            src = src.replace(
+              "import ColorReport from '../components/ColorReport'\n",
+              "import ColorReport from '../components/ColorReport'\n\nconst PIC_OPTIONS = ['terry', 'andy', 'caren', 'ryan', 'martin']\n"
+            )
+          }
+
+          if (!src.includes('const [savingPic, setSavingPic]')) {
+            src = src.replace(
+              "  const [dbMode, setDbMode] = useState<'supabase' | 'local'>('local')\n",
+              "  const [dbMode, setDbMode] = useState<'supabase' | 'local'>('local')\n  const [savingPic, setSavingPic] = useState<string | null>(null)\n"
+            )
+          }
+
+          if (!src.includes('const formatClientDate =')) {
+            src = src.replace(
+              "  const totalRevenue = clients.reduce((sum, c) => sum + (c.amount_paid || 0), 0)\n",
+              `  const totalSales = clients.reduce((sum, c) => sum + Number(c.plan_price || 0), 0)\n  const totalCollected = clients.reduce((sum, c) => sum + Number(c.amount_paid || 0), 0)\n\n  const formatClientDate = (value?: string) => {\n    if (!value) return '-'\n    const date = new Date(value)\n    if (Number.isNaN(date.getTime())) return value\n    return date.toLocaleDateString('zh-HK', {\n      year: 'numeric',\n      month: '2-digit',\n      day: '2-digit',\n    })\n  }\n`
+            )
+          }
+
+          if (!src.includes('const handlePicChange =')) {
+            src = src.replace(
+              `  const handleServiceSave = async (clientId: string, services: ServiceItem[]) => {\n    await saveClientServices(clientId, services)\n    setEditingServices(null)\n    await refresh()\n  }\n`,
+              `  const handleServiceSave = async (clientId: string, services: ServiceItem[]) => {\n    await saveClientServices(clientId, services)\n    setEditingServices(null)\n    await refresh()\n  }\n\n  const handlePicChange = async (client: ClientData, pic: string) => {\n    setSavingPic(client.id)\n\n    try {\n      await saveClient({ id: client.id, pic })\n      setClients(prev => prev.map(c => c.id === client.id ? { ...c, pic } : c))\n    } catch (err) {\n      console.error('PIC save error:', err)\n      alert('PIC 儲存失敗，請重新整理後再試。')\n    } finally {\n      setSavingPic(null)\n    }\n  }\n`
+            )
+          }
+
+          src = src.replace(
+            '        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">',
+            '        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">'
+          )
+
+          src = src.replace(
+            `            { label: '總客戶', value: clients.length },\n            { label: '進行中', value: clients.filter(c => c.status === 'active').length },\n            { label: '已完成', value: clients.filter(c => c.status === 'completed').length },\n            { label: '總收入', value: \`HK$\${totalRevenue.toLocaleString()}\` },`,
+            `            { label: '總客戶', value: clients.length },\n            { label: '進行中', value: clients.filter(c => c.status === 'active').length },\n            { label: '已完成', value: clients.filter(c => c.status === 'completed').length },\n            { label: '總銷售額', value: \`HK$\${totalSales.toLocaleString()}\` },\n            { label: '已收款', value: \`HK$\${totalCollected.toLocaleString()}\` },`
+          )
+
+          if (!src.includes('新增日期</span>')) {
+            src = src.replace(
+              `                        <div><span className="text-a2o-black/50">鞋碼</span> <span className="font-medium">{client.shoe_size || '-'}</span></div>\n                      </div>`,
+              `                        <div><span className="text-a2o-black/50">鞋碼</span> <span className="font-medium">{client.shoe_size || '-'}</span></div>\n                        <div><span className="text-a2o-black/50">新增日期</span> <span className="font-medium">{formatClientDate(client.created_at)}</span></div>\n                      </div>`
+            )
+          }
+
+          if (!src.includes('負責 PIC')) {
+            src = src.replace(
+              `                      {/* Pain point & Purpose */}`,
+              `                      {/* PIC */}\n                      <div className="bg-a2o-beige rounded-xl p-3">\n                        <label className="block text-xs text-a2o-black/50 mb-1.5">負責 PIC</label>\n                        <select\n                          value={client.pic || ''}\n                          onChange={(e) => handlePicChange(client, e.target.value)}\n                          disabled={savingPic === client.id}\n                          className="w-full px-3 py-2 rounded-lg border border-a2o-warm bg-white text-sm focus:outline-none focus:ring-2 focus:ring-a2o-pink/50 disabled:opacity-50"\n                        >\n                          <option value="">未分配</option>\n                          {PIC_OPTIONS.map(pic => (\n                            <option key={pic} value={pic}>{pic}</option>\n                          ))}\n                        </select>\n                        {savingPic === client.id && (\n                          <p className="text-xs text-a2o-black/40 mt-1">儲存中...</p>\n                        )}\n                      </div>\n\n                      {/* Pain point & Purpose */}`
+            )
+          }
+
+          fs.writeFileSync(portalPath, src)
+          NODE
+
+      - name: Commit patched files
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/lib/clientData.ts app/src/pages/PortalStaff.tsx
+          git commit -m "Add PIC, client date, and revenue stats to staff portal"
+          git push
