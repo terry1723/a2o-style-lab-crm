@@ -1,30 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Save, X, Check } from 'lucide-react';
-import { type ClientData, SEASON_PRESETS } from '../lib/clientData';
+import { Save, Check } from 'lucide-react';
+import { type ClientData } from '../lib/clientData';
+import { SEASON_ORDER, TWELVE_SEASON_PRESETS, getColorName } from '../lib/colorPresets';
 
-const ALL_COLORS = [
-  { name: '珊瑚橙', hex: '#FF7F50' }, { name: '金黃', hex: '#FFD700' }, { name: '駝色', hex: '#C19A6B' },
-  { name: '蜜桃粉', hex: '#FFCBA4' }, { name: '蘋果綠', hex: '#8DB600' }, { name: '象牙白', hex: '#FFFFF0' },
-  { name: '薰衣草紫', hex: '#E6E6FA' }, { name: '玫瑰粉', hex: '#FF66CC' }, { name: '灰藍', hex: '#7393B3' },
-  { name: '鼠尾草綠', hex: '#9DC183' }, { name: '鐵鏽紅', hex: '#B7410E' }, { name: '磚紅', hex: '#CB4154' },
-  { name: '茄紅', hex: '#C2185B' }, { name: '深咖啡', hex: '#4B3621' }, { name: '可可棕', hex: '#D2691E' },
-  { name: '芥末黃', hex: '#E1AD01' }, { name: '薑黃', hex: '#B08D57' }, { name: '純黑', hex: '#1A1A1A' },
-  { name: '寶藍', hex: '#0F4C81' }, { name: '翡翠綠', hex: '#50C878' }, { name: '洋紅', hex: '#FF00FF' },
-  { name: '炭灰', hex: '#36454F' }, { name: '米白', hex: '#F5F5DC' }, { name: '橄欖綠', hex: '#808000' },
-];
-
-const ALL_TRAP_COLORS = [
-  { name: '純黑', hex: '#000000' }, { name: '純白', hex: '#FFFFFF' }, { name: '寶藍', hex: '#0F4C81' },
-  { name: '冷灰', hex: '#8C92AC' }, { name: '正紅', hex: '#FF0000' }, { name: '酒紅（冷）', hex: '#722F37' },
-  { name: '薰衣草紫', hex: '#E6E6FA' }, { name: '螢光綠', hex: '#CCFF00' }, { name: '亮橘', hex: '#FF6700' },
-  { name: '翠綠', hex: '#00A86B' }, { name: '淺粉', hex: '#FFB6C1' }, { name: '淡藍', hex: '#ADD8E6' },
-  { name: '米白', hex: '#F5F5DC' }, { name: '檸檬黃', hex: '#FFF44F' }, { name: '金黃', hex: '#FFD700' },
-  { name: '螢光粉', hex: '#FF1493' },
-];
-
-const ALL_MATERIALS = ['亞麻','柔軟棉布','絲質','麂皮','天鵝絨','燈芯絨','粗紡羊毛','皮革','法蘭絨','針織','牛仔','防水尼龍'];
-const ALL_METALS = ['古銅金','玫瑰金','做舊金','香檳金','黃金','白金','銀色','啞光銀'];
-const ALL_NEUTRALS = ['深咖啡','炭灰（暖）','暖深灰','可可色','海軍藍','石色','米色','橄欖綠'];
+const ALL_MATERIALS = ['亞麻','柔軟棉布','絲質','麂皮','天鵝絨','燈芯絨','粗紡羊毛','皮革','法蘭絨','針織','牛仔','防水尼龍','光澤感面料','精紡羊毛'];
+const ALL_METALS = ['古銅金','玫瑰金','做舊金','香檳金','黃金','白金','銀色','啞光銀','亮面金屬'];
 
 interface ColorEditorProps {
   client: ClientData;
@@ -34,6 +14,8 @@ interface ColorEditorProps {
 
 export default function ColorEditor({ client, onSave, onCancel }: ColorEditorProps) {
   const [seasonalType, setSeasonalType] = useState(client.seasonal_type || '');
+  const preset = seasonalType ? TWELVE_SEASON_PRESETS[seasonalType] : undefined;
+
   const [strategy, setStrategy] = useState(client.color_strategy || '');
   const [suitableColors, setSuitableColors] = useState<string[]>(client.suitable_colors || []);
   const [avoidColors, setAvoidColors] = useState<string[]>(client.avoid_colors || []);
@@ -45,113 +27,171 @@ export default function ColorEditor({ client, onSave, onCancel }: ColorEditorPro
   const [notes, setNotes] = useState(client.color_notes || '');
 
   useEffect(() => {
-    if (seasonalType) {
-      const preset = (SEASON_PRESETS as any)[seasonalType];
-      if (preset) {
-        setStrategy(preset.strategy || '');
-        if (preset.materials) setMaterials(preset.materials);
-        if (preset.metals) setMetals(preset.metals);
-      }
-    }
+    if (!preset) return;
+    setStrategy(preset.strategy);
+    setSuitableColors(preset.suitable);
+    setAvoidColors(preset.avoid);
+    setMaterials(preset.materials);
+    setMetals(preset.metals);
+    setGlasses(preset.glasses);
+    setWatchStr(preset.watch);
+    setNeutralColors(preset.neutrals);
+    setNotes(preset.notes);
   }, [seasonalType]);
 
+  const toggleArrayValue = (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+    setter(prev => prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]);
+  };
+
   const handleSave = () => {
+    const paletteNames = preset?.palette.map((hex, index) => `${getColorName(hex, index)} ${hex}`) || [];
+    const dimensionText = preset ? `色調：${preset.tone}｜明度：${preset.value}｜彩度：${preset.chroma}` : '';
+
     onSave({
       seasonal_type: seasonalType,
       color_strategy: strategy,
-      suitable_colors: suitableColors,
+      suitable_colors: suitableColors.length ? suitableColors : paletteNames,
       avoid_colors: avoidColors,
       materials,
       metals,
       glasses,
       watch: watchStr,
       neutral_colors: neutralColors,
-      color_notes: notes,
+      color_notes: [dimensionText, notes].filter(Boolean).join('\n'),
     });
   };
 
   return (
     <div className="space-y-4 mt-3">
-      {/* Season Type */}
       <div>
         <label className="block text-sm text-gray-600 mb-1">季節類型</label>
-        <select value={seasonalType} onChange={e => setSeasonalType(e.target.value)} className="w-full p-2 border rounded text-sm">
-          <option value="">-- 選擇 --</option>
-          {Object.keys(SEASON_PRESETS).map(s => <option key={s} value={s}>{s}</option>)}
+        <select
+          value={seasonalType}
+          onChange={e => setSeasonalType(e.target.value)}
+          className="w-full p-2 border rounded text-sm"
+        >
+          <option value="">-- 選擇 12 季色彩類型 --</option>
+          {SEASON_ORDER.map(key => {
+            const season = TWELVE_SEASON_PRESETS[key];
+            return <option key={key} value={key}>{season.zh} / {season.en}</option>;
+          })}
         </select>
       </div>
 
-      {/* Strategy */}
+      {preset && (
+        <div className="rounded-xl border border-a2o-warm bg-a2o-beige p-3 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <div className="font-semibold text-a2o-black">{preset.zh}</div>
+              <div className="text-xs text-a2o-black/50">{preset.en}</div>
+            </div>
+            <div className="flex flex-wrap gap-1.5 text-xs">
+              <span className="px-2 py-1 rounded-full bg-white text-a2o-black/60">色調：{preset.tone}</span>
+              <span className="px-2 py-1 rounded-full bg-white text-a2o-black/60">明度：{preset.value}</span>
+              <span className="px-2 py-1 rounded-full bg-white text-a2o-black/60">彩度：{preset.chroma}</span>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs text-a2o-black/50 mb-1">跟實體色版整理的適用色盤</div>
+            <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5">
+              {preset.palette.map((hex, index) => (
+                <div
+                  key={`${hex}-${index}`}
+                  title={`${getColorName(hex, index)} ${hex}`}
+                  className="aspect-square rounded-md border border-white shadow-sm"
+                  style={{ backgroundColor: hex }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {preset.keywords.map(keyword => (
+              <span key={keyword} className="text-xs px-2 py-1 rounded-full bg-white text-a2o-black/60">{keyword}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="block text-sm text-gray-600 mb-1">核心策略</label>
-        <textarea value={strategy} onChange={e => setStrategy(e.target.value)} rows={2} className="w-full p-2 border rounded text-sm" />
+        <textarea value={strategy} onChange={e => setStrategy(e.target.value)} rows={3} className="w-full p-2 border rounded text-sm" />
       </div>
 
-      {/* Suitable Colors - FREE PICK */}
       <div>
-        <label className="block text-sm font-semibold mb-2">
-          適合顏色 <span className="text-xs font-normal text-gray-500">（自由點選）</span>
-        </label>
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          {ALL_COLORS.map((color) => (
-            <button key={color.name} type="button" onClick={() => {
-              setSuitableColors(prev => prev.includes(color.name) ? prev.filter(c => c !== color.name) : [...prev, color.name]);
-            }} className={`relative rounded-lg p-2 border-2 transition-all ${suitableColors.includes(color.name) ? 'border-[#D4849A] bg-pink-50' : 'border-gray-200 hover:border-gray-300'}`}>
-              <div className="w-full aspect-square rounded-md mb-1 shadow-inner" style={{ backgroundColor: color.hex, border: ['#FFFFF0','#F5F5DC','#FFFFFF','#CCFF00','#FFF44F'].includes(color.hex) ? '1px solid #e5e5e5' : 'none' }}>
-                {suitableColors.includes(color.name) && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-5 h-5 bg-[#D4849A] rounded-full flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>
-                  </div>
-                )}
-              </div>
-              <span className="text-[10px] block text-center leading-tight text-gray-700">{color.name}</span>
+        <label className="block text-sm font-semibold mb-2">適合顏色 / 色彩方向</label>
+        <div className="flex flex-wrap gap-2">
+          {suitableColors.map(color => (
+            <button
+              key={color}
+              type="button"
+              onClick={() => toggleArrayValue(color, setSuitableColors)}
+              className="px-3 py-1.5 rounded-full text-sm border bg-[#D4849A] text-white border-[#D4849A]"
+            >
+              {color}
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-1">已選 {suitableColors.length} 個：{suitableColors.join('、') || '未選擇'}</p>
+        <input
+          className="w-full p-2 border rounded text-sm mt-2"
+          placeholder="手動加入適合顏色，例如：粉藍"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const value = e.currentTarget.value.trim();
+              if (value && !suitableColors.includes(value)) setSuitableColors(prev => [...prev, value]);
+              e.currentTarget.value = '';
+            }
+          }}
+        />
       </div>
 
-      {/* Avoid Colors */}
       <div>
-        <label className="block text-sm font-semibold mb-2">
-          必須遠離 <span className="text-xs font-normal text-gray-500">（自由點選）</span>
-        </label>
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          {ALL_TRAP_COLORS.map((color) => (
-            <button key={`avoid-${color.name}`} type="button" onClick={() => {
-              setAvoidColors(prev => prev.includes(color.name) ? prev.filter(c => c !== color.name) : [...prev, color.name]);
-            }} className={`relative rounded-lg p-2 border-2 transition-all ${avoidColors.includes(color.name) ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}>
-              <div className="w-full aspect-square rounded-md mb-1 shadow-inner relative" style={{ backgroundColor: color.hex, border: ['#FFFFFF','#F5F5DC','#CCFF00','#FFF44F','#E6E6FA','#FFB6C1','#ADD8E6'].includes(color.hex) ? '1px solid #e5e5e5' : 'none' }}>
-                {avoidColors.includes(color.name) && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-md"><X className="w-5 h-5 text-red-500" /></div>
-                )}
-              </div>
-              <span className="text-[10px] block text-center leading-tight text-gray-700">{color.name}</span>
+        <label className="block text-sm font-semibold mb-2">需要避免 / 遠離</label>
+        <div className="flex flex-wrap gap-2">
+          {avoidColors.map(color => (
+            <button
+              key={color}
+              type="button"
+              onClick={() => toggleArrayValue(color, setAvoidColors)}
+              className="px-3 py-1.5 rounded-full text-sm border bg-red-50 text-red-600 border-red-200"
+            >
+              {color}
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-1">已標記 {avoidColors.length} 個：{avoidColors.join('、') || '未選擇'}</p>
+        <input
+          className="w-full p-2 border rounded text-sm mt-2"
+          placeholder="手動加入避免顏色，例如：亮橙"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const value = e.currentTarget.value.trim();
+              if (value && !avoidColors.includes(value)) setAvoidColors(prev => [...prev, value]);
+              e.currentTarget.value = '';
+            }
+          }}
+        />
       </div>
 
-      {/* Neutral Colors */}
       <div>
         <label className="block text-sm font-semibold mb-2">最佳中性色</label>
         <div className="flex flex-wrap gap-2">
-          {ALL_NEUTRALS.map((n) => (
-            <button key={n} type="button" onClick={() => setNeutralColors(prev => prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n])}
-              className={`px-3 py-1.5 rounded-full text-sm border transition-all ${neutralColors.includes(n) ? 'bg-[#D4849A] text-white border-[#D4849A]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#D4849A]'}`}>
+          {neutralColors.map(n => (
+            <button key={n} type="button" onClick={() => toggleArrayValue(n, setNeutralColors)}
+              className="px-3 py-1.5 rounded-full text-sm border bg-white text-gray-700 border-gray-300">
               {n}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Materials */}
       <div>
         <label className="block text-sm font-semibold mb-2">推薦材質</label>
         <div className="flex flex-wrap gap-2">
           {ALL_MATERIALS.map((m) => (
-            <button key={m} type="button" onClick={() => setMaterials(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])}
+            <button key={m} type="button" onClick={() => toggleArrayValue(m, setMaterials)}
               className={`px-3 py-1.5 rounded-full text-sm border transition-all ${materials.includes(m) ? 'bg-[#D4849A] text-white border-[#D4849A]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#D4849A]'}`}>
               {m}
             </button>
@@ -159,12 +199,11 @@ export default function ColorEditor({ client, onSave, onCancel }: ColorEditorPro
         </div>
       </div>
 
-      {/* Metals */}
       <div>
         <label className="block text-sm font-semibold mb-2">推薦金屬飾品</label>
         <div className="flex flex-wrap gap-2">
           {ALL_METALS.map((m) => (
-            <button key={m} type="button" onClick={() => setMetals(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])}
+            <button key={m} type="button" onClick={() => toggleArrayValue(m, setMetals)}
               className={`px-3 py-1.5 rounded-full text-sm border transition-all ${metals.includes(m) ? 'bg-[#D4849A] text-white border-[#D4849A]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#D4849A]'}`}>
               {m}
             </button>
@@ -172,18 +211,15 @@ export default function ColorEditor({ client, onSave, onCancel }: ColorEditorPro
         </div>
       </div>
 
-      {/* Glasses & Watch */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <input value={glasses} onChange={e => setGlasses(e.target.value)} placeholder="眼鏡框建議" className="p-2 border rounded text-sm" />
         <input value={watchStr} onChange={e => setWatchStr(e.target.value)} placeholder="手錶建議" className="p-2 border rounded text-sm" />
       </div>
 
-      {/* Notes */}
       <div>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="顏色分析備註" rows={2} className="w-full p-2 border rounded text-sm" />
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="顏色分析備註" rows={3} className="w-full p-2 border rounded text-sm" />
       </div>
 
-      {/* Actions */}
       <div className="flex gap-2 pt-2">
         <button onClick={handleSave} className="flex-1 bg-[#D4849A] text-white py-2 rounded-lg hover:bg-[#c76a8a] flex items-center justify-center gap-2">
           <Save className="w-4 h-4" /> 保存
