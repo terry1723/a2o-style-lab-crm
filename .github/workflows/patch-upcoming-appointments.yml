@@ -1,0 +1,77 @@
+name: Patch upcoming appointments section
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-upcoming-appointments.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add upcoming appointments section to staff portal
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const portalPath = 'app/src/pages/PortalStaff.tsx'
+          let src = fs.readFileSync(portalPath, 'utf8')
+
+          if (!src.includes('type UpcomingAppointment')) {
+            src = src.replace(
+              "const PIC_OPTIONS = ['terry', 'andy', 'caren', 'ryan', 'martin']\n",
+              `const PIC_OPTIONS = ['terry', 'andy', 'caren', 'ryan', 'martin']\n\ntype UpcomingAppointment = {\n  id: string\n  clientName: string\n  phone: string\n  serviceName: string\n  date: string\n  time: string\n  location: string\n  staff: string\n}\n`
+            )
+          }
+
+          if (!src.includes('const [upcomingAppointments, setUpcomingAppointments]')) {
+            src = src.replace(
+              "  const [serviceSummaries, setServiceSummaries] = useState<Record<string, string[]>>({})\n",
+              "  const [serviceSummaries, setServiceSummaries] = useState<Record<string, string[]>>({})\n  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])\n"
+            )
+          }
+
+          if (!src.includes('const parseAppointmentDate =')) {
+            src = src.replace(
+              `  const buildServiceSummaries = async (clientList: ClientData[]) => {`,
+              `  const parseAppointmentDate = (dateText?: string, timeText?: string) => {\n    if (!dateText) return null\n    const normalizedDate = dateText.replace(/\\//g, '-')\n    const normalizedTime = timeText || '00:00'\n    const date = new Date(\`${normalizedDate}T\${normalizedTime}\`)\n    return Number.isNaN(date.getTime()) ? null : date\n  }\n\n  const formatAppointmentDate = (dateText?: string, timeText?: string) => {\n    const date = parseAppointmentDate(dateText, timeText)\n    if (!date) return [dateText, timeText].filter(Boolean).join(' ') || '-'\n    return date.toLocaleString('zh-HK', {\n      month: '2-digit',\n      day: '2-digit',\n      hour: '2-digit',\n      minute: '2-digit',\n      hour12: false,\n    })\n  }\n\n  const buildServiceSummaries = async (clientList: ClientData[]) => {`
+            )
+          }
+
+          if (!src.includes('setUpcomingAppointments(upcoming)')) {
+            src = src.replace(
+              `    setServiceSummaries(Object.fromEntries(entries))\n  }`,
+              `    setServiceSummaries(Object.fromEntries(entries))\n\n    const now = new Date()\n    now.setHours(0, 0, 0, 0)\n    const monthLater = new Date(now)\n    monthLater.setDate(monthLater.getDate() + 30)\n\n    const upcoming = entries.flatMap(([clientId]) => {\n      const client = clientList.find(c => c.id === clientId)\n      if (!client) return []\n      return []\n    })\n\n    const appointmentEntries = await Promise.all(clientList.map(async (client) => {\n      const [services, sessions] = await Promise.all([\n        getClientServices(client.id),\n        getServiceSessions(client.id),\n      ])\n      const serviceNameById = Object.fromEntries(services.map(service => [service.service_id, service.name]))\n\n      return sessions\n        .filter(session => session.status === 'scheduled')\n        .map(session => {\n          const appointmentDate = parseAppointmentDate(session.date, session.time)\n          if (!appointmentDate || appointmentDate < now || appointmentDate > monthLater) return null\n          return {\n            id: session.id || \`${client.id}-\${session.service_id}-\${session.date}-\${session.time}\`,\n            clientName: client.name,\n            phone: client.phone,\n            serviceName: serviceNameById[session.service_id] || session.service_id,\n            date: session.date,\n            time: session.time,\n            location: session.location || '-',\n            staff: session.staff || client.pic || '待定',\n          } as UpcomingAppointment\n        })\n        .filter(Boolean) as UpcomingAppointment[]\n    }))\n\n    setUpcomingAppointments(appointmentEntries.flat().sort((a, b) => {\n      const dateA = parseAppointmentDate(a.date, a.time)?.getTime() || 0\n      const dateB = parseAppointmentDate(b.date, b.time)?.getTime() || 0\n      return dateA - dateB\n    }))\n  }`
+            )
+          }
+
+          if (!src.includes('未來 30 日預約')) {
+            src = src.replace(
+              `        {/* Search & Filter */}`,
+              `        {/* Upcoming Appointments */}\n        <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm mb-6">\n          <div className="flex items-center justify-between gap-3 mb-3">\n            <div>\n              <h2 className="font-bold text-a2o-black text-sm sm:text-base">未來 30 日預約</h2>\n              <p className="text-xs text-a2o-black/40 mt-0.5">方便快速查看即將要跟進的客戶工作</p>\n            </div>\n            <span className="text-xs px-2 py-1 rounded-full bg-a2o-beige text-a2o-black/60">{upcomingAppointments.length} 個</span>\n          </div>\n\n          {upcomingAppointments.length > 0 ? (\n            <div className="space-y-2">\n              {upcomingAppointments.slice(0, 12).map(item => (\n                <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr_1fr_0.9fr] gap-1 md:gap-3 rounded-xl border border-a2o-warm/70 bg-a2o-beige/60 px-3 py-2 text-xs sm:text-sm">\n                  <div>\n                    <span className="font-semibold text-a2o-black">{item.clientName}</span>\n                    <span className="text-a2o-black/45 ml-2">{item.phone}</span>\n                  </div>\n                  <div className="text-a2o-black/70">{item.serviceName}</div>\n                  <div className="font-medium text-a2o-pink">{formatAppointmentDate(item.date, item.time)}</div>\n                  <div className="text-a2o-black/50 truncate">{item.location} · {item.staff}</div>\n                </div>\n              ))}\n              {upcomingAppointments.length > 12 && (\n                <p className="text-xs text-a2o-black/40 pt-1">尚有 {upcomingAppointments.length - 12} 個預約未顯示</p>\n              )}\n            </div>\n          ) : (\n            <div className="rounded-xl border border-dashed border-a2o-warm p-4 text-sm text-a2o-black/40 text-center">\n              未來 30 日暫無已預約工作\n            </div>\n          )}\n        </div>\n\n        {/* Search & Filter */}`
+            )
+          }
+
+          // Remove intentionally unused generated variable if present from older patch block.
+          src = src.replace(/\n    const upcoming = entries\.flatMap\(\(\[clientId\]\) => \{[\s\S]*?\n    \}\)\n/, '\n')
+
+          fs.writeFileSync(portalPath, src)
+          NODE
+
+      - name: Commit patched files
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/pages/PortalStaff.tsx
+          git commit -m "Add upcoming appointments section to staff portal"
+          git push
