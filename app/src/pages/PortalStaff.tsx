@@ -80,6 +80,7 @@ export default function PortalStaff() {
     if (filter === 'all') return matchSearch
     if (filter === 'active') return matchSearch && c.status === 'active'
     if (filter === 'completed') return matchSearch && c.status === 'completed'
+    if (filter === 'color_done') return matchSearch && Boolean(c.seasonal_type)
     return matchSearch
   })
 
@@ -277,6 +278,7 @@ ${client.watch ? `手錶：${client.watch}` : ''}
             <option value="all">全部</option>
             <option value="active">進行中</option>
             <option value="completed">已完成</option>
+            <option value="color_done">已完成顏色分析</option>
           </select>
           <button
             onClick={refresh}
