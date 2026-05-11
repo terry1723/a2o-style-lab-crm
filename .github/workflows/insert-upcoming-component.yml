@@ -1,0 +1,43 @@
+name: Insert upcoming appointments component
+
+on:
+  push:
+    paths:
+      - '.github/workflows/insert-upcoming-component.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Insert component into PortalStaff
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'app/src/pages/PortalStaff.tsx'
+          let src = fs.readFileSync(path, 'utf8')
+          if (!src.includes("../components/UpcomingAppointments")) {
+            src = src.replace("import ColorReport from '../components/ColorReport'\n", "import ColorReport from '../components/ColorReport'\nimport UpcomingAppointments from '../components/UpcomingAppointments'\n")
+          }
+          if (!src.includes('<UpcomingAppointments />')) {
+            src = src.replace('        {/* Search & Filter */}', '        <UpcomingAppointments />\n\n        {/* Search & Filter */}')
+          }
+          fs.writeFileSync(path, src)
+          NODE
+      - name: Commit patched file
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/pages/PortalStaff.tsx
+          git commit -m "Insert upcoming appointments component in staff portal"
+          git push
