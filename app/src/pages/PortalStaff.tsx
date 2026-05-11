@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import ColorEditor from '../components/ColorEditor'
 import ColorReport from '../components/ColorReport'
+import UpcomingAppointments from '../components/UpcomingAppointments'
 
 const PIC_OPTIONS = ['terry', 'andy', 'caren', 'ryan', 'martin']
 
@@ -258,6 +259,8 @@ ${client.watch ? `手錶：${client.watch}` : ''}
             </div>
           ))}
         </div>
+
+        <UpcomingAppointments />
 
         {/* Search & Filter */}
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
