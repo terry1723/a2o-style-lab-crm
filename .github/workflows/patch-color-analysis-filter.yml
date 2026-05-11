@@ -1,0 +1,53 @@
+name: Patch color analysis filter
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-color-analysis-filter.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add color analysis completed filter
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const portalPath = 'app/src/pages/PortalStaff.tsx'
+          let src = fs.readFileSync(portalPath, 'utf8')
+
+          if (!src.includes("filter === 'color_done'")) {
+            src = src.replace(
+              "    if (filter === 'completed') return matchSearch && c.status === 'completed'\n    return matchSearch",
+              "    if (filter === 'completed') return matchSearch && c.status === 'completed'\n    if (filter === 'color_done') return matchSearch && Boolean(c.seasonal_type)\n    return matchSearch"
+            )
+          }
+
+          if (!src.includes('<option value="color_done">已完成顏色分析</option>')) {
+            src = src.replace(
+              "            <option value=\"completed\">已完成</option>",
+              "            <option value=\"completed\">已完成</option>\n            <option value=\"color_done\">已完成顏色分析</option>"
+            )
+          }
+
+          fs.writeFileSync(portalPath, src)
+          NODE
+
+      - name: Commit patched files
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/pages/PortalStaff.tsx
+          git commit -m "Add completed color analysis staff filter"
+          git push
