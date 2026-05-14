@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import type { ClientData } from '../lib/clientData'
 
 type PrimaryCategory = '上身' | '下身' | '其他'
@@ -21,6 +22,20 @@ type MemberProduct = {
   categoryLabel: string
 }
 
+type ProductRow = {
+  id: string
+  title: string
+  image_url?: string | null
+  primary_category?: PrimaryCategory | null
+  sub_category?: string | null
+  style_category?: StyleCategory | null
+  color_seasons?: string[] | null
+  tag?: ProductTag | null
+  styling_reason?: string | null
+  member_price?: string | null
+  category_label?: string | null
+}
+
 const WHATSAPP_NUMBER = '85254077240' // TODO: replace if WhatsApp contact changes
 
 const COLOR_SEASONS = [
@@ -36,9 +51,9 @@ const SUBCATEGORY_MAP: Record<PrimaryCategory, string[]> = {
   其他: ['配件', '鞋履', '造型服務', '其他'],
 }
 
-const PRODUCTS: MemberProduct[] = [
+const FALLBACK_PRODUCTS: MemberProduct[] = [
   {
-    id: '1',
+    id: 'fallback-1',
     title: 'Korean Smart Casual Shirt',
     primaryCategory: '上身',
     subCategory: '內搭',
@@ -50,7 +65,7 @@ const PRODUCTS: MemberProduct[] = [
     categoryLabel: 'Smart Casual',
   },
   {
-    id: '2',
+    id: 'fallback-2',
     title: 'French Minimal Blazer',
     primaryCategory: '上身',
     subCategory: '外搭',
@@ -62,7 +77,7 @@ const PRODUCTS: MemberProduct[] = [
     categoryLabel: 'Polished Layer',
   },
   {
-    id: '3',
+    id: 'fallback-3',
     title: 'Rugged Layering Jacket',
     primaryCategory: '上身',
     subCategory: '外搭',
@@ -74,7 +89,7 @@ const PRODUCTS: MemberProduct[] = [
     categoryLabel: 'Rugged Utility',
   },
   {
-    id: '4',
+    id: 'fallback-4',
     title: 'Relaxed Weekend Trousers',
     primaryCategory: '下身',
     subCategory: '長褲',
@@ -86,7 +101,7 @@ const PRODUCTS: MemberProduct[] = [
     categoryLabel: 'Weekend Fit',
   },
   {
-    id: '5',
+    id: 'fallback-5',
     title: 'Clean Summer Shorts',
     primaryCategory: '下身',
     subCategory: '短褲',
@@ -98,7 +113,7 @@ const PRODUCTS: MemberProduct[] = [
     categoryLabel: 'Summer Essential',
   },
   {
-    id: '6',
+    id: 'fallback-6',
     title: 'Leather Detail Belt',
     primaryCategory: '其他',
     subCategory: '配件',
@@ -111,33 +126,84 @@ const PRODUCTS: MemberProduct[] = [
   },
 ]
 
+function mapProduct(row: ProductRow): MemberProduct {
+  return {
+    id: row.id,
+    title: row.title,
+    imageUrl: row.image_url || undefined,
+    primaryCategory: row.primary_category || '其他',
+    subCategory: row.sub_category || '其他',
+    styleCategory: row.style_category || '斯文',
+    colorSeasons: row.color_seasons || [],
+    tag: row.tag || 'Stylist Pick',
+    stylingReason: row.styling_reason || '',
+    memberPrice: row.member_price || 'Ask Stylist',
+    categoryLabel: row.category_label || row.sub_category || 'Member Pick',
+  }
+}
+
 type Props = {
   client: ClientData
   clientPhone: string
 }
 
 export default function MemberPicks({ client, clientPhone }: Props) {
+  const [products, setProducts] = useState<MemberProduct[]>(FALLBACK_PRODUCTS)
+  const [loadingProducts, setLoadingProducts] = useState(false)
   const [primaryFilter, setPrimaryFilter] = useState<'all' | PrimaryCategory>('all')
   const [subFilter, setSubFilter] = useState<'all' | string>('all')
   const [styleFilter, setStyleFilter] = useState<'all' | StyleCategory>('all')
   const [seasonFilter, setSeasonFilter] = useState<'all' | string>('all')
 
+  useEffect(() => {
+    let mounted = true
+
+    const loadProducts = async () => {
+      if (!isSupabaseConfigured()) return
+      setLoadingProducts(true)
+
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('status', 'active')
+          .order('sort_order', { ascending: true })
+
+        if (error) {
+          console.error('products load error:', error)
+          return
+        }
+
+        if (mounted && data && data.length > 0) {
+          setProducts((data as ProductRow[]).map(mapProduct))
+        }
+      } catch (err) {
+        console.error('products load exception:', err)
+      } finally {
+        if (mounted) setLoadingProducts(false)
+      }
+    }
+
+    loadProducts()
+    return () => { mounted = false }
+  }, [])
+
   const availableSubcategories = useMemo(() => {
     if (primaryFilter === 'all') {
-      return Array.from(new Set(PRODUCTS.map(p => p.subCategory)))
+      return Array.from(new Set(products.map(p => p.subCategory)))
     }
     return SUBCATEGORY_MAP[primaryFilter]
-  }, [primaryFilter])
+  }, [primaryFilter, products])
 
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((product) => {
+    return products.filter((product) => {
       const matchPrimary = primaryFilter === 'all' || product.primaryCategory === primaryFilter
       const matchSub = subFilter === 'all' || product.subCategory === subFilter
       const matchStyle = styleFilter === 'all' || product.styleCategory === styleFilter
       const matchSeason = seasonFilter === 'all' || product.colorSeasons.includes(seasonFilter)
       return matchPrimary && matchSub && matchStyle && matchSeason
     })
-  }, [primaryFilter, subFilter, styleFilter, seasonFilter])
+  }, [products, primaryFilter, subFilter, styleFilter, seasonFilter])
 
   const onPrimaryChange = (next: 'all' | PrimaryCategory) => {
     setPrimaryFilter(next)
@@ -162,6 +228,10 @@ export default function MemberPicks({ client, clientPhone }: Props) {
             Recommended for {client.seasonal_type}
           </span>
         </div>
+      )}
+
+      {loadingProducts && (
+        <p className="mb-4 text-xs text-a2o-black/45">Loading latest member picks...</p>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 mb-5">
@@ -196,7 +266,7 @@ export default function MemberPicks({ client, clientPhone }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {filteredProducts.map((product) => (
           <article key={product.id} className="rounded-2xl bg-white p-4 shadow-sm border border-[#f0e6d7]">
-            <div className="h-36 rounded-xl bg-[#f6efe3] border border-[#eadfce] mb-3 flex items-center justify-center text-xs text-a2o-black/45">
+            <div className="h-36 rounded-xl bg-[#f6efe3] border border-[#eadfce] mb-3 flex items-center justify-center text-xs text-a2o-black/45 overflow-hidden">
               {product.imageUrl ? <img src={product.imageUrl} alt={product.title} className="h-full w-full rounded-xl object-cover" /> : 'Image placeholder'}
             </div>
             <span className={cn('inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold mb-2', product.tag === 'Limited' ? 'bg-rose-100 text-rose-700' : 'bg-a2o-pink/10 text-a2o-pink')}>
