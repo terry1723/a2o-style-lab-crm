@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { getLoggedInUser, logoutUser, getClientByPhone, getClientServices, getServiceSessions, type ClientData, type ServiceItem, type ServiceSession } from '../lib/clientData'
 import { ArrowLeft, LogOut, MessageCircle, Palette, Scissors, Shirt, Camera, Clock, Sparkles } from 'lucide-react'
+import MemberPicks from '../components/MemberPicks'
 
 const serviceIcons: Record<string, any> = {
   'styling_advice': Palette,
@@ -56,13 +57,8 @@ export default function CrmDashboard() {
     if (!client) return 0
     if (client.status === 'completed') return 100
     if (services.length === 0) return 0
-    // Each service contributes equally to progress
-    // For now, count services with count > 0 as "available", and we need session status to know completion
-    // Simple calculation: (number of services with count > 0 / total services) * 100 as baseline
-    // But we don't have real session completion data yet, so we'll show 0 for new clients
     const hasServices = services.some(s => s.count > 0)
     if (!hasServices) return 0
-    // Return 0 for new clients, staff will update progress manually via sessions
     return 0
   }
 
@@ -70,7 +66,6 @@ export default function CrmDashboard() {
 
   return (
     <div className="min-h-screen bg-a2o-beige">
-      {/* Header */}
       <div className="bg-white border-b border-a2o-warm">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <button onClick={() => navigate('/')} className="flex items-center gap-2 text-sm text-a2o-black/60 hover:text-a2o-pink">
@@ -97,7 +92,6 @@ export default function CrmDashboard() {
           </motion.div>
         ) : (
           <>
-            {/* Overview Card */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -130,7 +124,6 @@ export default function CrmDashboard() {
               )}
             </motion.div>
 
-            {/* Color Analysis */}
             {client.seasonal_type && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
@@ -187,7 +180,6 @@ export default function CrmDashboard() {
               </motion.div>
             )}
 
-            {/* Service Status - Real Data */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
               <h3 className="font-bold text-a2o-black mb-4">服務狀態</h3>
               <div className="space-y-3">
@@ -201,7 +193,6 @@ export default function CrmDashboard() {
                     const scheduledCount = svcSessions.filter(sess => sess.status === 'scheduled').length
                     const remaining = s.count - completedCount
 
-                    // count=0 means not included in plan
                     if (s.count <= 0) {
                       return (
                         <div key={s.service_id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
@@ -271,7 +262,8 @@ export default function CrmDashboard() {
               </div>
             </motion.div>
 
-            {/* WhatsApp CTA */}
+            <MemberPicks client={client} clientPhone={user.phone} />
+
             <div className="text-center mt-6">
               <a href="https://wa.me/85254077240" target="_blank" rel="noopener noreferrer" className="btn-primary inline-flex items-center gap-2">
                 <MessageCircle className="w-4 h-4" /> WhatsApp 聯繫我們
