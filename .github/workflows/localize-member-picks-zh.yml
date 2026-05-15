@@ -1,0 +1,154 @@
+name: Localize member picks to zh-Hant
+
+on:
+  push:
+    paths:
+      - '.github/workflows/localize-member-picks-zh.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Localize MemberPicks UI
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'app/src/components/MemberPicks.tsx'
+          let src = fs.readFileSync(path, 'utf8')
+
+          const replacements = [
+            ["title: 'Korean Smart Casual Shirt'", "title: '韓系簡約休閒襯衫'"],
+            ["title: 'French Minimal Blazer'", "title: '法式極簡西裝外套'"],
+            ["title: 'Rugged Layering Jacket'", "title: '硬朗感層次外套'"],
+            ["title: 'Relaxed Weekend Trousers'", "title: '週末鬆弛感長褲'"],
+            ["title: 'Clean Summer Shorts'", "title: '清爽夏季短褲'"],
+            ["title: 'Leather Detail Belt'", "title: '皮革細節腰帶'"],
+
+            ["stylingReason: 'Easy upgrade for daily dates and weekend looks.'", "stylingReason: '輕鬆提升日常約會與週末造型的精緻度。'"],
+            ["stylingReason: 'Clean structure for a more mature and polished image.'", "stylingReason: '俐落結構感，令整體形象更成熟、乾淨、有修飾度。'"],
+            ["stylingReason: 'Adds stronger shoulder line and masculine structure.'", "stylingReason: '加強肩線與輪廓，營造更硬朗的男性線條。'"],
+            ["stylingReason: 'Comfortable shape that still looks styled.'", "stylingReason: '舒適但不鬆散，保留造型感與日常實穿度。'"],
+            ["stylingReason: 'Easy casual option for warmer weather.'", "stylingReason: '適合炎熱天氣的簡潔休閒選擇。'"],
+            ["stylingReason: 'Simple accessory to make basic outfits look more intentional.'", "stylingReason: '以低調配件提升基本穿搭的完整度。'"],
+
+            ["categoryLabel: 'Smart Casual'", "categoryLabel: '精緻休閒'"],
+            ["categoryLabel: 'Polished Layer'", "categoryLabel: '成熟外搭'"],
+            ["categoryLabel: 'Rugged Utility'", "categoryLabel: '硬朗機能'"],
+            ["categoryLabel: 'Weekend Fit'", "categoryLabel: '週末造型'"],
+            ["categoryLabel: 'Summer Essential'", "categoryLabel: '夏季精選'"],
+            ["categoryLabel: 'Accessory Boost'", "categoryLabel: '配件升級'"],
+
+            ["availableColors: ['White', 'Light Blue', 'Soft Grey']", "availableColors: ['白色', '淺藍', '柔灰']"],
+            ["availableColors: ['Charcoal', 'Navy', 'Black']", "availableColors: ['炭灰', '深藍', '黑色']"],
+            ["availableColors: ['Olive', 'Dark Brown', 'Black']", "availableColors: ['橄欖綠', '深啡', '黑色']"],
+            ["availableColors: ['Taupe', 'Olive Grey', 'Charcoal']", "availableColors: ['灰駝', '橄欖灰', '炭灰']"],
+            ["availableColors: ['Stone', 'Light Khaki', 'Navy']", "availableColors: ['石米色', '淺卡其', '深藍']"],
+            ["availableColors: ['Dark Brown', 'Black']", "availableColors: ['深啡', '黑色']"],
+            ["availableSizes: ['Free size']", "availableSizes: ['均碼']"],
+
+            ["material: 'Cotton blend'", "material: '混棉面料'"],
+            ["material: 'Structured woven fabric'", "material: '挺身梭織面料'"],
+            ["material: 'Cotton twill'", "material: '斜紋棉布'"],
+            ["material: 'Soft stretch fabric'", "material: '柔軟彈性面料'"],
+            ["material: 'Lightweight cotton'", "material: '輕薄棉質'"],
+            ["material: 'Leather'", "material: '皮革'"],
+
+            ["fitNotes: 'Relaxed but clean shape. Good for daily smart casual looks.'", "fitNotes: '版型舒適但保持乾淨線條，適合日常精緻休閒造型。'"],
+            ["fitNotes: 'Slightly structured shoulder. Best for clients who need a sharper upper-body line.'", "fitNotes: '肩線略帶結構感，適合需要修飾上身輪廓的客人。'"],
+            ["fitNotes: 'Boxier fit. Works well for men who want a stronger, more masculine silhouette.'", "fitNotes: '偏方正的版型，適合想加強男性輪廓與氣場的客人。'"],
+            ["fitNotes: 'Relaxed straight fit. Easy to match with shirts, knits and casual jackets.'", "fitNotes: '鬆弛直筒版型，容易配搭襯衫、針織與休閒外套。'"],
+            ["fitNotes: 'Above-knee clean fit. Casual but not sloppy.'", "fitNotes: '膝上乾淨版型，休閒但不顯隨便。'"],
+            ["fitNotes: 'Best for smart casual trousers, denim and weekend outfits.'", "fitNotes: '適合配搭精緻休閒長褲、牛仔褲與週末造型。'"],
+
+            ["productDetails: 'A versatile inner-layer shirt selected for clients who want a neat Korean smart casual upgrade without looking too formal.'", "productDetails: '一款實穿度高的內搭襯衫，適合希望提升韓系精緻休閒感、但不想過份正式的客人。'"],
+            ["productDetails: 'A minimal blazer for work, dinner and first-date outfits. Designed to add maturity while keeping the overall styling approachable.'", "productDetails: '適合工作、晚餐與初次約會的極簡西裝外套，在增加成熟感的同時保留親和力。'"],
+            ["productDetails: 'A utility-inspired outer layer for clients who suit a more rugged direction. Works with darker seasonal palettes and textured basics.'", "productDetails: '帶機能感的外搭單品，適合較硬朗的形象方向，可配合深色季節色盤與有質感的基本單品。'"],
+            ["productDetails: 'A safe upgrade from basic jeans. Suitable for weekend, casual workday and simple date outfits.'", "productDetails: '比基本牛仔褲更有修飾度的安全升級，適合週末、休閒工作日與簡單約會造型。'"],
+            ["productDetails: 'A simple warm-weather option for clients who want to look cleaner during casual days.'", "productDetails: '適合炎熱天氣的簡潔選擇，讓休閒日也能保持清爽俐落。'"],
+            ["productDetails: 'A small accessory upgrade that helps simple outfits feel more finished and intentional.'", "productDetails: '低調但有效的配件升級，令簡單穿搭更完整、更有刻意經營的質感。'"],
+
+            ["'Ask Stylist'", "'向造型師查詢'"],
+            ["'Member Pick'", "'會員選品'"],
+            ["'Stylist Pick'", "'造型師精選'"],
+            ["'New Arrival'", "'新品上架'"],
+            ["'Member Price'", "'會員專屬價'"],
+            ["'Limited'", "'限量選品'"],
+
+            ["A2O Member Closet · Product Detail", "A2O 會員衣櫥 · 單品詳情"],
+            ["Back to picks", "返回會員選品"],
+            ["Close product detail", "關閉單品詳情"],
+            ["Image Pending", "圖片待上傳"],
+            ["A2O stylist-selected item. Message us on WhatsApp for availability, sizing and styling advice.", "A2O 造型師精選單品。歡迎透過 WhatsApp 查詢庫存、尺碼與配搭建議。"],
+            ["Available Colors", "可選顏色"],
+            ["Ask stylist for current colours.", "請向造型師查詢現有顏色。"],
+            ["Available Sizes", "可選尺碼"],
+            ["Ask stylist for current sizes.", "請向造型師查詢現有尺碼。"],
+            ["Suitable Palettes", "適合色彩季節"],
+            ["Ask stylist for colour matching.", "請向造型師查詢色彩配搭。"],
+            ["Material", "材質"],
+            ["Fit Notes", "版型建議"],
+            ["Ask Stylist on WhatsApp", "WhatsApp 查詢造型師"],
+            ["No checkout. A2O stylist will confirm stock, sizing and styling advice.", "此頁不設付款功能。A2O 造型師會為你確認庫存、尺碼與配搭建議。"],
+
+            ["A2O Member Closet · Early Access", "A2O 會員衣櫥 · 優先選購"],
+            ["Curated styling pieces", "造型師嚴選單品"],
+            ["Member Picks for You", "會員專屬選品"],
+            ["Private menswear selections sourced by A2O stylists. Browse by item type, style direction and your 12-season colour profile.", "由 A2O 造型師為會員搜羅的男士單品。你可以按單品類型、風格方向與 12 季色彩分析挑選合適款式。"],
+            ["items", "件單品"],
+            ["Updating latest picks...", "正在更新最新選品..."],
+            ["Your colour profile:", "你的色彩類型："],
+            ["Tap to filter items suitable for your palette.", "點擊可篩選適合你色彩類型的單品。"],
+            ["Filters", "篩選"],
+            ["active", "項已選"],
+            ["Reset", "重設"],
+            ["Category", "分類"],
+            ["View All", "全部"],
+            ["Item Type", "單品類型"],
+            ["All Styles", "全部風格"],
+            ["Style", "風格"],
+            ["Palette", "色彩季節"],
+            ["All color seasons", "全部色彩季節"],
+            ["Products", "件單品"],
+            ["Click item for details", "點擊單品查看詳情"],
+            ["View Details", "查看詳情"],
+            ["No items match this filter yet.", "暫時沒有符合篩選條件的單品。"],
+            ["Reset filters", "重設篩選"],
+          ]
+
+          for (const [from, to] of replacements) {
+            src = src.split(from).join(to)
+          }
+
+          src = src.replace(/Hi A2O, I’m interested in this member pick:\\nProduct: /g, '你好 A2O，我想查詢這件會員選品：\\n單品：')
+          src = src.replace(/\\nCategory: /g, '\\n分類：')
+          src = src.replace(/\\nStyle: /g, '\\n風格：')
+          src = src.replace(/\\nColor Season: /g, '\\n適合色彩季節：')
+          src = src.replace(/\\nAvailable Colors: /g, '\\n可選顏色：')
+          src = src.replace(/\\nAvailable Sizes: /g, '\\n可選尺碼：')
+          src = src.replace(/\\nMember Price: /g, '\\n會員價：')
+          src = src.replace(/\\nClient: /g, '\\n客人：')
+          src = src.replace(/\\nPhone: /g, '\\n電話：')
+          src = src.replace(/\\n\\nPlease help me check availability or arrange styling advice\./g, '\\n\\n麻煩你幫我確認庫存、尺碼，並提供配搭建議。')
+
+          fs.writeFileSync(path, src)
+          NODE
+
+      - name: Commit patched file
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/components/MemberPicks.tsx
+          git commit -m "Localize member picks to Traditional Chinese"
+          git push
