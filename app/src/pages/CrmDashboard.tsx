@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getLoggedInUser, logoutUser, getClientByPhone, getClientServices, getServiceSessions, type ClientData, type ServiceItem, type ServiceSession } from '../lib/clientData'
+import { getLoggedInUser, logoutUser, getClientByPhone, getClientServices, getServiceSessions, type ClientData, type ServiceItem, type ServiceSession, type UserAccount } from '../lib/clientData'
 import { ArrowLeft, LogOut, MessageCircle, Palette, Scissors, Shirt, Camera, Clock, Sparkles } from 'lucide-react'
 import MemberPicks from '../components/MemberPicks'
 
@@ -21,25 +21,43 @@ export default function CrmDashboard() {
   const [services, setServices] = useState<ServiceItem[]>([])
   const [sessions, setSessions] = useState<ServiceSession[]>([])
   const [loading, setLoading] = useState(true)
-  const user = getLoggedInUser()
+  const [user] = useState<UserAccount | null>(() => getLoggedInUser())
 
   useEffect(() => {
+    let cancelled = false
+
     if (!user) {
       navigate('/crm/login')
       return
     }
+
     const load = async () => {
-      const found = await getClientByPhone(user.phone)
-      setClient(found)
-      if (found) {
-        const svcs = await getClientServices(found.id)
-        setServices(svcs)
-        const sess = await getServiceSessions(found.id)
-        setSessions(sess)
+      try {
+        const found = await getClientByPhone(user.phone)
+        if (cancelled) return
+        setClient(found)
+
+        if (found) {
+          const [svcs, sess] = await Promise.all([
+            getClientServices(found.id),
+            getServiceSessions(found.id),
+          ])
+          if (cancelled) return
+          setServices(svcs)
+          setSessions(sess)
+        } else {
+          setServices([])
+          setSessions([])
+        }
+      } catch (err) {
+        console.error('CRM dashboard load error:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setLoading(false)
     }
+
     load()
+    return () => { cancelled = true }
   }, [navigate, user])
 
   if (loading) {
@@ -52,7 +70,6 @@ export default function CrmDashboard() {
 
   if (!user) return null
 
-  // Calculate real progress based on service completion
   const calculateProgress = () => {
     if (!client) return 0
     if (client.status === 'completed') return 100
@@ -92,7 +109,7 @@ export default function CrmDashboard() {
           </motion.div>
         ) : (
           <>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-a2o-black">你好，{client.name}</h2>
@@ -112,9 +129,9 @@ export default function CrmDashboard() {
                 <div className="w-full h-2 bg-a2o-beige rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-a2o-pink rounded-full"
-                    initial={{ width: 0 }}
+                    initial={false}
                     animate={{ width: `${serviceStatus}%` }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
                   />
                 </div>
               </div>
@@ -125,7 +142,7 @@ export default function CrmDashboard() {
             </motion.div>
 
             {client.seasonal_type && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <Palette className="w-5 h-5 text-a2o-pink" />
                   <h3 className="font-bold text-a2o-black">你的顏色分析報告</h3>
@@ -180,7 +197,7 @@ export default function CrmDashboard() {
               </motion.div>
             )}
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-white rounded-2xl p-5 sm:p-6 mb-4 shadow-sm">
               <h3 className="font-bold text-a2o-black mb-4">服務狀態</h3>
               <div className="space-y-3">
                 {services.length === 0 ? (
