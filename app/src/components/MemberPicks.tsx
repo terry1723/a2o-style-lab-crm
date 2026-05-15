@@ -163,9 +163,10 @@ function mapProduct(row: ProductRow): MemberProduct {
 type Props = {
   client: ClientData
   clientPhone: string
+  initialProductId?: string
 }
 
-export default function MemberPicks({ client, clientPhone }: Props) {
+export default function MemberPicks({ client, clientPhone, initialProductId }: Props) {
   const [products, setProducts] = useState<MemberProduct[]>(FALLBACK_PRODUCTS)
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [primaryFilter, setPrimaryFilter] = useState<'all' | PrimaryCategory>('all')
@@ -209,6 +210,12 @@ export default function MemberPicks({ client, clientPhone }: Props) {
   }, [])
 
   useEffect(() => {
+    if (!initialProductId) return
+    const matchedProduct = products.find(product => product.id === initialProductId)
+    if (matchedProduct) setSelectedProduct(matchedProduct)
+  }, [initialProductId, products])
+
+  useEffect(() => {
     setActiveImage(0)
   }, [selectedProduct?.id])
 
@@ -245,8 +252,10 @@ export default function MemberPicks({ client, clientPhone }: Props) {
     if (client.seasonal_type) setSeasonFilter(client.seasonal_type)
   }
 
+  const buildProductLink = (product: MemberProduct) => `${window.location.origin}/#/crm/dashboard?product=${encodeURIComponent(product.id)}`
+
   const buildWhatsAppLink = (product: MemberProduct) => {
-    const message = `你好 A2O，我想查詢這件會員選品：\n單品：${product.title}\n分類：${product.primaryCategory} / ${product.subCategory}\n風格：${product.styleCategory}\n適合色彩季節：${product.colorSeasons.join('、')}\n可選顏色：${product.availableColors.join('、') || '向造型師查詢'}\n可選尺碼：${product.availableSizes.join('、') || '向造型師查詢'}\n會員價：${product.memberPrice}\n客人：${client.name}\n電話：${clientPhone}\n\n麻煩你幫我確認庫存、尺碼，並提供配搭建議。`
+    const message = `你好 A2O，我想查詢這件會員選品：\n單品：${product.title}\n分類：${product.primaryCategory} / ${product.subCategory}\n風格：${product.styleCategory}\n適合色彩季節：${product.colorSeasons.join('、')}\n可選顏色：${product.availableColors.join('、') || '向造型師查詢'}\n可選尺碼：${product.availableSizes.join('、') || '向造型師查詢'}\n會員價：${product.memberPrice}\n產品連結：${buildProductLink(product)}\n客人：${client.name}\n電話：${clientPhone}\n\n麻煩你幫我確認庫存、尺碼，並提供配搭建議。`
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
   }
 
@@ -342,9 +351,18 @@ export default function MemberPicks({ client, clientPhone }: Props) {
                   )}
                 </div>
 
-                <a href={buildWhatsAppLink(selectedProduct)} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex w-full items-center justify-center gap-2 bg-zinc-950 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-zinc-800">
-                  <MessageCircle className="size-4" /> WhatsApp 查詢造型師
-                </a>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(buildProductLink(selectedProduct))}
+                    className="inline-flex w-full items-center justify-center border border-zinc-950 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-950 transition-colors hover:bg-zinc-50"
+                  >
+                    複製產品連結
+                  </button>
+                  <a href={buildWhatsAppLink(selectedProduct)} target="_blank" rel="noopener noreferrer" className="inline-flex w-full items-center justify-center gap-2 bg-zinc-950 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-zinc-800">
+                    <MessageCircle className="size-4" /> WhatsApp 查詢
+                  </a>
+                </div>
 
                 <p className="mt-3 text-center text-xs font-light text-zinc-400">此頁不設付款功能。A2O 造型師會為你確認庫存、尺碼與配搭建議。</p>
               </div>
@@ -445,6 +463,16 @@ export default function MemberPicks({ client, clientPhone }: Props) {
                       <p className="line-clamp-2 text-xs font-light leading-relaxed text-zinc-500">{product.stylingReason}</p>
                       <div className="flex flex-wrap gap-1.5">{product.colorSeasons.slice(0, 3).map((season) => <span key={`${product.id}-${season}`} className="border border-zinc-100 bg-zinc-50 px-2 py-1 text-[10px] text-zinc-500">{season}</span>)}</div>
                       <button type="button" className="mt-3 inline-flex w-full items-center justify-center bg-zinc-950 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-zinc-800">查看詳情</button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          navigator.clipboard?.writeText(buildProductLink(product))
+                        }}
+                        className="inline-flex w-full items-center justify-center border border-zinc-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500 transition-colors hover:border-zinc-950 hover:text-zinc-950"
+                      >
+                        複製推薦連結
+                      </button>
                     </div>
                   </article>
                 ))}

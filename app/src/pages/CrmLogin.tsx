@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { registerUser, loginUser, getLoggedInUser } from '../lib/clientData'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -7,6 +7,8 @@ import { UserPlus, LogIn, ArrowRight, Eye, EyeOff, Trash2, Database } from 'luci
 
 export default function CrmLogin() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const redirectPath = new URLSearchParams(location.search).get('redirect') || '/crm/dashboard'
   const [tab, setTab] = useState<'login' | 'register'>('login')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -23,9 +25,9 @@ export default function CrmLogin() {
     
     const user = getLoggedInUser()
     if (user) {
-      navigate('/crm/dashboard')
+      navigate(redirectPath)
     }
-  }, [navigate])
+  }, [navigate, redirectPath])
 
   const normalizePhone = (p: string) => {
     const clean = p.replace(/\s/g, '')
@@ -68,7 +70,7 @@ export default function CrmLogin() {
       }
       await loginUser(nPhone, password)
       setLoading(false)
-      navigate('/crm/styling-pool')
+      navigate(redirectPath)
     } catch (err: any) {
       console.error('Register full error:', err)
       const msg = err?.message || err?.error_description || JSON.stringify(err) || '未知錯誤'
@@ -93,7 +95,7 @@ export default function CrmLogin() {
         return
       }
       setLoading(false)
-      navigate('/crm/dashboard')
+      navigate(redirectPath)
     } catch (err: any) {
       console.error('Login error:', err)
       setError(err?.message || '登入失敗，請檢查網絡連接')

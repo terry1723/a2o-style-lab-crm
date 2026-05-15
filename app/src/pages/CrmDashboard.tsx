@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { getLoggedInUser, logoutUser, getClientByPhone, getClientServices, getServiceSessions, type ClientData, type ServiceItem, type ServiceSession, type UserAccount } from '../lib/clientData'
 import { ArrowLeft, LogOut, MessageCircle, Palette, Scissors, Shirt, Camera, Clock, Sparkles } from 'lucide-react'
@@ -19,18 +19,21 @@ type DashboardTab = 'progress' | 'member-picks'
 
 export default function CrmDashboard() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const recommendedProductId = new URLSearchParams(location.search).get('product')
   const [client, setClient] = useState<ClientData | null>(null)
   const [services, setServices] = useState<ServiceItem[]>([])
   const [sessions, setSessions] = useState<ServiceSession[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<DashboardTab>('progress')
+  const [activeTab, setActiveTab] = useState<DashboardTab>(recommendedProductId ? 'member-picks' : 'progress')
   const [user] = useState<UserAccount | null>(() => getLoggedInUser())
 
   useEffect(() => {
     let cancelled = false
 
     if (!user) {
-      navigate('/crm/login')
+      const redirectPath = `/crm/dashboard${location.search || ''}`
+      navigate(`/crm/login?redirect=${encodeURIComponent(redirectPath)}`)
       return
     }
 
@@ -61,7 +64,7 @@ export default function CrmDashboard() {
 
     load()
     return () => { cancelled = true }
-  }, [navigate, user])
+  }, [navigate, user, location.search])
 
   if (loading) {
     return (
@@ -319,7 +322,7 @@ export default function CrmDashboard() {
                 </div>
               </>
             ) : (
-              <MemberPicks client={client} clientPhone={user.phone} />
+              <MemberPicks client={client} clientPhone={user.phone} initialProductId={recommendedProductId || undefined} />
             )}
           </>
         )}
