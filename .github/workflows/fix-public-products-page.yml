@@ -1,0 +1,97 @@
+name: Fix public products page
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-public-products-page.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply public products fixes
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          function save(path, content) {
+            fs.writeFileSync(path, content)
+            console.log(`saved ${path}`)
+          }
+
+          // Ensure public page exists
+          save('app/src/pages/PublicProducts.tsx', `import { useNavigate, useParams } from 'react-router-dom'\nimport { ArrowLeft, LogIn } from 'lucide-react'\nimport MemberPicks from '../components/MemberPicks'\nimport type { ClientData } from '../lib/clientData'\n\nconst guestClient = {\n  id: 'public-guest',\n  name: '訪客',\n  phone: '',\n  status: 'active',\n} as ClientData\n\nexport default function PublicProducts() {\n  const navigate = useNavigate()\n  const { productId } = useParams()\n\n  return (\n    <div className=\"min-h-screen bg-a2o-beige\">\n      <div className=\"bg-white border-b border-a2o-warm\">\n        <div className=\"max-w-[1500px] mx-auto px-4 md:px-8 py-4 flex items-center justify-between\">\n          <button onClick={() => navigate('/')} className=\"flex items-center gap-2 text-sm text-a2o-black/60 hover:text-a2o-pink\">\n            <ArrowLeft className=\"w-4 h-4\" /> 首頁\n          </button>\n          <div className=\"flex items-center gap-3\">\n            <button onClick={() => navigate('/experience')} className=\"text-sm text-a2o-black/60 hover:text-a2o-pink\">\n              形象體驗\n            </button>\n            <button onClick={() => navigate('/crm/login')} className=\"inline-flex items-center gap-1 rounded-full bg-a2o-black px-3 py-1.5 text-sm text-white hover:bg-a2o-pink\">\n              <LogIn className=\"w-4 h-4\" /> 客戶登入\n            </button>\n          </div>\n        </div>\n      </div>\n\n      <main className=\"max-w-[1500px] mx-auto p-4 md:px-8 pb-20\">\n        <MemberPicks client={guestClient} clientPhone=\"\" initialProductId={productId} publicMode />\n      </main>\n    </div>\n  )\n}\n`)
+
+          // App routes
+          let app = fs.readFileSync('app/src/App.tsx', 'utf8')
+          if (!app.includes("./pages/PublicProducts")) {
+            app = app.replace("import PortalStaff from './pages/PortalStaff'", "import PortalStaff from './pages/PortalStaff'\nimport PublicProducts from './pages/PublicProducts'")
+          }
+          if (!app.includes('path="/products"')) {
+            app = app.replace('      <Route path="/experience" element={<Experience />} />', '      <Route path="/experience" element={<Experience />} />\n      <Route path="/products" element={<PublicProducts />} />\n      <Route path="/products/:productId" element={<PublicProducts />} />')
+          }
+          save('app/src/App.tsx', app)
+
+          // Home nav
+          let home = fs.readFileSync('app/src/pages/Home.tsx', 'utf8')
+          if (!home.includes("navigate('/products')")) {
+            home = home.replace(
+              `          <div className="flex items-center gap-2 sm:gap-3">\n            <button\n              onClick={() => navigate('/experience')}\n              className="text-xs sm:text-sm font-medium text-a2o-black hover:text-a2o-pink transition-colors px-2 sm:px-3 py-1.5"\n            >\n              形象體驗\n            </button>\n            <button\n              onClick={() => navigate('/crm/login')}\n              className="text-xs sm:text-sm font-medium bg-a2o-black text-white px-3 sm:px-4 py-1.5 rounded-full hover:bg-a2o-pink transition-colors"\n            >\n              客戶登入\n            </button>\n          </div>`,
+              `          <div className="flex items-center gap-1 sm:gap-3">\n            <button\n              onClick={() => navigate('/products')}\n              className="text-xs sm:text-sm font-medium text-a2o-black hover:text-a2o-pink transition-colors px-2 sm:px-3 py-1.5"\n            >\n              會員單品\n            </button>\n            <button\n              onClick={() => navigate('/experience')}\n              className="text-xs sm:text-sm font-medium text-a2o-black hover:text-a2o-pink transition-colors px-2 sm:px-3 py-1.5"\n            >\n              形象體驗\n            </button>\n            <button\n              onClick={() => navigate('/crm/login')}\n              className="text-xs sm:text-sm font-medium bg-a2o-black text-white px-3 sm:px-4 py-1.5 rounded-full hover:bg-a2o-pink transition-colors"\n            >\n              客戶登入\n            </button>\n          </div>`
+            )
+          }
+          save('app/src/pages/Home.tsx', home)
+
+          // MemberPicks public mode compatibility
+          let member = fs.readFileSync('app/src/components/MemberPicks.tsx', 'utf8')
+          if (!member.includes('publicMode?: boolean')) {
+            member = member.replace(
+              `type Props = {\n  client: ClientData\n  clientPhone: string\n  initialProductId?: string\n}`,
+              `type Props = {\n  client: ClientData\n  clientPhone: string\n  initialProductId?: string\n  publicMode?: boolean\n}`
+            )
+          }
+          member = member.replace(
+            `export default function MemberPicks({ client, clientPhone, initialProductId }: Props) {`,
+            `export default function MemberPicks({ client, clientPhone, initialProductId, publicMode = false }: Props) {`
+          )
+          member = member.replace(
+            "const buildProductLink = (product: MemberProduct) => `${window.location.origin}/#/crm/dashboard?product=${encodeURIComponent(product.id)}`",
+            "const buildProductLink = (product: MemberProduct) => `${window.location.origin}/#/products/${encodeURIComponent(product.id)}`"
+          )
+          member = member.replace(
+            'A2O 會員衣櫥 · 優先選購',
+            "{publicMode ? '會員專屬單品 · A2O Style Lab' : 'A2O 會員衣櫥 · 優先選購'}"
+          )
+          member = member.replace('會員專屬選品</h3>', "{publicMode ? '會員專屬單品' : '會員專屬選品'}</h3>")
+          member = member.replace(
+            '由 A2O 造型師為會員搜羅的男士單品。你可以按單品類型、風格方向與 12 季色彩分析挑選合適款式。',
+            "{publicMode ? '由 A2O 造型師嚴選的男士單品。你可以按單品類型、風格方向與 12 季色彩分析，挑選更適合自己形象的款式。' : '由 A2O 造型師為會員搜羅的男士單品。你可以按單品類型、風格方向與 12 季色彩分析挑選合適款式。'}"
+          )
+          save('app/src/components/MemberPicks.tsx', member)
+          NODE
+
+      - name: Build check
+        working-directory: app
+        run: |
+          npm install
+          npm run build
+
+      - name: Commit patched files
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/App.tsx app/src/pages/Home.tsx app/src/pages/PublicProducts.tsx app/src/components/MemberPicks.tsx
+          git commit -m "Add public member products page"
+          git push
