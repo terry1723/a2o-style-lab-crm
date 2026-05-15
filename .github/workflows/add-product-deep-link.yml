@@ -1,0 +1,208 @@
+name: Add product deep link
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add-product-deep-link.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch dashboard, login and member picks
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          function replaceOnce(src, from, to, label) {
+            if (!src.includes(from)) {
+              console.log(`Skip ${label}: pattern not found`)
+              return src
+            }
+            return src.replace(from, to)
+          }
+
+          // Patch CrmDashboard.tsx
+          const dashboardPath = 'app/src/pages/CrmDashboard.tsx'
+          let dashboard = fs.readFileSync(dashboardPath, 'utf8')
+
+          dashboard = replaceOnce(
+            dashboard,
+            "import { useNavigate } from 'react-router-dom'",
+            "import { useLocation, useNavigate } from 'react-router-dom'",
+            'dashboard import useLocation'
+          )
+
+          dashboard = replaceOnce(
+            dashboard,
+            "  const navigate = useNavigate()\n",
+            "  const navigate = useNavigate()\n  const location = useLocation()\n  const recommendedProductId = new URLSearchParams(location.search).get('product')\n",
+            'dashboard location setup'
+          )
+
+          dashboard = replaceOnce(
+            dashboard,
+            "  const [activeTab, setActiveTab] = useState<DashboardTab>('progress')",
+            "  const [activeTab, setActiveTab] = useState<DashboardTab>(recommendedProductId ? 'member-picks' : 'progress')",
+            'dashboard initial active tab'
+          )
+
+          dashboard = replaceOnce(
+            dashboard,
+            "    if (!user) {\n      navigate('/crm/login')\n      return\n    }",
+            "    if (!user) {\n      const redirectPath = `/crm/dashboard${location.search || ''}`\n      navigate(`/crm/login?redirect=${encodeURIComponent(redirectPath)}`)\n      return\n    }",
+            'dashboard redirect to login'
+          )
+
+          dashboard = replaceOnce(
+            dashboard,
+            "  }, [navigate, user])",
+            "  }, [navigate, user, location.search])",
+            'dashboard effect deps'
+          )
+
+          dashboard = replaceOnce(
+            dashboard,
+            "            ) : (\n              <MemberPicks client={client} clientPhone={user.phone} />\n            )}",
+            "            ) : (\n              <MemberPicks client={client} clientPhone={user.phone} initialProductId={recommendedProductId || undefined} />\n            )}",
+            'dashboard pass product id'
+          )
+
+          fs.writeFileSync(dashboardPath, dashboard)
+
+          // Patch CrmLogin.tsx
+          const loginPath = 'app/src/pages/CrmLogin.tsx'
+          let login = fs.readFileSync(loginPath, 'utf8')
+
+          login = replaceOnce(
+            login,
+            "import { useNavigate } from 'react-router-dom'",
+            "import { useLocation, useNavigate } from 'react-router-dom'",
+            'login import useLocation'
+          )
+
+          login = replaceOnce(
+            login,
+            "  const navigate = useNavigate()\n",
+            "  const navigate = useNavigate()\n  const location = useLocation()\n  const redirectPath = new URLSearchParams(location.search).get('redirect') || '/crm/dashboard'\n",
+            'login redirect setup'
+          )
+
+          login = replaceOnce(
+            login,
+            "    if (user) {\n      navigate('/crm/dashboard')\n    }",
+            "    if (user) {\n      navigate(redirectPath)\n    }",
+            'login existing user redirect'
+          )
+
+          login = replaceOnce(
+            login,
+            "  }, [navigate])",
+            "  }, [navigate, redirectPath])",
+            'login effect deps'
+          )
+
+          login = replaceOnce(
+            login,
+            "      navigate('/crm/styling-pool')",
+            "      navigate(redirectPath)",
+            'login register redirect'
+          )
+
+          login = replaceOnce(
+            login,
+            "      navigate('/crm/dashboard')",
+            "      navigate(redirectPath)",
+            'login login redirect'
+          )
+
+          fs.writeFileSync(loginPath, login)
+
+          // Patch MemberPicks.tsx
+          const memberPath = 'app/src/components/MemberPicks.tsx'
+          let member = fs.readFileSync(memberPath, 'utf8')
+
+          member = replaceOnce(
+            member,
+            "type Props = {\n  client: ClientData\n  clientPhone: string\n}",
+            "type Props = {\n  client: ClientData\n  clientPhone: string\n  initialProductId?: string\n}",
+            'member props type'
+          )
+
+          member = replaceOnce(
+            member,
+            "export default function MemberPicks({ client, clientPhone }: Props) {",
+            "export default function MemberPicks({ client, clientPhone, initialProductId }: Props) {",
+            'member props destructure'
+          )
+
+          member = replaceOnce(
+            member,
+            "  useEffect(() => {\n    setActiveImage(0)\n  }, [selectedProduct?.id])",
+            "  useEffect(() => {\n    if (!initialProductId) return\n    const matchedProduct = products.find(product => product.id === initialProductId)\n    if (matchedProduct) setSelectedProduct(matchedProduct)\n  }, [initialProductId, products])\n\n  useEffect(() => {\n    setActiveImage(0)\n  }, [selectedProduct?.id])",
+            'member auto open product'
+          )
+
+          member = replaceOnce(
+            member,
+            "  const buildWhatsAppLink = (product: MemberProduct) => {",
+            "  const buildProductLink = (product: MemberProduct) => `${window.location.origin}/#/crm/dashboard?product=${encodeURIComponent(product.id)}`\n\n  const buildWhatsAppLink = (product: MemberProduct) => {",
+            'member build product link'
+          )
+
+          member = replaceOnce(
+            member,
+            "    const message = `你好 A2O，我想查詢這件會員選品：\\n單品：${product.title}",
+            "    const message = `你好 A2O，我想查詢這件會員選品：\\n單品：${product.title}",
+            'member noop'
+          )
+
+          member = replaceOnce(
+            member,
+            "\\n會員價：${product.memberPrice}\\n客人：${client.name}",
+            "\\n會員價：${product.memberPrice}\\n產品連結：${buildProductLink(product)}\\n客人：${client.name}",
+            'member whatsapp include product link'
+          )
+
+          member = replaceOnce(
+            member,
+            "                <a href={buildWhatsAppLink(selectedProduct)} target=\"_blank\" rel=\"noopener noreferrer\" className=\"mt-6 inline-flex w-full items-center justify-center gap-2 bg-zinc-950 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-zinc-800\">\n                  <MessageCircle className=\"size-4\" /> WhatsApp 查詢造型師\n                </a>",
+            "                <div className=\"mt-6 grid gap-3 sm:grid-cols-2\">\n                  <button\n                    type=\"button\"\n                    onClick={() => navigator.clipboard?.writeText(buildProductLink(selectedProduct))}\n                    className=\"inline-flex w-full items-center justify-center border border-zinc-950 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-950 transition-colors hover:bg-zinc-50\"\n                  >\n                    複製產品連結\n                  </button>\n                  <a href={buildWhatsAppLink(selectedProduct)} target=\"_blank\" rel=\"noopener noreferrer\" className=\"inline-flex w-full items-center justify-center gap-2 bg-zinc-950 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-zinc-800\">\n                    <MessageCircle className=\"size-4\" /> WhatsApp 查詢\n                  </a>\n                </div>",
+            'member detail share buttons'
+          )
+
+          member = replaceOnce(
+            member,
+            "                      <button type=\"button\" className=\"mt-3 inline-flex w-full items-center justify-center bg-zinc-950 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-zinc-800\">查看詳情</button>",
+            "                      <button type=\"button\" className=\"mt-3 inline-flex w-full items-center justify-center bg-zinc-950 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-zinc-800\">查看詳情</button>\n                      <button\n                        type=\"button\"\n                        onClick={(event) => {\n                          event.stopPropagation()\n                          navigator.clipboard?.writeText(buildProductLink(product))\n                        }}\n                        className=\"inline-flex w-full items-center justify-center border border-zinc-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500 transition-colors hover:border-zinc-950 hover:text-zinc-950\"\n                      >\n                        複製推薦連結\n                      </button>",
+            'member card copy link'
+          )
+
+          fs.writeFileSync(memberPath, member)
+          NODE
+
+      - name: Build check
+        working-directory: app
+        run: |
+          npm install
+          npm run build
+
+      - name: Commit patched files
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/pages/CrmDashboard.tsx app/src/pages/CrmLogin.tsx app/src/components/MemberPicks.tsx
+          git commit -m "Add member product recommendation links"
+          git push
