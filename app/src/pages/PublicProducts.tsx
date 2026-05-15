@@ -22,16 +22,10 @@ export default function PublicProducts() {
             <ArrowLeft className="w-4 h-4" /> 首頁
           </button>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/experience')}
-              className="text-sm text-a2o-black/60 hover:text-a2o-pink"
-            >
+            <button onClick={() => navigate('/experience')} className="text-sm text-a2o-black/60 hover:text-a2o-pink">
               形象體驗
             </button>
-            <button
-              onClick={() => navigate('/crm/login')}
-              className="inline-flex items-center gap-1 rounded-full bg-a2o-black px-3 py-1.5 text-sm text-white hover:bg-a2o-pink"
-            >
+            <button onClick={() => navigate('/crm/login')} className="inline-flex items-center gap-1 rounded-full bg-a2o-black px-3 py-1.5 text-sm text-white hover:bg-a2o-pink">
               <LogIn className="w-4 h-4" /> 客戶登入
             </button>
           </div>
@@ -39,12 +33,7 @@ export default function PublicProducts() {
       </div>
 
       <main className="max-w-[1500px] mx-auto p-4 md:px-8 pb-20">
-        <MemberPicks
-          client={guestClient}
-          clientPhone=""
-          initialProductId={productId}
-          publicMode
-        />
+        <MemberPicks client={guestClient} clientPhone="" initialProductId={productId} publicMode />
       </main>
     </div>
   )

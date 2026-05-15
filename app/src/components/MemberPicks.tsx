@@ -164,9 +164,10 @@ type Props = {
   client: ClientData
   clientPhone: string
   initialProductId?: string
+  publicMode?: boolean
 }
 
-export default function MemberPicks({ client, clientPhone, initialProductId }: Props) {
+export default function MemberPicks({ client, clientPhone, initialProductId, publicMode = false }: Props) {
   const [products, setProducts] = useState<MemberProduct[]>(FALLBACK_PRODUCTS)
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [primaryFilter, setPrimaryFilter] = useState<'all' | PrimaryCategory>('all')
@@ -252,7 +253,7 @@ export default function MemberPicks({ client, clientPhone, initialProductId }: P
     if (client.seasonal_type) setSeasonFilter(client.seasonal_type)
   }
 
-  const buildProductLink = (product: MemberProduct) => `${window.location.origin}/#/crm/dashboard?product=${encodeURIComponent(product.id)}`
+  const buildProductLink = (product: MemberProduct) => `${window.location.origin}/#/products/${encodeURIComponent(product.id)}`
 
   const buildWhatsAppLink = (product: MemberProduct) => {
     const message = `你好 A2O，我想查詢這件會員選品：\n單品：${product.title}\n分類：${product.primaryCategory} / ${product.subCategory}\n風格：${product.styleCategory}\n適合色彩季節：${product.colorSeasons.join('、')}\n可選顏色：${product.availableColors.join('、') || '向造型師查詢'}\n可選尺碼：${product.availableSizes.join('、') || '向造型師查詢'}\n會員價：${product.memberPrice}\n產品連結：${buildProductLink(product)}\n客人：${client.name}\n電話：${clientPhone}\n\n麻煩你幫我確認庫存、尺碼，並提供配搭建議。`
@@ -376,15 +377,15 @@ export default function MemberPicks({ client, clientPhone, initialProductId }: P
   return (
     <section className="mt-5 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-100">
       <div className="border-b border-zinc-100 bg-zinc-950 px-5 py-3 text-center text-[10px] font-medium uppercase tracking-[0.28em] text-white sm:px-6">
-        A2O 會員衣櫥 · 優先選購
+        {publicMode ? '會員專屬單品 · A2O Style Lab' : 'A2O 會員衣櫥 · 優先選購'}
       </div>
 
       <div className="px-5 py-6 sm:px-6 sm:py-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-400">造型師嚴選單品</p>
-            <h3 className="font-serif text-3xl font-medium tracking-tight text-zinc-950">會員專屬選品</h3>
-            <p className="mt-2 max-w-xl text-sm font-light leading-relaxed text-zinc-500">由 A2O 造型師為會員搜羅的男士單品。你可以按單品類型、風格方向與 12 季色彩分析挑選合適款式。</p>
+            <h3 className="font-serif text-3xl font-medium tracking-tight text-zinc-950">{publicMode ? '會員專屬單品' : '會員專屬選品'}</h3>
+            <p className="mt-2 max-w-xl text-sm font-light leading-relaxed text-zinc-500">{publicMode ? '由 A2O 造型師嚴選的男士單品。你可以按單品類型、風格方向與 12 季色彩分析，挑選更適合自己形象的款式。' : '由 A2O 造型師為會員搜羅的男士單品。你可以按單品類型、風格方向與 12 季色彩分析挑選合適款式。'}</p>
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-zinc-100 pt-3 sm:block sm:border-0 sm:pt-0 sm:text-right">

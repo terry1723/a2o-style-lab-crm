@@ -20,7 +20,13 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <img src="/images/a2o-logo.png" alt="A₂O Style Lab" className="h-8 w-auto object-contain" />
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-3">
+            <button
+              onClick={() => navigate('/products')}
+              className="text-xs sm:text-sm font-medium text-a2o-black hover:text-a2o-pink transition-colors px-2 sm:px-3 py-1.5"
+            >
+              會員單品
+            </button>
             <button
               onClick={() => navigate('/experience')}
               className="text-xs sm:text-sm font-medium text-a2o-black hover:text-a2o-pink transition-colors px-2 sm:px-3 py-1.5"
