@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { ArrowLeft, MessageCircle, X } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import type { ClientData } from '../lib/clientData'
@@ -12,6 +12,7 @@ type MemberProduct = {
   id: string
   title: string
   imageUrl?: string
+  galleryImages: string[]
   primaryCategory: PrimaryCategory
   subCategory: string
   styleCategory: StyleCategory
@@ -20,12 +21,18 @@ type MemberProduct = {
   stylingReason: string
   memberPrice: string
   categoryLabel: string
+  availableColors: string[]
+  availableSizes: string[]
+  material?: string
+  fitNotes?: string
+  productDetails?: string
 }
 
 type ProductRow = {
   id: string
   title: string
   image_url?: string | null
+  gallery_images?: string[] | null
   primary_category?: PrimaryCategory | null
   sub_category?: string | null
   style_category?: StyleCategory | null
@@ -34,6 +41,11 @@ type ProductRow = {
   styling_reason?: string | null
   member_price?: string | null
   category_label?: string | null
+  available_colors?: string[] | null
+  available_sizes?: string[] | null
+  material?: string | null
+  fit_notes?: string | null
+  product_details?: string | null
 }
 
 const WHATSAPP_NUMBER = '85254077240'
@@ -63,6 +75,12 @@ const FALLBACK_PRODUCTS: MemberProduct[] = [
     stylingReason: 'Easy upgrade for daily dates and weekend looks.',
     memberPrice: 'HK$390',
     categoryLabel: 'Smart Casual',
+    galleryImages: [],
+    availableColors: ['White', 'Light Blue', 'Soft Grey'],
+    availableSizes: ['S', 'M', 'L'],
+    material: 'Cotton blend',
+    fitNotes: 'Relaxed but clean shape. Good for daily smart casual looks.',
+    productDetails: 'A versatile inner-layer shirt selected for clients who want a neat Korean smart casual upgrade without looking too formal.',
   },
   {
     id: 'fallback-2',
@@ -75,6 +93,12 @@ const FALLBACK_PRODUCTS: MemberProduct[] = [
     stylingReason: 'Clean structure for a more mature and polished image.',
     memberPrice: 'HK$890',
     categoryLabel: 'Polished Layer',
+    galleryImages: [],
+    availableColors: ['Charcoal', 'Navy', 'Black'],
+    availableSizes: ['S', 'M', 'L', 'XL'],
+    material: 'Structured woven fabric',
+    fitNotes: 'Slightly structured shoulder. Best for clients who need a sharper upper-body line.',
+    productDetails: 'A minimal blazer for work, dinner and first-date outfits. Designed to add maturity while keeping the overall styling approachable.',
   },
   {
     id: 'fallback-3',
@@ -87,6 +111,12 @@ const FALLBACK_PRODUCTS: MemberProduct[] = [
     stylingReason: 'Adds stronger shoulder line and masculine structure.',
     memberPrice: 'HK$690',
     categoryLabel: 'Rugged Utility',
+    galleryImages: [],
+    availableColors: ['Olive', 'Dark Brown', 'Black'],
+    availableSizes: ['M', 'L', 'XL'],
+    material: 'Cotton twill',
+    fitNotes: 'Boxier fit. Works well for men who want a stronger, more masculine silhouette.',
+    productDetails: 'A utility-inspired outer layer for clients who suit a more rugged direction. Works with darker seasonal palettes and textured basics.',
   },
   {
     id: 'fallback-4',
@@ -99,6 +129,12 @@ const FALLBACK_PRODUCTS: MemberProduct[] = [
     stylingReason: 'Comfortable shape that still looks styled.',
     memberPrice: 'HK$490',
     categoryLabel: 'Weekend Fit',
+    galleryImages: [],
+    availableColors: ['Taupe', 'Olive Grey', 'Charcoal'],
+    availableSizes: ['29', '30', '31', '32', '33', '34'],
+    material: 'Soft stretch fabric',
+    fitNotes: 'Relaxed straight fit. Easy to match with shirts, knits and casual jackets.',
+    productDetails: 'A safe upgrade from basic jeans. Suitable for weekend, casual workday and simple date outfits.',
   },
   {
     id: 'fallback-5',
@@ -111,6 +147,12 @@ const FALLBACK_PRODUCTS: MemberProduct[] = [
     stylingReason: 'Easy casual option for warmer weather.',
     memberPrice: 'HK$290',
     categoryLabel: 'Summer Essential',
+    galleryImages: [],
+    availableColors: ['Stone', 'Light Khaki', 'Navy'],
+    availableSizes: ['S', 'M', 'L'],
+    material: 'Lightweight cotton',
+    fitNotes: 'Above-knee clean fit. Casual but not sloppy.',
+    productDetails: 'A simple warm-weather option for clients who want to look cleaner during casual days.',
   },
   {
     id: 'fallback-6',
@@ -123,14 +165,25 @@ const FALLBACK_PRODUCTS: MemberProduct[] = [
     stylingReason: 'Simple accessory to make basic outfits look more intentional.',
     memberPrice: 'HK$260',
     categoryLabel: 'Accessory Boost',
+    galleryImages: [],
+    availableColors: ['Dark Brown', 'Black'],
+    availableSizes: ['Free size'],
+    material: 'Leather',
+    fitNotes: 'Best for smart casual trousers, denim and weekend outfits.',
+    productDetails: 'A small accessory upgrade that helps simple outfits feel more finished and intentional.',
   },
 ]
 
 function mapProduct(row: ProductRow): MemberProduct {
+  const mainImage = row.image_url || undefined
+  const galleryImages = row.gallery_images?.filter(Boolean) || []
+  const fullGallery = mainImage ? [mainImage, ...galleryImages.filter(img => img !== mainImage)] : galleryImages
+
   return {
     id: row.id,
     title: row.title,
-    imageUrl: row.image_url || undefined,
+    imageUrl: mainImage,
+    galleryImages: fullGallery,
     primaryCategory: row.primary_category || '其他',
     subCategory: row.sub_category || '其他',
     styleCategory: row.style_category || '斯文',
@@ -139,6 +192,11 @@ function mapProduct(row: ProductRow): MemberProduct {
     stylingReason: row.styling_reason || '',
     memberPrice: row.member_price || 'Ask Stylist',
     categoryLabel: row.category_label || row.sub_category || 'Member Pick',
+    availableColors: row.available_colors || [],
+    availableSizes: row.available_sizes || [],
+    material: row.material || undefined,
+    fitNotes: row.fit_notes || undefined,
+    productDetails: row.product_details || undefined,
   }
 }
 
@@ -154,6 +212,8 @@ export default function MemberPicks({ client, clientPhone }: Props) {
   const [subFilter, setSubFilter] = useState<'all' | string>('all')
   const [styleFilter, setStyleFilter] = useState<'all' | StyleCategory>('all')
   const [seasonFilter, setSeasonFilter] = useState<'all' | string>('all')
+  const [selectedProduct, setSelectedProduct] = useState<MemberProduct | null>(null)
+  const [activeImage, setActiveImage] = useState(0)
 
   useEffect(() => {
     let mounted = true
@@ -187,6 +247,10 @@ export default function MemberPicks({ client, clientPhone }: Props) {
     loadProducts()
     return () => { mounted = false }
   }, [])
+
+  useEffect(() => {
+    setActiveImage(0)
+  }, [selectedProduct?.id])
 
   const availableSubcategories = useMemo(() => {
     if (primaryFilter === 'all') {
@@ -224,11 +288,11 @@ export default function MemberPicks({ client, clientPhone }: Props) {
   }
 
   const buildWhatsAppLink = (product: MemberProduct) => {
-    const message = `Hi A2O, I’m interested in this member pick:\nProduct: ${product.title}\nCategory: ${product.primaryCategory} / ${product.subCategory}\nStyle: ${product.styleCategory}\nColor Season: ${product.colorSeasons.join('、')}\nMember Price: ${product.memberPrice}\nClient: ${client.name}\nPhone: ${clientPhone}\n\nPlease help me check availability or arrange styling advice.`
+    const message = `Hi A2O, I’m interested in this member pick:\nProduct: ${product.title}\nCategory: ${product.primaryCategory} / ${product.subCategory}\nStyle: ${product.styleCategory}\nColor Season: ${product.colorSeasons.join('、')}\nAvailable Colors: ${product.availableColors.join('、') || 'Ask Stylist'}\nAvailable Sizes: ${product.availableSizes.join('、') || 'Ask Stylist'}\nMember Price: ${product.memberPrice}\nClient: ${client.name}\nPhone: ${clientPhone}\n\nPlease help me check availability or arrange styling advice.`
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
   }
 
-  const FilterButton = ({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) => (
+  const FilterButton = ({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) => (
     <button
       type="button"
       onClick={onClick}
@@ -242,6 +306,160 @@ export default function MemberPicks({ client, clientPhone }: Props) {
       {children}
     </button>
   )
+
+  const detailImages = selectedProduct ? (selectedProduct.galleryImages.length > 0 ? selectedProduct.galleryImages : selectedProduct.imageUrl ? [selectedProduct.imageUrl] : []) : []
+
+  if (selectedProduct) {
+    return (
+      <section className="mt-5 overflow-hidden bg-white shadow-sm ring-1 ring-zinc-100">
+        <div className="border-b border-zinc-100 bg-zinc-950 px-5 py-3 text-center text-[10px] font-medium uppercase tracking-[0.28em] text-white sm:px-6">
+          A2O Member Closet · Product Detail
+        </div>
+
+        <div className="px-5 py-5 sm:px-6">
+          <div className="mb-5 flex items-center justify-between border-b border-zinc-100 pb-4">
+            <button
+              type="button"
+              onClick={() => setSelectedProduct(null)}
+              className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-zinc-500 transition-colors hover:text-zinc-950"
+            >
+              <ArrowLeft className="size-4" /> Back to picks
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedProduct(null)}
+              className="inline-flex size-9 items-center justify-center border border-zinc-200 text-zinc-500 transition-colors hover:border-zinc-950 hover:text-zinc-950"
+              aria-label="Close product detail"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+              <div className="grid gap-3 md:grid-cols-[88px_1fr]">
+                <div className="order-2 flex gap-2 overflow-x-auto md:order-1 md:flex-col md:overflow-visible">
+                  {detailImages.length > 0 ? detailImages.map((image, index) => (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      onClick={() => setActiveImage(index)}
+                      className={cn(
+                        'h-20 w-16 shrink-0 overflow-hidden border bg-zinc-100 md:h-24 md:w-full',
+                        activeImage === index ? 'border-zinc-950' : 'border-zinc-100 hover:border-zinc-400'
+                      )}
+                    >
+                      <img src={image} alt={`${selectedProduct.title} ${index + 1}`} className="h-full w-full object-cover" />
+                    </button>
+                  )) : (
+                    <div className="hidden md:block" />
+                  )}
+                </div>
+
+                <div className="order-1 aspect-[3/4] overflow-hidden bg-zinc-100 md:order-2">
+                  {detailImages.length > 0 ? (
+                    <img
+                      src={detailImages[activeImage] || detailImages[0]}
+                      alt={selectedProduct.title}
+                      className="h-full w-full object-cover object-center grayscale-[10%]"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200 px-6 text-center">
+                      <span className="font-serif text-5xl text-zinc-300">A2O</span>
+                      <span className="mt-4 text-[11px] uppercase tracking-[0.22em] text-zinc-400">Image Pending</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-5">
+              <div className="lg:sticky lg:top-6">
+                <div className="mb-5 flex items-start justify-between gap-5">
+                  <div>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">{selectedProduct.categoryLabel}</p>
+                    <h3 className="font-serif text-4xl font-medium leading-tight tracking-tight text-zinc-950">{selectedProduct.title}</h3>
+                    <p className="mt-2 text-sm font-light text-zinc-500">{selectedProduct.primaryCategory} / {selectedProduct.subCategory} · {selectedProduct.styleCategory}</p>
+                  </div>
+                  <p className="shrink-0 text-lg font-light text-zinc-950">{selectedProduct.memberPrice}</p>
+                </div>
+
+                <p className="mb-6 text-sm font-light leading-relaxed text-zinc-600">
+                  {selectedProduct.productDetails || selectedProduct.stylingReason || 'A2O stylist-selected item. Message us on WhatsApp for availability, sizing and styling advice.'}
+                </p>
+
+                <div className="space-y-6 border-y border-zinc-100 py-6">
+                  <div>
+                    <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-950">Available Colors</h4>
+                    {selectedProduct.availableColors.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedProduct.availableColors.map(color => (
+                          <span key={color} className="border border-zinc-200 px-3 py-2 text-xs text-zinc-600">{color}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-light text-zinc-400">Ask stylist for current colours.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-950">Available Sizes</h4>
+                    {selectedProduct.availableSizes.length > 0 ? (
+                      <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
+                        {selectedProduct.availableSizes.map(size => (
+                          <span key={size} className="flex h-10 items-center justify-center border border-zinc-200 text-xs text-zinc-700">{size}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-light text-zinc-400">Ask stylist for current sizes.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-950">Suitable Palettes</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedProduct.colorSeasons.length > 0 ? selectedProduct.colorSeasons.map(season => (
+                        <span key={season} className="bg-zinc-50 px-3 py-2 text-xs text-zinc-600">{season}</span>
+                      )) : <p className="text-sm font-light text-zinc-400">Ask stylist for colour matching.</p>}
+                    </div>
+                  </div>
+
+                  {(selectedProduct.material || selectedProduct.fitNotes) && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {selectedProduct.material && (
+                        <div>
+                          <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-950">Material</h4>
+                          <p className="text-sm font-light leading-relaxed text-zinc-500">{selectedProduct.material}</p>
+                        </div>
+                      )}
+                      {selectedProduct.fitNotes && (
+                        <div>
+                          <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-950">Fit Notes</h4>
+                          <p className="text-sm font-light leading-relaxed text-zinc-500">{selectedProduct.fitNotes}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <a
+                  href={buildWhatsAppLink(selectedProduct)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 bg-zinc-950 px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-zinc-800"
+                >
+                  <MessageCircle className="size-4" />
+                  Ask Stylist on WhatsApp
+                </a>
+
+                <p className="mt-3 text-center text-xs font-light text-zinc-400">No checkout. A2O stylist will confirm stock, sizing and styling advice.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="mt-5 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-100">
@@ -349,13 +567,13 @@ export default function MemberPicks({ client, clientPhone }: Props) {
           <div>
             <div className="mb-4 flex items-center justify-between border-b border-zinc-100 pb-3">
               <span className="text-xs font-light text-zinc-500">{filteredProducts.length} Products</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">WhatsApp to reserve</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">Click item for details</span>
             </div>
 
             {filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-5 lg:grid-cols-3">
                 {filteredProducts.map((product) => (
-                  <article key={product.id} className="group">
+                  <article key={product.id} className="group cursor-pointer" onClick={() => setSelectedProduct(product)}>
                     <div className="relative mb-3 aspect-[3/4] overflow-hidden bg-zinc-100">
                       {product.imageUrl ? (
                         <img
@@ -396,15 +614,12 @@ export default function MemberPicks({ client, clientPhone }: Props) {
                         ))}
                       </div>
 
-                      <a
-                        href={buildWhatsAppLink(product)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 inline-flex w-full items-center justify-center gap-2 bg-zinc-950 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-zinc-800"
+                      <button
+                        type="button"
+                        className="mt-3 inline-flex w-full items-center justify-center bg-zinc-950 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-zinc-800"
                       >
-                        <MessageCircle className="size-3.5" />
-                        Ask Stylist
-                      </a>
+                        View Details
+                      </button>
                     </div>
                   </article>
                 ))}
