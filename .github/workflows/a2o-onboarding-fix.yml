@@ -1,0 +1,44 @@
+name: A2O onboarding fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch files
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/pages/CrmLogin.tsx')
+          s = p.read_text()
+          old = "      await loginUser(nPhone, password)\n      setLoading(false)\n      navigate(redirectPath)"
+          new = "      await loginUser(nPhone, password)\n      setLoading(false)\n      navigate('/crm/styling-pool')"
+          s = s.replace(old, new, 1)
+          s = s.replace("創建帳號追蹤你的進度", "創建帳號後填寫你的形象資料")
+          s = s.replace("<UserPlus className=\"w-4 h-4\" /> 註冊", "<UserPlus className=\"w-4 h-4\" /> 註冊並填寫資料")
+          p.write_text(s)
+
+          p = Path('app/src/pages/CrmStylingPool.tsx')
+          s = p.read_text()
+          s = s.replace("import { saveClient, saveClientServices, getLoggedInUser, type ServiceItem } from '../lib/clientData'", "import { saveClient, saveClientServices, getLoggedInUser, getClientByPhone, type ServiceItem } from '../lib/clientData'")
+          s = s.replace("name: '', age: '', phone: user?.phone?.replace('+852', '') || '', occupation: '',", "name: user?.name || '', age: '', phone: user?.phone?.replace('+852', '') || '', occupation: '',")
+          s = s.replace("    try {\n      await saveClient({\n        id, ...form, phone, plan_price: price,\n        balance_due: price - form.amount_paid,\n      })\n      await saveClientServices(id, services)", "    try {\n      if (!form.name.trim() || !phone.trim()) {\n        alert('請填寫姓名及電話')\n        setLoading(false)\n        return\n      }\n      const existingClient = await getClientByPhone(phone)\n      const clientId = existingClient?.id || id\n      await saveClient({\n        id: clientId, ...form, phone, plan_price: price,\n        balance_due: price - form.amount_paid,\n        status: 'active',\n      })\n      await saveClientServices(clientId, services)")
+          s = s.replace("allUsers[idx].clientId = id", "allUsers[idx].clientId = clientId")
+          p.write_text(s)
+          PY
+      - name: Build
+        working-directory: app
+        run: npm install && npm run build
+      - name: Commit
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add app/src/pages/CrmLogin.tsx app/src/pages/CrmStylingPool.tsx
+          git commit -m "Restore client onboarding after registration" || exit 0
+          git push
