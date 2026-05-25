@@ -1,6 +1,8 @@
 from pathlib import Path
 
-p = Path('app/src/pages/PortalStaff.tsx')
+script_path = Path(__file__).resolve()
+repo_root = script_path.parents[2]
+p = repo_root / 'app/src/pages/PortalStaff.tsx'
 s = p.read_text()
 
 if 'editingProfile, setEditingProfile' not in s:
@@ -199,4 +201,4 @@ if '複製歡迎訊息' not in s:
     s = s.replace(marker, addition)
 
 p.write_text(s)
-print('patched PortalStaff.tsx')
+print(f'patched {p}')
