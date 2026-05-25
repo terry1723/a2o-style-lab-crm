@@ -1,0 +1,28 @@
+name: Apply staff portal patch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-staff-portal-patch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply patch
+        run: python3 .github/scripts/staff_editing_lite_patch.py
+      - name: Build
+        working-directory: app
+        run: npm install && npm run build
+      - name: Commit
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add app/src/pages/PortalStaff.tsx
+          git commit -m "Add staff client editing and welcome message" || true
+          git push
