@@ -70,7 +70,7 @@ export default function CrmLogin() {
       }
       await loginUser(nPhone, password)
       setLoading(false)
-      navigate(redirectPath)
+      navigate('/crm/styling-pool')
     } catch (err: any) {
       console.error('Register full error:', err)
       const msg = err?.message || err?.error_description || JSON.stringify(err) || '未知錯誤'
@@ -120,7 +120,7 @@ export default function CrmLogin() {
               {tab === 'register' ? '客戶註冊' : '客戶登入'}
             </h2>
             <p className="text-sm text-a2o-black/60 mt-1">
-              {tab === 'register' ? '創建帳號追蹤你的進度' : '登入查看你的形象改造進度'}
+              {tab === 'register' ? '創建帳號後填寫你的形象資料' : '登入查看你的形象改造進度'}
             </p>
             
             {/* Connection mode indicator */}
@@ -237,7 +237,7 @@ export default function CrmLogin() {
                   <span className="animate-pulse">處理中...</span>
                 ) : tab === 'register' ? (
                   <span className="flex items-center gap-2 justify-center">
-                    <UserPlus className="w-4 h-4" /> 註冊
+                    <UserPlus className="w-4 h-4" /> 註冊並填寫資料
                   </span>
                 ) : (
                   <span className="flex items-center gap-2 justify-center">
