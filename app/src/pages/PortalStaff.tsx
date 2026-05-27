@@ -17,6 +17,36 @@ import ColorReport from '../components/ColorReport'
 import UpcomingAppointments from '../components/UpcomingAppointments'
 
 const PIC_OPTIONS = ['terry', 'andy', 'caren', 'ryan', 'martin']
+const DEFAULT_SERVICE_LOCATION = '荔枝角億利工業中心204'
+
+const isHairService = (name: string) => name.includes('髮')
+const isPhotoOrMakeupService = (name: string) => name.includes('攝影') || name.includes('化妝')
+
+const getDefaultLocation = (_name: string) => DEFAULT_SERVICE_LOCATION
+
+const formatMoney = (value?: string | number | null) => Number(value || 0).toLocaleString()
+
+const formatBookingDate = (value?: string) => {
+  if (!value) return '待確定'
+
+  const raw = String(value).trim()
+  if (!raw) return '待確定'
+
+  const dateParts = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (dateParts) return `${Number(dateParts[3])}/${Number(dateParts[2])}`
+
+  const date = new Date(raw)
+  if (!Number.isNaN(date.getTime())) return `${date.getDate()}/${date.getMonth() + 1}`
+
+  return raw
+}
+
+const formatServiceTitle = (service: ServiceItem) => {
+  let title = `【${service.name}】x${Number(service.count || 0)}`
+  if (service.name.includes('髮')) title += ' 及顏色測試'
+  if (service.name.includes('穿搭') || service.name.includes('造型')) title += ' 包2套服裝+6套造型建議'
+  return title
+}
 
 export default function PortalStaff() {
   const navigate = useNavigate()
@@ -169,14 +199,76 @@ export default function PortalStaff() {
   }
 
   const copyWelcomeMessage = async (client: ClientData) => {
-    const services = await getClientServices(client.id)
-    const lines = services.length
-      ? services.filter(s => Number(s.count || 0) > 0).map(s => `・${s.name} x${s.count}`).join('\n')
-      : '・服務項目待職員更新'
-    const price = Number(client.plan_price || 0).toLocaleString()
-    const paid = Number(client.amount_paid || 0).toLocaleString()
-    const due = Number(client.balance_due || Math.max(0, Number(client.plan_price || 0) - Number(client.amount_paid || 0))).toLocaleString()
-    const text = `你好 ${client.name}，歡迎加入 A2O Style Lab！\n\n我哋已經為你建立會員檔案，之後會根據你嘅身型、風格方向、顏色分析同服務進度，協助你逐步完成形象提升。\n\n你的計劃：Plan ${client.plan || '待確認'}\n計劃金額：HK$${price}\n已付款：HK$${paid}\n尚餘：HK$${due}\n\n服務項目：\n${lines}\n\n之後我哋會喺呢個 WhatsApp group 入面更新你嘅預約、造型建議、顏色分析結果同後續跟進。如有任何問題，可以直接喺呢度問我哋。\n\nA2O Style Lab`
+    const [services, sessions] = await Promise.all([
+      getClientServices(client.id),
+      getServiceSessions(client.id),
+    ])
+
+    const activeServices = services.filter(service => Number(service.count || 0) > 0)
+
+    const serviceBlocks = activeServices.length
+      ? activeServices.map(service => {
+        const serviceCount = Number(service.count || 0)
+        const serviceSessions = sessions
+          .filter(session => session.service_id === service.service_id && session.status !== 'cancelled')
+          .sort((a, b) => `${a.date || ''} ${a.time || ''}`.localeCompare(`${b.date || ''} ${b.time || ''}`))
+
+        if (serviceSessions.length === 0 && isPhotoOrMakeupService(service.name)) {
+          return `${formatServiceTitle(service)}\n待確定`
+        }
+
+        if (serviceSessions.length === 0) {
+          const staffLabel = isHairService(service.name) ? '髮形師' : '負責人'
+          return [
+            formatServiceTitle(service),
+            '日期：待確定',
+            '時間：待確定',
+            `地點：${getDefaultLocation(service.name)}`,
+            `${staffLabel}：待確定`,
+          ].join('\n')
+        }
+
+        const bookedLines = serviceSessions.map(session => {
+          const staffLabel = isHairService(service.name) ? '髮形師' : '負責人'
+          return [
+            `日期：${formatBookingDate(session.date)}`,
+            `時間：${session.time || '待確定'}`,
+            `地點：${session.location || getDefaultLocation(service.name)}`,
+            `${staffLabel}：${session.staff || '待確定'}`,
+          ].join('\n')
+        })
+
+        const remaining = Math.max(0, serviceCount - serviceSessions.length)
+        const remainingLine = remaining > 0 ? [`尚餘 ${remaining} 次待確定`] : []
+
+        return [
+          formatServiceTitle(service),
+          ...bookedLines,
+          ...remainingLine,
+        ].join('\n')
+      }).join('\n\n')
+      : '服務項目待職員更新'
+
+    const deposit = formatMoney(client.amount_paid)
+    const hasBalanceDue = client.balance_due !== null && client.balance_due !== undefined && String(client.balance_due).trim() !== ''
+    const netValue = hasBalanceDue
+      ? Number(client.balance_due)
+      : Math.max(0, Number(client.plan_price || 0) - Number(client.amount_paid || 0))
+    const net = formatMoney(netValue)
+
+    const text = `${client.name}
+A2O Style Lab Confirmed Booking:
+================
+
+${serviceBlocks}
+
+Deposit: $${deposit}
+Net: $${net}
+
+================
+注意事項：
+1. 請【準時】到達約定地點，如遲到造型師有機會需要按原定時間完成造型指導，或於下堂補足時間。
+2. ⁠上穿搭造型指導當日，建議穿一件黑色 或 白色圓領T恤打底。`
     safeCopy(text, client.id + '_welcome')
   }
 

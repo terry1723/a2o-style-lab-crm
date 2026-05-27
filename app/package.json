@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "python3 ../.github/scripts/staff_editing_lite_patch.py",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
