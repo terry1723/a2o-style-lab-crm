@@ -17,6 +17,26 @@ const serviceIcons: Record<string, any> = {
 
 type DashboardTab = 'progress' | 'member-picks'
 
+const formatAppointmentDate = (value?: string) => {
+  if (!value) return '待確定'
+
+  const raw = String(value).trim()
+  if (!raw) return '待確定'
+
+  const dateParts = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (dateParts) return `${Number(dateParts[3])}/${Number(dateParts[2])}`
+
+  const date = new Date(raw)
+  if (!Number.isNaN(date.getTime())) return `${date.getDate()}/${date.getMonth() + 1}`
+
+  return raw
+}
+
+const formatAppointmentTime = (value?: string) => {
+  const raw = String(value || '').trim()
+  return raw || '待確定'
+}
+
 export default function CrmDashboard() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -243,7 +263,10 @@ export default function CrmDashboard() {
                         const Icon = serviceIcons[s.service_id] || Shirt
                         const svcSessions = sessions.filter(sess => sess.service_id === s.service_id)
                         const completedCount = svcSessions.filter(sess => sess.status === 'completed').length
-                        const scheduledCount = svcSessions.filter(sess => sess.status === 'scheduled').length
+                        const scheduledSessions = svcSessions
+                          .filter(sess => sess.status === 'scheduled')
+                          .sort((a, b) => `${a.date || ''} ${a.time || ''}`.localeCompare(`${b.date || ''} ${b.time || ''}`))
+                        const scheduledCount = scheduledSessions.length
                         const remaining = s.count - completedCount
 
                         if (s.count <= 0) {
@@ -298,6 +321,11 @@ export default function CrmDashboard() {
                                   {completedCount > 0 ? `已完成 ${completedCount}/${s.count}` : `共 ${s.count} 次`}
                                   {remaining > 0 && status !== 'completed' ? ` · 剩 ${remaining} 次` : ''}
                                 </span>
+                                {scheduledSessions.length > 0 && (
+                                  <span className="mt-1 text-xs font-medium text-a2o-black/60">
+                                    已預約：{scheduledSessions.map(sess => `${formatAppointmentDate(sess.date)} ${formatAppointmentTime(sess.time)}`).join('、')}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <span className={`text-xs px-2 py-1 rounded-full font-medium ${
