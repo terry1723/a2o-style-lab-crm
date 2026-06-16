@@ -70,9 +70,23 @@ function genId() { return 'c_' + Math.random().toString(36).slice(2) + Date.now(
 // ────────────── SUPABASE CLIENTS API ──────────────
 export async function getAllClients(): Promise<ClientData[]> {
   if (!isSupabaseConfigured()) return getJson(STORAGE_KEYS.clients)
-  const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false })
-  if (error) { console.error('getAllClients error:', error); return getJson(STORAGE_KEYS.clients) }
-  return data || []
+
+  try {
+    const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false })
+    const cachedClients = getJson(STORAGE_KEYS.clients) as ClientData[]
+
+    if (error) {
+      console.error('getAllClients error:', error)
+      return cachedClients
+    }
+
+    const clients = data || []
+    setJson(STORAGE_KEYS.clients, clients)
+    return clients
+  } catch (error) {
+    console.error('getAllClients exception:', error)
+    return getJson(STORAGE_KEYS.clients)
+  }
 }
 
 export async function getClientByPhone(phone: string): Promise<ClientData | null> {
