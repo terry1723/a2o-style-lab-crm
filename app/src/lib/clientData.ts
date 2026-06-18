@@ -71,8 +71,19 @@ function genId() { return 'c_' + Math.random().toString(36).slice(2) + Date.now(
 export async function getAllClients(): Promise<ClientData[]> {
   if (!isSupabaseConfigured()) return getJson(STORAGE_KEYS.clients)
 
+  const listColumns = [
+    'id', 'name', 'phone', 'age', 'occupation', 'height', 'weight',
+    'shoulder_width', 'waist_size', 'pant_length', 'shoe_size',
+    'body_type', 'body_remark', 'pain_point', 'favorite_style',
+    'purpose', 'lifestyle', 'desired_effect', 'budget', 'plan',
+    'plan_price', 'amount_paid', 'balance_due', 'pic', 'seasonal_type',
+    'suitable_colors', 'avoid_colors', 'materials', 'metals', 'glasses',
+    'watch', 'color_strategy', 'neutral_colors', 'color_notes', 'status',
+    'created_at',
+  ].join(',')
+
   try {
-    const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('clients').select(listColumns).order('created_at', { ascending: false })
     const cachedClients = getJson(STORAGE_KEYS.clients) as ClientData[]
 
     if (error) {
