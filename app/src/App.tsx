@@ -8,6 +8,7 @@ import CrmDashboard from './pages/CrmDashboard'
 import Portal from './pages/Portal'
 import PortalStaff from './pages/PortalStaff'
 import PublicProducts from './pages/PublicProducts'
+import SupabaseDebug from './pages/SupabaseDebug'
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/crm/dashboard" element={<CrmDashboard />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/portal/staff" element={<PortalStaff />} />
+      <Route path="/debug/supabase" element={<SupabaseDebug />} />
     </Routes>
   )
 }
