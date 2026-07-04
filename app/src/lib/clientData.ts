@@ -95,7 +95,7 @@ export async function getAllClients(): Promise<ClientData[]> {
   try {
     const query = supabase
       .from('clients')
-      .select('id,name,phone,age,occupation,height,weight,shoulder_width,waist_size,pant_length,shoe_size,body_type,body_remark,pain_point,favorite_style,purpose,lifestyle,desired_effect,budget,plan,plan_price,amount_paid,balance_due,pic,seasonal_type,suitable_colors,avoid_colors,materials,metals,glasses,watch,color_strategy,neutral_colors,color_notes,status,created_at')
+      .select('id,name,phone,age,occupation,height,weight,shoulder_width,waist_size,pant_length,shoe_size,body_type,body_remark,pain_point,favorite_style,purpose,lifestyle,desired_effect,budget,plan,plan_price,amount_paid,balance_due,pic,before_photo,seasonal_type,suitable_colors,avoid_colors,materials,metals,glasses,watch,color_strategy,neutral_colors,color_notes,status,created_at')
       .order('created_at', { ascending: false }) as unknown as Promise<{ data: ClientData[] | null; error: any }>
 
     const { data, error } = await query
