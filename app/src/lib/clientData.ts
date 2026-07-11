@@ -93,9 +93,23 @@ export async function getAllClients(): Promise<ClientData[]> {
   if (!isSupabaseConfigured()) return getJson<ClientData[]>(STORAGE_KEYS.clients)
 
   try {
+    // Keep the staff CRM list query lightweight. Large photo fields are loaded only
+    // when opening an individual client, otherwise Supabase responses can become
+    // too large and make the portal look disconnected.
+    const listColumns = [
+      'id', 'name', 'phone', 'age', 'occupation', 'height', 'weight',
+      'shoulder_width', 'waist_size', 'pant_length', 'shoe_size',
+      'body_type', 'body_remark', 'pain_point', 'favorite_style',
+      'purpose', 'lifestyle', 'desired_effect', 'budget', 'plan',
+      'plan_price', 'amount_paid', 'balance_due', 'pic', 'seasonal_type',
+      'suitable_colors', 'avoid_colors', 'materials', 'metals', 'glasses',
+      'watch', 'color_strategy', 'neutral_colors', 'color_notes', 'status',
+      'created_at',
+    ].join(',')
+
     const query = supabase
       .from('clients')
-      .select('id,name,phone,age,occupation,height,weight,shoulder_width,waist_size,pant_length,shoe_size,body_type,body_remark,pain_point,favorite_style,purpose,lifestyle,desired_effect,budget,plan,plan_price,amount_paid,balance_due,pic,before_photo,seasonal_type,suitable_colors,avoid_colors,materials,metals,glasses,watch,color_strategy,neutral_colors,color_notes,status,created_at')
+      .select(listColumns)
       .order('created_at', { ascending: false }) as unknown as Promise<{ data: ClientData[] | null; error: any }>
 
     const { data, error } = await query
