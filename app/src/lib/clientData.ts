@@ -89,42 +89,51 @@ function genId() {
   return 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
+const normalizeClient = (row: any): ClientData => ({
+  id: String(row?.id || ''),
+  name: String(row?.name || ''),
+  phone: String(row?.phone || ''),
+  ...row,
+  plan: row?.plan || '',
+  plan_price: Number(row?.plan_price || 0),
+  amount_paid: Number(row?.amount_paid || 0),
+  balance_due: Number(row?.balance_due || 0),
+  status: row?.status || 'active',
+})
+
 export async function getAllClients(): Promise<ClientData[]> {
   if (!isSupabaseConfigured()) return getJson<ClientData[]>(STORAGE_KEYS.clients)
 
-  try {
-    // Keep the staff CRM list query lightweight. Large photo fields are loaded only
-    // when opening an individual client, otherwise Supabase responses can become
-    // too large and make the portal look disconnected.
-    const listColumns = [
-      'id', 'name', 'phone', 'age', 'occupation', 'height', 'weight',
-      'shoulder_width', 'waist_size', 'pant_length', 'shoe_size',
-      'body_type', 'body_remark', 'pain_point', 'favorite_style',
-      'purpose', 'lifestyle', 'desired_effect', 'budget', 'plan',
-      'plan_price', 'amount_paid', 'balance_due', 'pic', 'seasonal_type',
-      'suitable_colors', 'avoid_colors', 'materials', 'metals', 'glasses',
-      'watch', 'color_strategy', 'neutral_colors', 'color_notes', 'status',
-      'created_at',
-    ].join(',')
+  const columnSets = [
+    'id,name,phone,age,occupation,height,weight,shoulder_width,waist_size,pant_length,shoe_size,body_type,body_remark,pain_point,favorite_style,purpose,lifestyle,desired_effect,budget,plan,plan_price,amount_paid,balance_due,pic,seasonal_type,suitable_colors,avoid_colors,materials,metals,glasses,watch,color_strategy,neutral_colors,color_notes,status,created_at',
+    'id,name,phone,occupation,plan,plan_price,amount_paid,balance_due,status,created_at',
+    'id,name,phone,status,created_at',
+    'id,name,phone',
+  ]
 
-    const query = supabase
-      .from('clients')
-      .select(listColumns)
-      .order('created_at', { ascending: false }) as unknown as Promise<{ data: ClientData[] | null; error: any }>
+  let lastError: any = null
+  for (const columns of columnSets) {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select(columns)
+        .order('created_at', { ascending: false })
 
-    const { data, error } = await query
-    if (error) {
-      console.error('getAllClients error:', error)
-      return getJson<ClientData[]>(STORAGE_KEYS.clients)
+      if (!error) {
+        const clients = (data || []).map(normalizeClient)
+        setJson(STORAGE_KEYS.clients, clients)
+        localStorage.removeItem('a2o_last_supabase_error')
+        return clients
+      }
+      lastError = error
+    } catch (error) {
+      lastError = error
     }
-
-    const clients = data || []
-    setJson(STORAGE_KEYS.clients, clients)
-    return clients
-  } catch (error) {
-    console.error('getAllClients exception:', error)
-    return getJson<ClientData[]>(STORAGE_KEYS.clients)
   }
+
+  console.error('getAllClients failed:', lastError)
+  localStorage.setItem('a2o_last_supabase_error', JSON.stringify(lastError || {}))
+  return getJson<ClientData[]>(STORAGE_KEYS.clients)
 }
 
 export async function getClientByPhone(phone: string): Promise<ClientData | null> {
@@ -132,13 +141,12 @@ export async function getClientByPhone(phone: string): Promise<ClientData | null
   if (!isSupabaseConfigured()) {
     return getJson<ClientData[]>(STORAGE_KEYS.clients).find(c => c.phone.replace(/^\+852/, '').replace(/\s/g, '') === clean) || null
   }
-
   const { data, error } = await supabase.from('clients').select('*').ilike('phone', '%' + clean + '%').limit(1)
   if (error) {
     console.error('getClientByPhone error:', error)
     return null
   }
-  return ((data || [])[0] || null) as ClientData | null
+  return data?.[0] ? normalizeClient(data[0]) : null
 }
 
 export async function getClientById(id: string): Promise<ClientData | null> {
@@ -148,7 +156,7 @@ export async function getClientById(id: string): Promise<ClientData | null> {
     console.error('getClientById error:', error)
     return null
   }
-  return data as ClientData | null
+  return data ? normalizeClient(data) : null
 }
 
 export async function saveClient(data: Partial<ClientData>): Promise<ClientData> {
@@ -158,7 +166,7 @@ export async function saveClient(data: Partial<ClientData>): Promise<ClientData>
   if (!isSupabaseConfigured()) {
     const clients = getJson<ClientData[]>(STORAGE_KEYS.clients)
     const index = clients.findIndex(c => c.id === id)
-    const client = { ...(index >= 0 ? clients[index] : {}), ...payload, status: payload.status || 'active' } as ClientData
+    const client = normalizeClient({ ...(index >= 0 ? clients[index] : {}), ...payload })
     if (index >= 0) clients[index] = client
     else clients.push(client)
     setJson(STORAGE_KEYS.clients, clients)
@@ -171,7 +179,7 @@ export async function saveClient(data: Partial<ClientData>): Promise<ClientData>
     : await supabase.from('clients').insert({ ...payload, created_at: new Date().toISOString() }).select().maybeSingle()
 
   if (result.error) throw result.error
-  return result.data as ClientData
+  return normalizeClient(result.data)
 }
 
 export async function getClientServices(clientId: string): Promise<ServiceItem[]> {
@@ -218,13 +226,11 @@ export async function saveServiceSession(session: ServiceSession): Promise<boole
     setJson(STORAGE_KEYS.sessions, all)
     return true
   }
-
   const result = session.id
     ? await supabase.from('service_sessions').update(session).eq('id', session.id)
     : await supabase.from('service_sessions').insert({ ...session, id: crypto?.randomUUID ? crypto.randomUUID() : genId() })
-
   if (result.error) console.error('saveServiceSession error:', result.error)
-  return true
+  return !result.error
 }
 
 export async function deleteServiceSession(sessionId: string): Promise<boolean> {
@@ -234,7 +240,7 @@ export async function deleteServiceSession(sessionId: string): Promise<boolean> 
   }
   const { error } = await supabase.from('service_sessions').delete().eq('id', sessionId)
   if (error) console.error('deleteServiceSession error:', error)
-  return true
+  return !error
 }
 
 export async function registerUser(user: Omit<UserAccount, 'id'>): Promise<UserAccount | null> {
@@ -247,11 +253,9 @@ export async function registerUser(user: Omit<UserAccount, 'id'>): Promise<UserA
     setJson(STORAGE_KEYS.users, users)
     return newUser
   }
-
   const { data: existing, error: existsError } = await supabase.from('users_custom').select('phone').eq('phone', cleanPhone).maybeSingle()
   if (existsError) throw new Error('查詢失敗：' + existsError.message)
   if (existing) return null
-
   const { data, error } = await supabase.from('users_custom').insert({
     id: 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
     phone: cleanPhone,
@@ -259,7 +263,6 @@ export async function registerUser(user: Omit<UserAccount, 'id'>): Promise<UserA
     name: user.name,
     role: 'client',
   }).select().maybeSingle()
-
   if (error) throw new Error('註冊失敗：' + error.message)
   return data as UserAccount
 }
@@ -275,7 +278,6 @@ export async function loginUser(phone: string, password: string): Promise<UserAc
     if (user) localStorage.setItem(STORAGE_KEYS.login, JSON.stringify(user))
     return user || null
   }
-
   const { data, error } = await supabase.from('users_custom').select('*').eq('phone', cleanPhone).eq('password', password).maybeSingle()
   if (error) throw new Error('登入查詢失敗：' + error.message)
   if (data) localStorage.setItem(STORAGE_KEYS.login, JSON.stringify(data))
