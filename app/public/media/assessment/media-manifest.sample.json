@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "experienceId": "a2o-image-assessment-placeholder",
+  "videoSpec": {
+    "aspectRatio": "9:16",
+    "resolution": "720x1280",
+    "fps": 30,
+    "videoCodec": "H.264",
+    "audioCodec": "AAC"
+  },
+  "scenes": [
+    {
+      "id": "scene-01",
+      "order": 1,
+      "video": "scene-01-sofa-placeholder.mp4",
+      "questionCueSeconds": 3.4,
+      "questionId": "q1",
+      "transitionToNext": "transition-01-placeholder.mp4"
+    },
+    {
+      "id": "scene-02",
+      "order": 2,
+      "video": "scene-02-wardrobe-placeholder.mp4",
+      "questionCueSeconds": 3.4,
+      "questionId": "q2",
+      "transitionToNext": "transition-02-placeholder.mp4"
+    },
+    {
+      "id": "scene-03",
+      "order": 3,
+      "video": "scene-03-mirror-placeholder.mp4",
+      "questionCueSeconds": 3.4,
+      "questionId": "q3",
+      "transitionToNext": "transition-03-placeholder.mp4"
+    },
+    {
+      "id": "scene-04",
+      "order": 4,
+      "video": "scene-04-consultation-placeholder.mp4",
+      "questionCueSeconds": 3.4,
+      "questionId": "q4",
+      "transitionToNext": "transition-04-placeholder.mp4"
+    },
+    {
+      "id": "scene-05",
+      "order": 5,
+      "video": "scene-05-hero-placeholder.mp4",
+      "questionCueSeconds": 3.4,
+      "questionId": "q5",
+      "transitionToNext": null
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "type": "single",
+      "title": "你目前最大嘅形象困擾係咩？",
+      "options": [
+        {
+          "id": "q1_a",
+          "label": "買咗好多衫，但仍然唔識襯"
+        },
+        {
+          "id": "q1_b",
+          "label": "望落唔夠精神"
+        },
+        {
+          "id": "q1_c",
+          "label": "工作見人時唔夠成熟專業"
+        },
+        {
+          "id": "q1_d",
+          "label": "整體形象太普通"
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "single",
+      "title": "你最想喺邊個場合提升形象？",
+      "options": [
+        {
+          "id": "q2_a",
+          "label": "返工／見客"
+        },
+        {
+          "id": "q2_b",
+          "label": "約會／社交"
+        },
+        {
+          "id": "q2_c",
+          "label": "面試／轉工"
+        },
+        {
+          "id": "q2_d",
+          "label": "日常生活"
+        }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "multi",
+      "maxSelections": 3,
+      "title": "你最希望別人點樣形容你？",
+      "options": [
+        {
+          "id": "q3_a",
+          "label": "成熟可靠"
+        },
+        {
+          "id": "q3_b",
+          "label": "專業可信"
+        },
+        {
+          "id": "q3_c",
+          "label": "乾淨精神"
+        },
+        {
+          "id": "q3_d",
+          "label": "有品味"
+        }
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "multi",
+      "maxSelections": 3,
+      "title": "你覺得自己最需要改善邊幾項？",
+      "options": [
+        {
+          "id": "q4_a",
+          "label": "髮型"
+        },
+        {
+          "id": "q4_b",
+          "label": "皮膚／精神面貌"
+        },
+        {
+          "id": "q4_c",
+          "label": "身形比例"
+        },
+        {
+          "id": "q4_d",
+          "label": "穿搭配搭"
+        }
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "single",
+      "title": "你希望幾時真正開始改變？",
+      "options": [
+        {
+          "id": "q5_a",
+          "label": "兩星期內"
+        },
+        {
+          "id": "q5_b",
+          "label": "一個月內"
+        },
+        {
+          "id": "q5_c",
+          "label": "三個月內"
+        },
+        {
+          "id": "q5_d",
+          "label": "暫時先了解"
+        }
+      ]
+    }
+  ]
+}
