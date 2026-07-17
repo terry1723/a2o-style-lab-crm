@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { verifyStaff } from '../lib/clientData'
+import { verifyStaffDb } from '../lib/clientData'
 import { LogIn, ArrowLeft, Eye, EyeOff } from 'lucide-react'
 
 export default function Portal() {
@@ -9,17 +9,22 @@ export default function Portal() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [showPin, setShowPin] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!pin.trim()) {
-      setError('請輸入密碼')
+      setError('請輸入員工 PIN')
       return
     }
-    if (verifyStaff(pin)) {
+    setLoading(true)
+    setError('')
+    const staff = await verifyStaffDb(pin.trim())
+    setLoading(false)
+    if (staff) {
       localStorage.setItem('a2o_staff_auth', 'true')
       navigate('/portal/staff')
     } else {
-      setError('密碼錯誤')
+      setError('PIN 錯誤')
     }
   }
 
@@ -36,7 +41,7 @@ export default function Portal() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-a2o-black mb-1.5">員工密碼</label>
+              <label className="block text-sm font-medium text-a2o-black mb-1.5">員工 PIN</label>
               <div className="relative">
                 <input
                   type={showPin ? 'text' : 'password'}
@@ -44,9 +49,9 @@ export default function Portal() {
                   onChange={e => setPin(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleLogin()}
                   className="w-full px-4 py-3 rounded-xl border border-a2o-warm bg-a2o-beige/50 focus:outline-none focus:ring-2 focus:ring-a2o-pink/50 text-a2o-black pr-12"
-                  placeholder="輸入員工密碼"
+                  placeholder="輸入員工 PIN"
                 />
-                <button onClick={() => setShowPin(!showPin)} className="absolute right-3 top-1/2 -translate-y-1/2 text-a2o-black/40">
+                <button type="button" onClick={() => setShowPin(!showPin)} className="absolute right-3 top-1/2 -translate-y-1/2 text-a2o-black/40">
                   {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
@@ -58,8 +63,8 @@ export default function Portal() {
               </motion.div>
             )}
 
-            <button onClick={handleLogin} className="w-full btn-primary justify-center">
-              <LogIn className="w-4 h-4" /> 登入
+            <button onClick={handleLogin} disabled={loading} className="w-full btn-primary justify-center disabled:opacity-60">
+              <LogIn className="w-4 h-4" /> {loading ? '登入中...' : '登入'}
             </button>
           </div>
 
