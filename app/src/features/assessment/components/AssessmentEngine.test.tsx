@@ -241,6 +241,63 @@ describe('AssessmentEngine media layers', () => {
     expect(screen.getByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
   })
 
+  it('ignores active-buffer errors outside the current playback lifecycle', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.error(firstVideo)
+    expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.ended(firstVideo)
+    fireEvent.error(firstVideo)
+    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
+    fireEvent.error(firstVideo)
+    expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
+  })
+
+  it('reloads an errored active video inside recovery before retrying playback', async () => {
+    let q1Reloaded = false
+    const recoveryOrder: string[] = []
+    const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(function (this: HTMLMediaElement) {
+      if (this.getAttribute('src')?.includes('question-01')) {
+        q1Reloaded = true
+        recoveryOrder.push('load')
+      }
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      if (!this.getAttribute('src')?.includes('question-01')) return Promise.resolve()
+      recoveryOrder.push('play')
+      return q1Reloaded
+        ? Promise.resolve()
+        : Promise.reject(new Error('media element remains errored until reload'))
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    expect(await screen.findByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
+    expect(load.mock.instances).not.toContain(firstVideo)
+
+    recoveryOrder.length = 0
+    fireEvent.click(screen.getByRole('button', { name: '點擊播放影片' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
+    })
+
+    expect(recoveryOrder).toEqual(['load', 'play'])
+    expect(screen.queryByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).not.toBeInTheDocument()
+    fireEvent.ended(firstVideo)
+    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+  })
+
   it('prepares the inactive q2 buffer with load/current data and no hidden playback', async () => {
     const playSnapshots: HTMLMediaElement[] = []
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {

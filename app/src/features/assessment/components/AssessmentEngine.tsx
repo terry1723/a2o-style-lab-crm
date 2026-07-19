@@ -93,6 +93,8 @@ export function AssessmentEngine() {
   const isQuestionVisible = state.status === 'showing_question' || state.status === 'submitting_answer'
   const isTransitioning = state.status === 'transitioning'
   const isReady = state.status === 'ready' || state.status === 'boot'
+  const renderGeneration = generationRef.current
+  const renderSceneIndex = state.currentSceneIndex
 
   useEffect(() => {
     dispatch({ type: 'BOOT_READY' })
@@ -173,9 +175,18 @@ export function AssessmentEngine() {
     if (completionTimerRef.current !== null) window.clearTimeout(completionTimerRef.current)
   }, [])
 
-  const reportActiveSceneLoadError = (activeBuffer: 0 | 1) => {
+  const reportActiveSceneLoadError = (
+    activeBuffer: 0 | 1,
+    expectedGeneration: number,
+    expectedSceneIndex: number,
+  ) => {
     const live = stateRef.current
-    if (live.activeBuffer !== activeBuffer) return
+    if (
+      generationRef.current !== expectedGeneration
+      || live.currentSceneIndex !== expectedSceneIndex
+      || live.activeBuffer !== activeBuffer
+      || !['playing_scene', 'playing_next_scene'].includes(live.status)
+    ) return
     const activeScene = scenes[live.currentSceneIndex]
     if (!activeScene) return
     playbackMonitorCleanupRef.current?.()
@@ -256,6 +267,7 @@ export function AssessmentEngine() {
         generationRef.current !== generation
         || live.currentSceneIndex !== sceneIndex
         || live.activeBuffer !== activeBuffer
+        || !['playing_scene', 'playing_next_scene'].includes(live.status)
       ) return
       cleanupMonitor()
       dispatch({ type: 'SET_PLAYBACK_ISSUE', message: error })
@@ -500,22 +512,66 @@ export function AssessmentEngine() {
   const resumePlayback = () => {
     const video = activeVideo()
     if (!video) return
+    const recoveryGeneration = generationRef.current
+    const recoverySceneIndex = state.currentSceneIndex
+    const recoveryBuffer = state.activeBuffer
+    const isRecoveryCurrent = () => {
+      const live = stateRef.current
+      return generationRef.current === recoveryGeneration
+        && live.currentSceneIndex === recoverySceneIndex
+        && live.activeBuffer === recoveryBuffer
+        && ['playing_scene', 'playing_next_scene'].includes(live.status)
+        && activeVideo() === video
+    }
+
+    playbackMonitorCleanupRef.current?.()
+    playbackMonitorCleanupRef.current = null
+    video.pause()
+    try {
+      video.load()
+    } catch {
+      // A play attempt in the recovery gesture can still succeed even when a
+      // browser throws while explicitly reloading the failed resource.
+    }
+    try {
+      video.currentTime = 0
+    } catch {
+      // Metadata may not be available until after the synchronous play call.
+    }
+    video.muted = state.muted
     const reportVisiblePlaybackIssue = monitorVisiblePlayback(
       video,
-      generationRef.current,
-      state.currentSceneIndex,
-      state.activeBuffer,
+      recoveryGeneration,
+      recoverySceneIndex,
+      recoveryBuffer,
       currentScene.id,
     )
-    void video.play()
-      .then(() => dispatch({ type: 'SET_PLAYBACK_ISSUE' }))
-      .catch(() => {
-        video.muted = true
-        dispatch({ type: 'SET_MUTED', muted: true })
+
+    const clearPlaybackIssue = () => {
+      if (isRecoveryCurrent()) dispatch({ type: 'SET_PLAYBACK_ISSUE' })
+    }
+    const retryMuted = () => {
+      if (!isRecoveryCurrent()) return
+      video.muted = true
+      dispatch({ type: 'SET_MUTED', muted: true })
+      try {
         void video.play()
-          .then(() => dispatch({ type: 'SET_PLAYBACK_ISSUE' }))
+          .then(clearPlaybackIssue)
           .catch(() => reportVisiblePlaybackIssue('manual_play_rejected'))
-      })
+      } catch {
+        reportVisiblePlaybackIssue('manual_play_rejected')
+      }
+    }
+
+    try {
+      void video.play()
+        .then(clearPlaybackIssue)
+        .catch(() => {
+          retryMuted()
+        })
+    } catch {
+      retryMuted()
+    }
   }
 
   const restart = () => {
@@ -584,7 +640,7 @@ export function AssessmentEngine() {
           active={state.activeBuffer === 0}
           muted={state.activeBuffer === 0 ? state.muted : true}
           onEnded={showQuestion}
-          onError={() => reportActiveSceneLoadError(0)}
+          onError={() => reportActiveSceneLoadError(0, renderGeneration, renderSceneIndex)}
         />
         <SceneVideoBuffer
           ref={sceneBRef}
@@ -593,7 +649,7 @@ export function AssessmentEngine() {
           active={state.activeBuffer === 1}
           muted={state.activeBuffer === 1 ? state.muted : true}
           onEnded={showQuestion}
-          onError={() => reportActiveSceneLoadError(1)}
+          onError={() => reportActiveSceneLoadError(1, renderGeneration, renderSceneIndex)}
         />
         <TransitionVideoLayer
           ref={transitionRef}
