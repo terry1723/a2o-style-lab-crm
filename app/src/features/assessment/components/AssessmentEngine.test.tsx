@@ -15,10 +15,24 @@ function installAsyncFrameCallbacks(video: HTMLVideoElement) {
   return requestFrame
 }
 
+async function advanceViaFallbacksToFinalQuestion(container: HTMLElement) {
+  const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+  fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+  fireEvent.ended(firstVideo)
+
+  for (const answerName of ['6', '見客、銷售或傾生意', '客戶信任同成交機會']) {
+    const answer = await screen.findByRole('radio', { name: answerName })
+    await waitFor(() => expect(answer).toBeEnabled())
+    fireEvent.click(answer)
+  }
+
+  return screen.findByRole('radio', { name: '髮型同頭部輪廓' })
+}
+
 describe('AssessmentEngine media layers', () => {
   beforeEach(() => {
-    vi.useRealTimers()
     vi.restoreAllMocks()
+    vi.useRealTimers()
     localStorage.clear()
     sessionStorage.clear()
   })
@@ -94,6 +108,122 @@ describe('AssessmentEngine media layers', () => {
 
     expect(await screen.findByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
     expect(screen.getAllByRole('radio')).toHaveLength(10)
+  })
+
+  it('shows manual recovery when q1 visible playback never starts or progresses', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockReturnValue(new Promise<void>(() => undefined))
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    render(<AssessmentEngine />)
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
+  })
+
+  it('resets the visible playback deadline on progress', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    for (const currentTime of [1, 2, 3]) {
+      await act(async () => {
+        vi.advanceTimersByTime(3000)
+        Object.defineProperty(firstVideo, 'currentTime', { configurable: true, value: currentTime })
+        fireEvent.timeUpdate(firstVideo)
+      })
+    }
+
+    expect(screen.queryByText('影片暫停了，你仍然可以繼續診斷。')).not.toBeInTheDocument()
+  })
+
+  it('reinstalls the visible playback watchdog after manual recovery', async () => {
+    vi.useFakeTimers()
+    let playCount = 0
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => {
+      playCount += 1
+      return playCount === 1 ? new Promise<void>(() => undefined) : Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    render(<AssessmentEngine />)
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+      await Promise.resolve()
+    })
+    fireEvent.click(screen.getByRole('button', { name: '點擊繼續播放' }))
+    await act(async () => Promise.resolve())
+    expect(screen.queryByText('影片暫停了，你仍然可以繼續診斷。')).not.toBeInTheDocument()
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+      await Promise.resolve()
+    })
+    expect(screen.getByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
+  })
+
+  it('does not classify the pause preceding natural media completion as a playback issue', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    Object.defineProperty(firstVideo, 'ended', { configurable: true, value: true })
+    fireEvent.pause(firstVideo)
+
+    expect(screen.queryByText('影片暫停了，你仍然可以繼續診斷。')).not.toBeInTheDocument()
+    fireEvent.ended(firstVideo)
+    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+  })
+
+  it('does not let repeated waiting or stalled events extend the no-progress deadline', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+      fireEvent(firstVideo, new Event('waiting'))
+      vi.advanceTimersByTime(1000)
+      fireEvent(firstVideo, new Event('playing'))
+      vi.advanceTimersByTime(1000)
+      fireEvent(firstVideo, new Event('stalled'))
+      vi.advanceTimersByTime(1100)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
+  })
+
+  it('cleans the visible watchdog when a scene error falls back to its question', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.error(firstVideo)
+    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByText('影片暫停了，你仍然可以繼續診斷。')).not.toBeInTheDocument()
   })
 
   it('prepares the inactive q2 buffer silently on decoded frames while q1 is active', async () => {
@@ -253,6 +383,70 @@ describe('AssessmentEngine media layers', () => {
 
     expect(await screen.findByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
+  })
+
+  it('shows manual recovery when visible q2 later stalls', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get').mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA)
+    const user = userEvent.setup()
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+    const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
+    installAsyncFrameCallbacks(secondVideo)
+    await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.ended(firstVideo)
+    const answer = await screen.findByRole('radio', { name: '6' })
+    await waitFor(() => expect(answer).toBeEnabled())
+    vi.useFakeTimers()
+    fireEvent.click(answer)
+    expect(secondVideo).toHaveClass('z-10')
+
+    fireEvent(secondVideo, new Event('stalled'))
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+      await Promise.resolve()
+    })
+    expect(screen.getByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
+  })
+
+  it('does not finish a stale q4 submission after restart', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      return this.muted ? Promise.reject(new Error('skip background preparation')) : Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const q4Answer = await advanceViaFallbacksToFinalQuestion(container)
+    vi.useFakeTimers()
+    fireEvent.click(q4Answer)
+    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument()
+    expect(screen.queryByText('你的初步形象分析')).not.toBeInTheDocument()
+  })
+
+  it('clears a pending q4 completion when the assessment unmounts', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      return this.muted ? Promise.reject(new Error('skip background preparation')) : Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container, unmount } = render(<AssessmentEngine />)
+    const q4Answer = await advanceViaFallbacksToFinalQuestion(container)
+
+    vi.useFakeTimers()
+    const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout')
+    fireEvent.click(q4Answer)
+    const completionTimerCall = setTimeoutSpy.mock.calls.findIndex(([, delay]) => delay === 100 || delay === 320)
+    const completionTimer = setTimeoutSpy.mock.results[completionTimerCall]?.value
+    expect(completionTimer).toBeDefined()
+    unmount()
+
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(completionTimer)
   })
 
   it('cancels deferred q2 preparation on restart without a stale buffer swap', async () => {

@@ -70,6 +70,7 @@ export function AssessmentEngine() {
   const preparationRef = useRef<NextPreparation | null>(null)
   const transitionControllerRef = useRef<AbortController | null>(null)
   const playbackMonitorCleanupRef = useRef<(() => void) | null>(null)
+  const completionTimerRef = useRef<number | null>(null)
   const [, setPreparationRevision] = useState(0)
   const [submittingLead, setSubmittingLead] = useState(false)
   const [leadSubmitted, setLeadSubmitted] = useState(false)
@@ -192,18 +193,12 @@ export function AssessmentEngine() {
     preparationRef.current?.controller.abort()
     transitionControllerRef.current?.abort()
     playbackMonitorCleanupRef.current?.()
+    if (completionTimerRef.current !== null) window.clearTimeout(completionTimerRef.current)
   }, [])
 
-  const reportPlaybackIssue = (message: string) => {
-    dispatch({ type: 'SET_PLAYBACK_ISSUE', message })
-    trackAssessmentEvent('video_playback_error', {
-      session_id: state.sessionId,
-      scene_id: currentScene.id,
-      error: message,
-    })
-  }
-
   const fallBackToCurrentQuestion = (message: string) => {
+    playbackMonitorCleanupRef.current?.()
+    playbackMonitorCleanupRef.current = null
     trackAssessmentEvent('video_playback_error', {
       session_id: state.sessionId,
       scene_id: currentScene.id,
@@ -219,7 +214,16 @@ export function AssessmentEngine() {
       return
     }
     video.muted = state.muted
-    void video.play().catch(() => fallBackToCurrentQuestion('play_rejected'))
+    monitorVisiblePlayback(
+      video,
+      generationRef.current,
+      state.currentSceneIndex,
+      state.activeBuffer,
+      currentScene.id,
+    )
+    void video.play().catch(() => {
+      fallBackToCurrentQuestion('play_rejected')
+    })
     dispatch({ type: 'START' })
     void createAssessmentSession(state.sessionId, attribution)
     trackAssessmentEvent('assessment_start', {
@@ -230,6 +234,8 @@ export function AssessmentEngine() {
 
   const showQuestion = () => {
     if (state.status !== 'playing_scene') return
+    playbackMonitorCleanupRef.current?.()
+    playbackMonitorCleanupRef.current = null
     dispatch({ type: 'SHOW_QUESTION' })
     trackAssessmentEvent('question_shown', {
       session_id: state.sessionId,
@@ -243,13 +249,30 @@ export function AssessmentEngine() {
     if (video && video.currentTime >= currentScene.questionCueSeconds) showQuestion()
   }
 
-  const monitorVisiblePlayback = (
+  function monitorVisiblePlayback(
     video: HTMLVideoElement,
     generation: number,
     sceneIndex: number,
     activeBuffer: 0 | 1,
     sceneId: string,
-  ) => {
+  ) {
+    let monitorTimeout: number | null = null
+    let lastCurrentTime = video.currentTime
+
+    const cleanupMonitor = () => {
+      if (monitorTimeout !== null) window.clearTimeout(monitorTimeout)
+      monitorTimeout = null
+      video.removeEventListener('pause', onPause)
+      video.removeEventListener('waiting', onWaiting)
+      video.removeEventListener('stalled', onStalled)
+      video.removeEventListener('playing', onPlaying)
+      video.removeEventListener('timeupdate', onTimeUpdate)
+      video.removeEventListener('ended', cleanupMonitor)
+      if (playbackMonitorCleanupRef.current === cleanupMonitor) {
+        playbackMonitorCleanupRef.current = null
+      }
+    }
+
     const reportIssue = (error: string) => {
       const live = stateRef.current
       if (
@@ -257,6 +280,7 @@ export function AssessmentEngine() {
         || live.currentSceneIndex !== sceneIndex
         || live.activeBuffer !== activeBuffer
       ) return
+      cleanupMonitor()
       dispatch({ type: 'SET_PLAYBACK_ISSUE', message: error })
       trackAssessmentEvent('video_playback_error', {
         session_id: live.sessionId,
@@ -265,20 +289,43 @@ export function AssessmentEngine() {
       })
     }
 
-    playbackMonitorCleanupRef.current?.()
-    const onPolicyPause = () => reportIssue('next_scene_policy_paused')
-    video.addEventListener('pause', onPolicyPause, { once: true })
-    const monitorTimeout = window.setTimeout(() => {
-      video.removeEventListener('pause', onPolicyPause)
-      if (playbackMonitorCleanupRef.current === cleanupMonitor) {
-        playbackMonitorCleanupRef.current = null
-      }
-    }, 1000)
-    const cleanupMonitor = () => {
-      window.clearTimeout(monitorTimeout)
-      video.removeEventListener('pause', onPolicyPause)
+    const ensureDeadline = () => {
+      if (monitorTimeout !== null) return
+      monitorTimeout = window.setTimeout(
+        () => reportIssue('visible_scene_no_progress'),
+        4000,
+      )
     }
+    const resetDeadline = () => {
+      if (monitorTimeout !== null) window.clearTimeout(monitorTimeout)
+      monitorTimeout = null
+      ensureDeadline()
+    }
+    const onPause = () => {
+      if (video.ended) {
+        cleanupMonitor()
+        return
+      }
+      reportIssue('visible_scene_paused')
+    }
+    const onWaiting = () => ensureDeadline()
+    const onStalled = () => ensureDeadline()
+    const onPlaying = () => ensureDeadline()
+    const onTimeUpdate = () => {
+      if (video.currentTime <= lastCurrentTime + 0.01) return
+      lastCurrentTime = video.currentTime
+      resetDeadline()
+    }
+
+    playbackMonitorCleanupRef.current?.()
+    video.addEventListener('pause', onPause)
+    video.addEventListener('waiting', onWaiting)
+    video.addEventListener('stalled', onStalled)
+    video.addEventListener('playing', onPlaying)
+    video.addEventListener('timeupdate', onTimeUpdate)
+    video.addEventListener('ended', cleanupMonitor)
     playbackMonitorCleanupRef.current = cleanupMonitor
+    ensureDeadline()
     return reportIssue
   }
 
@@ -438,10 +485,22 @@ export function AssessmentEngine() {
     void persistAssessmentAnswer(state.sessionId, currentScene.question.id, optionIds)
 
     if (!nextScene) {
-      window.setTimeout(() => {
+      if (completionTimerRef.current !== null) window.clearTimeout(completionTimerRef.current)
+      const completionGeneration = generationRef.current
+      const completionSessionId = state.sessionId
+      const completionSceneIndex = state.currentSceneIndex
+      completionTimerRef.current = window.setTimeout(() => {
+        completionTimerRef.current = null
+        const live = stateRef.current
+        if (
+          generationRef.current !== completionGeneration
+          || live.sessionId !== completionSessionId
+          || live.currentSceneIndex !== completionSceneIndex
+          || live.status !== 'submitting_answer'
+        ) return
         dispatch({ type: 'FINISH' })
         trackAssessmentEvent('assessment_completed', {
-          session_id: state.sessionId,
+          session_id: completionSessionId,
           result_type: calculateAssessmentResult(
             assessmentConfig,
             { ...state.answers, [currentScene.question.id]: optionIds },
@@ -459,6 +518,13 @@ export function AssessmentEngine() {
   const resumePlayback = () => {
     const video = activeVideo()
     if (!video) return
+    const reportVisiblePlaybackIssue = monitorVisiblePlayback(
+      video,
+      generationRef.current,
+      state.currentSceneIndex,
+      state.activeBuffer,
+      currentScene.id,
+    )
     void video.play()
       .then(() => dispatch({ type: 'SET_PLAYBACK_ISSUE' }))
       .catch(() => {
@@ -466,11 +532,13 @@ export function AssessmentEngine() {
         dispatch({ type: 'SET_MUTED', muted: true })
         void video.play()
           .then(() => dispatch({ type: 'SET_PLAYBACK_ISSUE' }))
-          .catch(() => reportPlaybackIssue('manual_play_rejected'))
+          .catch(() => reportVisiblePlaybackIssue('manual_play_rejected'))
       })
   }
 
   const restart = () => {
+    if (completionTimerRef.current !== null) window.clearTimeout(completionTimerRef.current)
+    completionTimerRef.current = null
     generationRef.current += 1
     preparationRef.current?.controller.abort()
     preparationRef.current = null
