@@ -15,7 +15,7 @@ enabled so personal source metadata is not preserved.
 
 The assessment soundtrack is `/media/assessment/soundtrack.mp3`. Keep this
 file at its source level: the app handles looping and applies Web Audio gain at
-10% for scenes and 18% for prompts. Do not normalize the soundtrack asset.
+20% for scenes and 32% for prompts. Do not normalize the soundtrack asset.
 
 This version does not use transition videos. Replace only these four stable
 question files when new edits arrive; keep scene and question IDs unchanged.
