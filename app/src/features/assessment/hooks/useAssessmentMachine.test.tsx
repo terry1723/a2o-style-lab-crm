@@ -1,11 +1,15 @@
 import { act, renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAssessmentMachine } from './useAssessmentMachine'
 
 describe('useAssessmentMachine progress', () => {
   beforeEach(() => {
     localStorage.clear()
     sessionStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('ignores and clears saved progress when creating a fresh session', () => {
@@ -43,5 +47,29 @@ describe('useAssessmentMachine progress', () => {
       optionIds: ['q1_6'],
     }))
     expect(localStorage.getItem('a2o_assessment_state_v1')).toBeNull()
+  })
+
+  it('initializes a fresh session when legacy progress cleanup is blocked', () => {
+    localStorage.setItem('a2o_assessment_state_v1', JSON.stringify({
+      sessionId: 'active-session',
+      status: 'showing_question',
+      currentSceneIndex: 2,
+      answers: { q1: ['q1_6'] },
+    }))
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new DOMException('Storage access denied', 'SecurityError')
+    })
+
+    let state: ReturnType<typeof useAssessmentMachine>['state'] | undefined
+    expect(() => {
+      const { result } = renderHook(() => useAssessmentMachine())
+      state = result.current.state
+    }).not.toThrow()
+
+    expect(state?.status).toBe('boot')
+    expect(state?.currentSceneIndex).toBe(0)
+    expect(state?.answers).toEqual({})
+    expect(state?.recovered).toBe(false)
+    expect(state?.sessionId).not.toBe('active-session')
   })
 })

@@ -23,9 +23,16 @@ function createSessionId() {
   return crypto.randomUUID?.() ?? `assessment_${Date.now()}_${Math.random().toString(36).slice(2)}`
 }
 
+function clearLegacyProgress() {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    return
+  }
+}
+
 function createInitialState(): AssessmentMachineState {
   const muted = sessionStorage.getItem(MUTE_KEY) === 'true'
-  localStorage.removeItem(STORAGE_KEY)
 
   return {
     status: 'boot',
@@ -100,12 +107,14 @@ export function useAssessmentMachine() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
 
   useEffect(() => {
+    clearLegacyProgress()
+  }, [])
+
+  useEffect(() => {
     sessionStorage.setItem(MUTE_KEY, String(state.muted))
   }, [state.muted])
 
-  const clearCompletedSession = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-  }, [])
+  const clearCompletedSession = useCallback(clearLegacyProgress, [])
 
   return { state, dispatch, clearCompletedSession }
 }
