@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   prepareHiddenVideo,
   prepareHiddenVideoForSwap,
+  rewindToFirstFrame,
   unlockHiddenVideo,
   waitForActualFrame,
 } from './videoPlayback'
@@ -20,6 +21,22 @@ function createReadyVideo() {
 }
 
 describe('hidden video playback', () => {
+  it('accepts a synchronously confirmed decoded frame without cancelling it', async () => {
+    const video = createReadyVideo()
+    const requestFrame = vi.fn((callback: () => void) => {
+      callback()
+      return 41
+    })
+    const cancelFrame = vi.fn()
+    video.requestVideoFrameCallback = requestFrame
+    video.cancelVideoFrameCallback = cancelFrame
+
+    await expect(waitForActualFrame(video, 20)).resolves.toBe(true)
+
+    expect(requestFrame).toHaveBeenCalledOnce()
+    expect(cancelFrame).not.toHaveBeenCalled()
+  })
+
   it('cancels a pending decoded-frame request when confirmation times out', async () => {
     const video = createReadyVideo()
     video.requestVideoFrameCallback = () => 42
@@ -29,6 +46,39 @@ describe('hidden video playback', () => {
     await expect(waitForActualFrame(video, 10)).resolves.toBe(false)
 
     expect(cancelFrame).toHaveBeenCalledWith(42)
+  })
+
+  it('confirms the decoded first frame after rewinding and seeking', async () => {
+    const video = createReadyVideo()
+    let currentTime = 1.25
+    Object.defineProperty(video, 'currentTime', {
+      configurable: true,
+      get: () => currentTime,
+      set: (value: number) => {
+        currentTime = value
+        queueMicrotask(() => video.dispatchEvent(new Event('seeked')))
+      },
+    })
+    const requestFrame = vi.spyOn(video, 'requestVideoFrameCallback')
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(rewindToFirstFrame(video, 20)).resolves.toBe(true)
+
+    expect(pause).toHaveBeenCalledOnce()
+    expect(requestFrame).toHaveBeenCalledOnce()
+    expect(video.currentTime).toBe(0)
+  })
+
+  it('cancels a pending rewound-frame request when confirmation times out', async () => {
+    const video = createReadyVideo()
+    video.requestVideoFrameCallback = () => 73
+    const cancelFrame = vi.fn()
+    video.cancelVideoFrameCallback = cancelFrame
+    vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(rewindToFirstFrame(video, 10)).resolves.toBe(false)
+
+    expect(cancelFrame).toHaveBeenCalledWith(73)
   })
 
   it('unlocks an inactive video silently and returns it to the start', async () => {
