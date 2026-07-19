@@ -1,0 +1,4 @@
+interface:
+  display_name: "Consultation Funnel Builder"
+  short_description: "Build video consultation funnels with Sheets and WhatsApp"
+  default_prompt: "Use $consultation-funnel-builder to plan and build a new interactive consultation funnel."
