@@ -1,5 +1,6 @@
 export type FrameVideo = HTMLVideoElement & {
   requestVideoFrameCallback?: (callback: () => void) => number
+  cancelVideoFrameCallback?: (handle: number) => void
 }
 
 export function waitForActualFrame(video: FrameVideo | null, timeoutMs = 3000) {
@@ -28,32 +29,53 @@ export function waitForActualFrame(video: FrameVideo | null, timeoutMs = 3000) {
   })
 }
 
-export function rewindToFirstFrame(video: HTMLVideoElement, timeoutMs = 1500) {
+export function rewindToFirstFrame(video: FrameVideo, timeoutMs = 1500) {
   video.pause()
 
   return new Promise<boolean>((resolve) => {
     let settled = false
+    let frameConfirmationPending = false
+    let frameRequestId: number | null = null
     const finish = (ready: boolean) => {
       if (settled) return
       settled = true
       window.clearTimeout(timeout)
       video.removeEventListener('seeked', onSeeked)
       video.removeEventListener('error', onError)
+      if (frameRequestId !== null) video.cancelVideoFrameCallback?.(frameRequestId)
+      frameRequestId = null
       resolve(ready)
     }
-    const onSeeked = () => finish(video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
+    const confirmRewoundFrame = () => {
+      if (settled || frameConfirmationPending) return
+      frameConfirmationPending = true
+
+      if (!video.requestVideoFrameCallback) {
+        finish(
+          video.currentTime <= 0.05
+          && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+        )
+        return
+      }
+
+      let callbackRanSynchronously = false
+      const requestId = video.requestVideoFrameCallback(() => {
+        callbackRanSynchronously = true
+        frameRequestId = null
+        finish(video.currentTime <= 0.05)
+      })
+      if (!callbackRanSynchronously) frameRequestId = requestId
+    }
+    const onSeeked = () => confirmRewoundFrame()
     const onError = () => finish(false)
-    const timeout = window.setTimeout(
-      () => finish(video.currentTime <= 0.05 && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA),
-      timeoutMs,
-    )
+    const timeout = window.setTimeout(() => finish(false), timeoutMs)
 
     video.addEventListener('seeked', onSeeked, { once: true })
     video.addEventListener('error', onError, { once: true })
     const alreadyAtStart = video.currentTime <= 0.05
     video.currentTime = 0
 
-    if (alreadyAtStart && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) finish(true)
+    if (alreadyAtStart) confirmRewoundFrame()
   })
 }
 

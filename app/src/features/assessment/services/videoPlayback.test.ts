@@ -14,6 +14,18 @@ function createReadyVideo() {
   return video
 }
 
+function dispatchSeekedWhenRewound(video: HTMLVideoElement) {
+  let currentTime = 0
+  Object.defineProperty(video, 'currentTime', {
+    configurable: true,
+    get: () => currentTime,
+    set: (value: number) => {
+      currentTime = value
+      if (value === 0) queueMicrotask(() => video.dispatchEvent(new Event('seeked')))
+    },
+  })
+}
+
 describe('hidden video playback', () => {
   it('unlocks an inactive video silently and returns it to the start', async () => {
     const video = createReadyVideo()
@@ -36,6 +48,8 @@ describe('hidden video playback', () => {
 
   it('keeps both hidden preparation play calls muted and resumes at the first frame', async () => {
     const video = createReadyVideo()
+    dispatchSeekedWhenRewound(video)
+    const requestFrame = vi.spyOn(video, 'requestVideoFrameCallback')
     const mutedDuringPlay: boolean[] = []
     const play = vi.spyOn(video, 'play').mockImplementation(() => {
       mutedDuringPlay.push(video.muted)
@@ -47,9 +61,33 @@ describe('hidden video playback', () => {
     await expect(prepareHiddenVideo(video, 20, 20)).resolves.toBe(true)
 
     expect(play).toHaveBeenCalledTimes(2)
+    expect(requestFrame).toHaveBeenCalledTimes(2)
     expect(mutedDuringPlay).toEqual([true, true])
     expect(pause).toHaveBeenCalled()
     expect(video.currentTime).toBeLessThanOrEqual(0.05)
+    expect(video.muted).toBe(true)
+  })
+
+  it('fails without resuming when the rewound first frame is never decoded', async () => {
+    const video = createReadyVideo()
+    dispatchSeekedWhenRewound(video)
+    let frameCallbackCount = 0
+    video.requestVideoFrameCallback = (callback) => {
+      frameCallbackCount += 1
+      if (frameCallbackCount === 1) callback(0, {} as VideoFrameCallbackMetadata)
+      return frameCallbackCount
+    }
+    const play = vi.spyOn(video, 'play').mockImplementation(() => {
+      if (play.mock.calls.length === 1) video.currentTime = 0.8
+      return Promise.resolve()
+    })
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(prepareHiddenVideo(video, 20, 20)).resolves.toBe(false)
+
+    expect(frameCallbackCount).toBe(2)
+    expect(play).toHaveBeenCalledOnce()
+    expect(pause).toHaveBeenCalled()
     expect(video.muted).toBe(true)
   })
 
