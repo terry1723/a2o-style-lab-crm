@@ -12,6 +12,13 @@ import {
   submitAssessmentLead,
 } from '../services/assessmentSessionRepository'
 import { calculateAssessmentResult } from '../services/scoring'
+import {
+  prepareHiddenVideo,
+  rewindToFirstFrame,
+  unlockHiddenVideo,
+  waitForActualFrame,
+  type FrameVideo,
+} from '../services/videoPlayback'
 import type { AssessmentLeadInput } from '../types/assessment'
 import { AssessmentResult } from './AssessmentResult'
 import { QuestionOverlay } from './QuestionOverlay'
@@ -20,10 +27,6 @@ import { TransitionVideoLayer } from './TransitionVideoLayer'
 
 const assessmentConfig = getAssessmentConfig()
 const enabledAssessmentScenes = getEnabledAssessmentScenes()
-
-type FrameVideo = HTMLVideoElement & {
-  requestVideoFrameCallback?: (callback: () => void) => number
-}
 
 function waitForMediaEnd(video: HTMLVideoElement | null, timeoutMs = 6500) {
   if (!video) return Promise.resolve()
@@ -40,57 +43,6 @@ function waitForMediaEnd(video: HTMLVideoElement | null, timeoutMs = 6500) {
     const timeout = window.setTimeout(finish, timeoutMs)
     video.addEventListener('ended', finish, { once: true })
     video.addEventListener('error', finish, { once: true })
-  })
-}
-
-function waitForActualFrame(video: FrameVideo | null, timeoutMs = 3000) {
-  if (!video) return Promise.resolve(false)
-  return new Promise<boolean>((resolve) => {
-    let settled = false
-    const finish = (ready: boolean) => {
-      if (settled) return
-      settled = true
-      window.clearTimeout(timeout)
-      video.removeEventListener('loadeddata', onLoadedData)
-      resolve(ready)
-    }
-    const onLoadedData = () => {
-      if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(() => finish(true))
-      else finish(video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
-    }
-    const timeout = window.setTimeout(() => finish(video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA), timeoutMs)
-
-    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) onLoadedData()
-    else video.addEventListener('loadeddata', onLoadedData, { once: true })
-  })
-}
-
-function rewindToFirstFrame(video: HTMLVideoElement, timeoutMs = 1500) {
-  video.pause()
-
-  return new Promise<boolean>((resolve) => {
-    let settled = false
-    const finish = (ready: boolean) => {
-      if (settled) return
-      settled = true
-      window.clearTimeout(timeout)
-      video.removeEventListener('seeked', onSeeked)
-      video.removeEventListener('error', onError)
-      resolve(ready)
-    }
-    const onSeeked = () => finish(video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
-    const onError = () => finish(false)
-    const timeout = window.setTimeout(
-      () => finish(video.currentTime <= 0.05 && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA),
-      timeoutMs,
-    )
-
-    video.addEventListener('seeked', onSeeked, { once: true })
-    video.addEventListener('error', onError, { once: true })
-    const alreadyAtStart = video.currentTime <= 0.05
-    video.currentTime = 0
-
-    if (alreadyAtStart && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) finish(true)
   })
 }
 
@@ -177,6 +129,7 @@ export function AssessmentEngine() {
     }
     video.muted = state.muted
     void video.play().catch(() => fallBackToCurrentQuestion('play_rejected'))
+    void unlockHiddenVideo(inactiveVideo())
     dispatch({ type: 'START' })
     void createAssessmentSession(state.sessionId, attribution)
     trackAssessmentEvent('assessment_start', {
@@ -207,10 +160,7 @@ export function AssessmentEngine() {
     const hasAuthoredTransition = Boolean(currentScene.transitionVideoUrl)
 
     if (next) {
-      // Direct scene changes start inside the answer click so mobile browsers
-      // keep the user's audio permission. Authored transitions stay silent
-      // while their hidden next buffer is being prepared.
-      next.muted = hasAuthoredTransition ? true : state.muted
+      next.muted = true
       next.currentTime = 0
     }
     if (transition) {
@@ -218,23 +168,18 @@ export function AssessmentEngine() {
       transition.currentTime = 0
     }
 
-    const nextPlayback = next
-      ? next.play()
-        .then(() => true)
-        .catch(() => {
-          trackAssessmentEvent('video_playback_error', {
-            session_id: state.sessionId,
-            scene_id: nextScene.id,
-            error: 'next_scene_play_rejected',
-          })
-          return false
-        })
-      : Promise.resolve(false)
-    const nextFrame = waitForActualFrame(next)
-
     if (!hasAuthoredTransition) {
-      const [nextFrameReady, nextPlaybackReady] = await Promise.all([nextFrame, nextPlayback])
-      if (!next || !nextFrameReady || !nextPlaybackReady) {
+      const nextReady = await prepareHiddenVideo(next)
+      if (!next || !nextReady) {
+        if (next) {
+          next.muted = true
+          next.pause()
+        }
+        trackAssessmentEvent('video_playback_error', {
+          session_id: state.sessionId,
+          scene_id: nextScene.id,
+          error: 'next_scene_play_rejected',
+        })
         dispatch({ type: 'NEXT_SCENE_FALLBACK' })
         return
       }
@@ -244,6 +189,23 @@ export function AssessmentEngine() {
       dispatch({ type: 'NEXT_SCENE_READY' })
       return
     }
+
+    const nextPlayback = next
+      ? (() => {
+          next.muted = true
+          return next.play()
+            .then(() => true)
+            .catch(() => {
+              trackAssessmentEvent('video_playback_error', {
+                session_id: state.sessionId,
+                scene_id: nextScene.id,
+                error: 'next_scene_play_rejected',
+              })
+              return false
+            })
+        })()
+      : Promise.resolve(false)
+    const nextFrame = waitForActualFrame(next)
 
     const transitionDone = currentScene.transitionVideoUrl
       ? waitForMediaEnd(transition, reducedMotion ? 3500 : 6500)
@@ -258,6 +220,10 @@ export function AssessmentEngine() {
 
     const [, nextFrameReady, nextPlaybackReady] = await Promise.all([transitionDone, nextFrame, nextPlayback])
     if (!next || !nextFrameReady || !nextPlaybackReady) {
+      if (next) {
+        next.muted = true
+        next.pause()
+      }
       dispatch({ type: 'NEXT_SCENE_FALLBACK' })
       return
     }
@@ -267,11 +233,16 @@ export function AssessmentEngine() {
     // buffer swap so the question starts from the beginning with no audio lead.
     const firstFrameReady = await rewindToFirstFrame(next)
     if (!firstFrameReady) {
+      next.muted = true
+      next.pause()
       dispatch({ type: 'NEXT_SCENE_FALLBACK' })
       return
     }
+    next.muted = true
     const resumedSilently = await next.play().then(() => true).catch(() => false)
     if (!resumedSilently) {
+      next.muted = true
+      next.pause()
       dispatch({ type: 'NEXT_SCENE_FALLBACK' })
       return
     }
