@@ -26,7 +26,14 @@ describe('assessmentConfig', () => {
     ])
   })
 
-  it('uses the approved dark consultation room on the start screen', () => {
-    expect(assessmentConfig.scenes[0].posterUrl).toBe('/images/assessment-landing.png')
+  it('uses the approved dark consultation room for the opening and every scene poster', () => {
+    expect(assessmentConfig.opening.posterUrl).toBe('/images/assessment-landing.png')
+    expect(assessmentConfig.scenes.map((scene) => scene.posterUrl)).toEqual(
+      Array(4).fill('/images/assessment-landing.png'),
+    )
+  })
+
+  it('does not define obsolete resume copy', () => {
+    expect('resumeCta' in assessmentConfig.opening).toBe(false)
   })
 })

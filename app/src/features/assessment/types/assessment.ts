@@ -57,7 +57,7 @@ export type AssessmentConfig = {
     headline: string
     supportingText: string
     cta: string
-    resumeCta: string
+    posterUrl: string
     note: string
   }
   scenes: AssessmentScene[]

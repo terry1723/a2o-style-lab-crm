@@ -376,7 +376,7 @@ export function AssessmentEngine() {
     <main className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#171310]">
       <div
         className="absolute inset-[-3rem] scale-110 bg-cover bg-center opacity-25 blur-3xl"
-        style={{ backgroundImage: `url(${currentScene.posterUrl})` }}
+        style={{ backgroundImage: `url(${assessmentConfig.opening.posterUrl})` }}
         aria-hidden="true"
       />
       <div className="absolute inset-0 bg-black/45" aria-hidden="true" />
@@ -448,7 +448,15 @@ export function AssessmentEngine() {
         </header>
 
         {isReady && (
-          <section className="absolute inset-0 z-40 flex items-end bg-gradient-to-b from-black/20 via-black/5 to-black/80 px-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-white sm:items-center sm:pb-8">
+          <section
+            data-testid="assessment-opening"
+            className="absolute inset-0 z-40 flex items-end px-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-white sm:items-center sm:pb-8"
+            style={{
+              backgroundImage: `linear-gradient(to bottom, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.08) 40%, rgba(0, 0, 0, 0.86)), url(${assessmentConfig.opening.posterUrl})`,
+              backgroundPosition: 'center',
+              backgroundSize: 'cover',
+            }}
+          >
             <motion.div
               initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
@@ -467,7 +475,7 @@ export function AssessmentEngine() {
                     className="mt-7 flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-a2o-pink px-6 py-4 text-base font-semibold text-white shadow-xl transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.98]"
                   >
                     <Play className="h-4 w-4 fill-current" />
-                    {state.recovered ? assessmentConfig.opening.resumeCta : assessmentConfig.opening.cta}
+                    {assessmentConfig.opening.cta}
                   </button>
                   <p className="mt-3 text-xs text-white/50">{assessmentConfig.opening.note}</p>
                 </>

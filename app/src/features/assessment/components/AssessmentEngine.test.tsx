@@ -41,6 +41,28 @@ describe('AssessmentEngine media layers', () => {
     expect(container.querySelector('main')).toHaveClass('flex', 'items-center', 'justify-center')
   })
 
+  it('renders the canonical opening cover independently from the video buffers', () => {
+    const { container } = render(<AssessmentEngine />)
+    const opening = screen.getByTestId('assessment-opening')
+    const videos = Array.from(container.querySelectorAll('video'))
+
+    expect(opening.style.backgroundImage).toContain('linear-gradient')
+    expect(opening.style.backgroundImage).toContain('/images/assessment-landing.png')
+    expect(opening).toHaveStyle({ backgroundSize: 'cover', backgroundPosition: 'center' })
+    expect(videos).toHaveLength(2)
+    for (const video of videos) {
+      expect(video).toHaveAttribute('poster', '/images/assessment-landing.png')
+    }
+  })
+
+  it('always offers a fresh assessment start without resume copy', () => {
+    render(<AssessmentEngine />)
+
+    expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '繼續形象檢測' })).not.toBeInTheDocument()
+    expect(screen.queryByText('繼續形象檢測')).not.toBeInTheDocument()
+  })
+
   it('falls back to the current question when video playback is rejected', async () => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new Error('playback rejected'))
     const user = userEvent.setup()
