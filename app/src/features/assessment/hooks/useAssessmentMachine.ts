@@ -79,7 +79,7 @@ function reducer(state: AssessmentMachineState, action: Action): AssessmentMachi
         playbackIssue: undefined,
       }
     case 'SCENE_STABLE':
-      return { ...state, status: 'playing_scene', playbackIssue: undefined }
+      return { ...state, status: 'playing_scene' }
     case 'FINISH':
       return { ...state, status: 'completed', playbackIssue: undefined }
     case 'SET_MUTED':

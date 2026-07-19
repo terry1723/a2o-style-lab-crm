@@ -3,33 +3,57 @@ export type FrameVideo = HTMLVideoElement & {
   cancelVideoFrameCallback?: (handle: number) => void
 }
 
-export function waitForActualFrame(video: FrameVideo | null, timeoutMs = 3000) {
+export function waitForActualFrame(
+  video: FrameVideo | null,
+  timeoutMs = 3000,
+  signal?: AbortSignal,
+) {
   if (!video) return Promise.resolve(false)
 
   return new Promise<boolean>((resolve) => {
     let settled = false
+    let frameRequestId: number | null = null
     const finish = (ready: boolean) => {
       if (settled) return
       settled = true
       window.clearTimeout(timeout)
       video.removeEventListener('loadeddata', onLoadedData)
+      video.removeEventListener('error', onError)
+      signal?.removeEventListener('abort', onAbort)
+      if (frameRequestId !== null) video.cancelVideoFrameCallback?.(frameRequestId)
+      frameRequestId = null
       resolve(ready)
     }
     const onLoadedData = () => {
-      if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(() => finish(true))
-      else finish(video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
-    }
-    const timeout = window.setTimeout(
-      () => finish(video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA),
-      timeoutMs,
-    )
+      if (!video.requestVideoFrameCallback) {
+        finish(video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
+        return
+      }
 
+      let callbackRanSynchronously = false
+      const requestId = video.requestVideoFrameCallback(() => {
+        callbackRanSynchronously = true
+        frameRequestId = null
+        finish(true)
+      })
+      if (!callbackRanSynchronously) frameRequestId = requestId
+    }
+    const onError = () => finish(false)
+    const onAbort = () => finish(false)
+    const timeout = window.setTimeout(() => finish(false), timeoutMs)
+
+    video.addEventListener('error', onError, { once: true })
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) {
+      finish(false)
+      return
+    }
     if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) onLoadedData()
     else video.addEventListener('loadeddata', onLoadedData, { once: true })
   })
 }
 
-export function rewindToFirstFrame(video: FrameVideo, timeoutMs = 1500) {
+export function rewindToFirstFrame(video: FrameVideo, timeoutMs = 1500, signal?: AbortSignal) {
   video.pause()
 
   return new Promise<boolean>((resolve) => {
@@ -42,6 +66,7 @@ export function rewindToFirstFrame(video: FrameVideo, timeoutMs = 1500) {
       window.clearTimeout(timeout)
       video.removeEventListener('seeked', onSeeked)
       video.removeEventListener('error', onError)
+      signal?.removeEventListener('abort', onAbort)
       if (frameRequestId !== null) video.cancelVideoFrameCallback?.(frameRequestId)
       frameRequestId = null
       resolve(ready)
@@ -68,10 +93,16 @@ export function rewindToFirstFrame(video: FrameVideo, timeoutMs = 1500) {
     }
     const onSeeked = () => confirmRewoundFrame()
     const onError = () => finish(false)
+    const onAbort = () => finish(false)
     const timeout = window.setTimeout(() => finish(false), timeoutMs)
 
     video.addEventListener('seeked', onSeeked, { once: true })
     video.addEventListener('error', onError, { once: true })
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) {
+      finish(false)
+      return
+    }
     const alreadyAtStart = video.currentTime <= 0.05
     video.currentTime = 0
 
@@ -79,16 +110,22 @@ export function rewindToFirstFrame(video: FrameVideo, timeoutMs = 1500) {
   })
 }
 
-export async function unlockHiddenVideo(video: HTMLVideoElement | null) {
+export async function unlockHiddenVideo(
+  video: HTMLVideoElement | null,
+  signal?: AbortSignal,
+  isCurrent: () => boolean = () => true,
+) {
   if (!video) return false
 
   video.muted = true
   try {
     await video.play()
+    if (signal?.aborted || !isCurrent()) return false
     video.pause()
     video.currentTime = 0
     return true
   } catch {
+    if (signal?.aborted || !isCurrent()) return false
     video.muted = true
     video.pause()
     try {
@@ -100,20 +137,25 @@ export async function unlockHiddenVideo(video: HTMLVideoElement | null) {
   }
 }
 
-export async function prepareHiddenVideo(
+export async function prepareHiddenVideoForSwap(
   video: FrameVideo | null,
   frameTimeoutMs = 3000,
   rewindTimeoutMs = 1500,
+  signal?: AbortSignal,
+  isCurrent: () => boolean = () => true,
 ) {
   if (!video) return false
+  const current = () => !signal?.aborted && isCurrent()
+  if (!current()) return false
 
   try {
     video.muted = true
     video.currentTime = 0
-    video.muted = true
     await video.play()
+    if (!current()) return false
 
-    const frameReady = await waitForActualFrame(video, frameTimeoutMs)
+    const frameReady = await waitForActualFrame(video, frameTimeoutMs, signal)
+    if (!current()) return false
     if (!frameReady) {
       video.muted = true
       video.pause()
@@ -121,13 +163,34 @@ export async function prepareHiddenVideo(
     }
 
     video.muted = true
-    const firstFrameReady = await rewindToFirstFrame(video, rewindTimeoutMs)
+    const firstFrameReady = await rewindToFirstFrame(video, rewindTimeoutMs, signal)
+    if (!current()) return false
     if (!firstFrameReady) {
       video.muted = true
       video.pause()
       return false
     }
 
+    video.muted = true
+    video.pause()
+    return true
+  } catch {
+    if (!current()) return false
+    video.muted = true
+    video.pause()
+    return false
+  }
+}
+
+export async function prepareHiddenVideo(
+  video: FrameVideo | null,
+  frameTimeoutMs = 3000,
+  rewindTimeoutMs = 1500,
+) {
+  const prepared = await prepareHiddenVideoForSwap(video, frameTimeoutMs, rewindTimeoutMs)
+  if (!video || !prepared) return false
+
+  try {
     video.muted = true
     await video.play()
     return true

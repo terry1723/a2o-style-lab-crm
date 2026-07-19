@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { LoaderCircle, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react'
 import { useAssessmentMachine } from '../hooks/useAssessmentMachine'
@@ -13,9 +14,8 @@ import {
 } from '../services/assessmentSessionRepository'
 import { calculateAssessmentResult } from '../services/scoring'
 import {
-  prepareHiddenVideo,
+  prepareHiddenVideoForSwap,
   rewindToFirstFrame,
-  unlockHiddenVideo,
   waitForActualFrame,
   type FrameVideo,
 } from '../services/videoPlayback'
@@ -28,7 +28,7 @@ import { TransitionVideoLayer } from './TransitionVideoLayer'
 const assessmentConfig = getAssessmentConfig()
 const enabledAssessmentScenes = getEnabledAssessmentScenes()
 
-function waitForMediaEnd(video: HTMLVideoElement | null, timeoutMs = 6500) {
+function waitForMediaEnd(video: HTMLVideoElement | null, timeoutMs = 6500, signal?: AbortSignal) {
   if (!video) return Promise.resolve()
   return new Promise<void>((resolve) => {
     let settled = false
@@ -38,12 +38,25 @@ function waitForMediaEnd(video: HTMLVideoElement | null, timeoutMs = 6500) {
       window.clearTimeout(timeout)
       video.removeEventListener('ended', finish)
       video.removeEventListener('error', finish)
+      signal?.removeEventListener('abort', finish)
       resolve()
     }
     const timeout = window.setTimeout(finish, timeoutMs)
     video.addEventListener('ended', finish, { once: true })
     video.addEventListener('error', finish, { once: true })
+    signal?.addEventListener('abort', finish, { once: true })
+    if (signal?.aborted) finish()
   })
+}
+
+type NextPreparation = {
+  generation: number
+  sceneIndex: number
+  activeBuffer: 0 | 1
+  nextSceneId: string
+  video: FrameVideo
+  controller: AbortController
+  status: 'pending' | 'ready' | 'failed'
 }
 
 export function AssessmentEngine() {
@@ -52,6 +65,12 @@ export function AssessmentEngine() {
   const sceneARef = useRef<HTMLVideoElement>(null)
   const sceneBRef = useRef<HTMLVideoElement>(null)
   const transitionRef = useRef<HTMLVideoElement>(null)
+  const generationRef = useRef(0)
+  const stateRef = useRef(state)
+  const preparationRef = useRef<NextPreparation | null>(null)
+  const transitionControllerRef = useRef<AbortController | null>(null)
+  const playbackMonitorCleanupRef = useRef<(() => void) | null>(null)
+  const [, setPreparationRevision] = useState(0)
   const [submittingLead, setSubmittingLead] = useState(false)
   const [leadSubmitted, setLeadSubmitted] = useState(false)
   const attribution = useMemo(() => getAttribution(), [])
@@ -62,6 +81,7 @@ export function AssessmentEngine() {
     () => calculateAssessmentResult(assessmentConfig, state.answers),
     [state.answers],
   )
+  stateRef.current = state
 
   useVideoPreloader(state.currentSceneIndex, scenes)
 
@@ -74,6 +94,21 @@ export function AssessmentEngine() {
   const isQuestionVisible = state.status === 'showing_question' || state.status === 'submitting_answer'
   const isTransitioning = state.status === 'transitioning'
   const isReady = state.status === 'ready' || state.status === 'boot'
+  const preparationMatchesCurrent = (preparation: NextPreparation | null) => Boolean(
+    preparation
+    && preparation.generation === generationRef.current
+    && preparation.sceneIndex === state.currentSceneIndex
+    && preparation.activeBuffer === state.activeBuffer
+    && preparation.nextSceneId === nextScene?.id,
+  )
+  const directPreparation = preparationMatchesCurrent(preparationRef.current)
+    ? preparationRef.current
+    : null
+  const isDirectPreparationPending = Boolean(
+    nextScene
+    && !currentScene.transitionVideoUrl
+    && (!directPreparation || directPreparation.status === 'pending'),
+  )
 
   useEffect(() => {
     dispatch({ type: 'BOOT_READY' })
@@ -103,6 +138,62 @@ export function AssessmentEngine() {
     })
   }, [currentScene.id, currentScene.order, state.currentSceneIndex, state.sessionId, state.status])
 
+  useEffect(() => {
+    if (!nextScene || currentScene.transitionVideoUrl) return
+    if (!['playing_scene', 'showing_question'].includes(state.status)) return
+    const existing = preparationRef.current
+    if (
+      existing
+      && existing.generation === generationRef.current
+      && existing.sceneIndex === state.currentSceneIndex
+      && existing.activeBuffer === state.activeBuffer
+      && existing.nextSceneId === nextScene.id
+    ) return
+
+    preparationRef.current?.controller.abort()
+    const video = (state.activeBuffer === 0 ? sceneBRef.current : sceneARef.current) as FrameVideo | null
+    if (!video) return
+    const preparation: NextPreparation = {
+      generation: generationRef.current,
+      sceneIndex: state.currentSceneIndex,
+      activeBuffer: state.activeBuffer,
+      nextSceneId: nextScene.id,
+      video,
+      controller: new AbortController(),
+      status: 'pending',
+    }
+    preparationRef.current = preparation
+    setPreparationRevision((value) => value + 1)
+    const isCurrent = () => {
+      const live = stateRef.current
+      const liveInactive = live.activeBuffer === 0 ? sceneBRef.current : sceneARef.current
+      return generationRef.current === preparation.generation
+        && live.currentSceneIndex === preparation.sceneIndex
+        && live.activeBuffer === preparation.activeBuffer
+        && liveInactive === preparation.video
+        && preparation.video.getAttribute('src') === nextScene.sceneVideoUrl
+    }
+
+    void prepareHiddenVideoForSwap(
+      video,
+      3000,
+      1500,
+      preparation.controller.signal,
+      isCurrent,
+    ).then((ready) => {
+      if (!isCurrent() || preparationRef.current !== preparation) return
+      preparation.status = ready ? 'ready' : 'failed'
+      setPreparationRevision((value) => value + 1)
+    })
+  }, [currentScene.transitionVideoUrl, nextScene, state.activeBuffer, state.currentSceneIndex, state.status])
+
+  useEffect(() => () => {
+    generationRef.current += 1
+    preparationRef.current?.controller.abort()
+    transitionControllerRef.current?.abort()
+    playbackMonitorCleanupRef.current?.()
+  }, [])
+
   const reportPlaybackIssue = (message: string) => {
     dispatch({ type: 'SET_PLAYBACK_ISSUE', message })
     trackAssessmentEvent('video_playback_error', {
@@ -129,7 +220,6 @@ export function AssessmentEngine() {
     }
     video.muted = state.muted
     void video.play().catch(() => fallBackToCurrentQuestion('play_rejected'))
-    void unlockHiddenVideo(inactiveVideo())
     dispatch({ type: 'START' })
     void createAssessmentSession(state.sessionId, attribution)
     trackAssessmentEvent('assessment_start', {
@@ -153,24 +243,72 @@ export function AssessmentEngine() {
     if (video && video.currentTime >= currentScene.questionCueSeconds) showQuestion()
   }
 
+  const monitorVisiblePlayback = (
+    video: HTMLVideoElement,
+    generation: number,
+    sceneIndex: number,
+    activeBuffer: 0 | 1,
+    sceneId: string,
+  ) => {
+    const reportIssue = (error: string) => {
+      const live = stateRef.current
+      if (
+        generationRef.current !== generation
+        || live.currentSceneIndex !== sceneIndex
+        || live.activeBuffer !== activeBuffer
+      ) return
+      dispatch({ type: 'SET_PLAYBACK_ISSUE', message: error })
+      trackAssessmentEvent('video_playback_error', {
+        session_id: live.sessionId,
+        scene_id: sceneId,
+        error,
+      })
+    }
+
+    playbackMonitorCleanupRef.current?.()
+    const onPolicyPause = () => reportIssue('next_scene_policy_paused')
+    video.addEventListener('pause', onPolicyPause, { once: true })
+    const monitorTimeout = window.setTimeout(() => {
+      video.removeEventListener('pause', onPolicyPause)
+      if (playbackMonitorCleanupRef.current === cleanupMonitor) {
+        playbackMonitorCleanupRef.current = null
+      }
+    }, 1000)
+    const cleanupMonitor = () => {
+      window.clearTimeout(monitorTimeout)
+      video.removeEventListener('pause', onPolicyPause)
+    }
+    playbackMonitorCleanupRef.current = cleanupMonitor
+    return reportIssue
+  }
+
   const runTransition = async () => {
     const current = activeVideo()
     const next = inactiveVideo() as FrameVideo | null
     const transition = transitionRef.current
     const hasAuthoredTransition = Boolean(currentScene.transitionVideoUrl)
+    const runGeneration = generationRef.current
+    const runSceneIndex = state.currentSceneIndex
+    const runActiveBuffer = state.activeBuffer
+    const isRunCurrent = () => {
+      const live = stateRef.current
+      return generationRef.current === runGeneration
+        && live.currentSceneIndex === runSceneIndex
+        && live.activeBuffer === runActiveBuffer
+    }
 
-    if (next) {
+    if (next && hasAuthoredTransition) {
       next.muted = true
       next.currentTime = 0
     }
-    if (transition) {
+    if (transition && hasAuthoredTransition) {
       transition.muted = state.muted
       transition.currentTime = 0
     }
 
     if (!hasAuthoredTransition) {
-      const nextReady = await prepareHiddenVideo(next)
-      if (!next || !nextReady) {
+      const preparation = preparationRef.current
+      if (!next || !preparationMatchesCurrent(preparation) || preparation?.status !== 'ready') {
         if (next) {
           next.muted = true
           next.pause()
@@ -185,10 +323,26 @@ export function AssessmentEngine() {
       }
 
       current?.pause()
-      dispatch({ type: 'BEGIN_TRANSITION' })
-      dispatch({ type: 'NEXT_SCENE_READY' })
+      flushSync(() => {
+        dispatch({ type: 'BEGIN_TRANSITION' })
+        dispatch({ type: 'NEXT_SCENE_READY' })
+      })
+      const nextIndex = runSceneIndex + 1
+      const nextBuffer = runActiveBuffer === 0 ? 1 : 0
+      const reportVisiblePlaybackIssue = monitorVisiblePlayback(
+        next,
+        runGeneration,
+        nextIndex,
+        nextBuffer,
+        nextScene.id,
+      )
+      void next.play().catch(() => reportVisiblePlaybackIssue('next_scene_play_rejected'))
       return
     }
+
+    transitionControllerRef.current?.abort()
+    const transitionController = new AbortController()
+    transitionControllerRef.current = transitionController
 
     const nextPlayback = next
       ? (() => {
@@ -196,19 +350,21 @@ export function AssessmentEngine() {
           return next.play()
             .then(() => true)
             .catch(() => {
-              trackAssessmentEvent('video_playback_error', {
-                session_id: state.sessionId,
-                scene_id: nextScene.id,
-                error: 'next_scene_play_rejected',
-              })
+              if (isRunCurrent()) {
+                trackAssessmentEvent('video_playback_error', {
+                  session_id: state.sessionId,
+                  scene_id: nextScene.id,
+                  error: 'next_scene_play_rejected',
+                })
+              }
               return false
             })
         })()
       : Promise.resolve(false)
-    const nextFrame = waitForActualFrame(next)
+    const nextFrame = waitForActualFrame(next, 3000, transitionController.signal)
 
     const transitionDone = currentScene.transitionVideoUrl
-      ? waitForMediaEnd(transition, reducedMotion ? 3500 : 6500)
+      ? waitForMediaEnd(transition, reducedMotion ? 3500 : 6500, transitionController.signal)
       : new Promise<void>((resolve) => window.setTimeout(resolve, 260))
     if (transition && currentScene.transitionVideoUrl) {
       void transition.play().catch(() => trackAssessmentEvent('video_playback_error', {
@@ -219,6 +375,7 @@ export function AssessmentEngine() {
     }
 
     const [, nextFrameReady, nextPlaybackReady] = await Promise.all([transitionDone, nextFrame, nextPlayback])
+    if (!isRunCurrent()) return
     if (!next || !nextFrameReady || !nextPlaybackReady) {
       if (next) {
         next.muted = true
@@ -231,7 +388,8 @@ export function AssessmentEngine() {
     // The priming play may have advanced the timeline while the video was
     // hidden. Rewind to a decoded first frame, then resume silently before the
     // buffer swap so the question starts from the beginning with no audio lead.
-    const firstFrameReady = await rewindToFirstFrame(next)
+    const firstFrameReady = await rewindToFirstFrame(next, 1500, transitionController.signal)
+    if (!isRunCurrent()) return
     if (!firstFrameReady) {
       next.muted = true
       next.pause()
@@ -240,6 +398,7 @@ export function AssessmentEngine() {
     }
     next.muted = true
     const resumedSilently = await next.play().then(() => true).catch(() => false)
+    if (!isRunCurrent()) return
     if (!resumedSilently) {
       next.muted = true
       next.pause()
@@ -247,6 +406,13 @@ export function AssessmentEngine() {
       return
     }
 
+    monitorVisiblePlayback(
+      next,
+      runGeneration,
+      runSceneIndex + 1,
+      runActiveBuffer === 0 ? 1 : 0,
+      nextScene.id,
+    )
     current?.pause()
     dispatch({ type: 'BEGIN_TRANSITION' })
     trackAssessmentEvent('transition_started', {
@@ -305,6 +471,13 @@ export function AssessmentEngine() {
   }
 
   const restart = () => {
+    generationRef.current += 1
+    preparationRef.current?.controller.abort()
+    preparationRef.current = null
+    transitionControllerRef.current?.abort()
+    transitionControllerRef.current = null
+    playbackMonitorCleanupRef.current?.()
+    playbackMonitorCleanupRef.current = null
     for (const video of [sceneARef.current, sceneBRef.current, transitionRef.current]) {
       video?.pause()
       if (video) video.currentTime = 0
@@ -466,7 +639,7 @@ export function AssessmentEngine() {
           <QuestionOverlay
             question={currentScene.question}
             progress={`${state.currentSceneIndex + 1} / ${scenes.length}`}
-            disabled={state.status === 'submitting_answer'}
+            disabled={state.status === 'submitting_answer' || isDirectPreparationPending}
             onConfirm={confirmAnswer}
           />
         )}

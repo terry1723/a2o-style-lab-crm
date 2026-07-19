@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { prepareHiddenVideo, unlockHiddenVideo } from './videoPlayback'
+import {
+  prepareHiddenVideo,
+  prepareHiddenVideoForSwap,
+  unlockHiddenVideo,
+  waitForActualFrame,
+} from './videoPlayback'
 
 function createReadyVideo() {
   const video = document.createElement('video')
@@ -8,7 +13,7 @@ function createReadyVideo() {
     get: () => HTMLMediaElement.HAVE_CURRENT_DATA,
   })
   video.requestVideoFrameCallback = (callback) => {
-    callback(0, {} as VideoFrameCallbackMetadata)
+    queueMicrotask(() => callback(0, {} as VideoFrameCallbackMetadata))
     return 1
   }
   return video
@@ -27,6 +32,17 @@ function dispatchSeekedWhenRewound(video: HTMLVideoElement) {
 }
 
 describe('hidden video playback', () => {
+  it('cancels a pending decoded-frame request when confirmation times out', async () => {
+    const video = createReadyVideo()
+    video.requestVideoFrameCallback = () => 42
+    const cancelFrame = vi.fn()
+    video.cancelVideoFrameCallback = cancelFrame
+
+    await expect(waitForActualFrame(video, 10)).resolves.toBe(false)
+
+    expect(cancelFrame).toHaveBeenCalledWith(42)
+  })
+
   it('unlocks an inactive video silently and returns it to the start', async () => {
     const video = createReadyVideo()
     video.currentTime = 1.25
@@ -88,6 +104,25 @@ describe('hidden video playback', () => {
     expect(frameCallbackCount).toBe(2)
     expect(play).toHaveBeenCalledOnce()
     expect(pause).toHaveBeenCalled()
+    expect(video.muted).toBe(true)
+  })
+
+  it('prepares a hidden swap buffer on two decoded frames and leaves it paused', async () => {
+    const video = createReadyVideo()
+    dispatchSeekedWhenRewound(video)
+    const requestFrame = vi.spyOn(video, 'requestVideoFrameCallback')
+    const play = vi.spyOn(video, 'play').mockImplementation(() => {
+      video.currentTime = 0.8
+      return Promise.resolve()
+    })
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(prepareHiddenVideoForSwap(video, 20, 20)).resolves.toBe(true)
+
+    expect(play).toHaveBeenCalledOnce()
+    expect(requestFrame).toHaveBeenCalledTimes(2)
+    expect(pause).toHaveBeenCalled()
+    expect(video.currentTime).toBeLessThanOrEqual(0.05)
     expect(video.muted).toBe(true)
   })
 

@@ -72,4 +72,22 @@ describe('useAssessmentMachine progress', () => {
     expect(state?.recovered).toBe(false)
     expect(state?.sessionId).not.toBe('active-session')
   })
+
+  it('keeps a next-scene playback issue when the visual swap becomes stable', () => {
+    const { result } = renderHook(() => useAssessmentMachine())
+
+    act(() => {
+      result.current.dispatch({ type: 'BOOT_READY' })
+      result.current.dispatch({ type: 'START' })
+      result.current.dispatch({ type: 'SHOW_QUESTION' })
+      result.current.dispatch({ type: 'SUBMIT_ANSWER', questionId: 'q1', optionIds: ['q1_6'] })
+      result.current.dispatch({ type: 'BEGIN_TRANSITION' })
+      result.current.dispatch({ type: 'NEXT_SCENE_READY' })
+      result.current.dispatch({ type: 'SET_PLAYBACK_ISSUE', message: 'next_scene_play_rejected' })
+      result.current.dispatch({ type: 'SCENE_STABLE' })
+    })
+
+    expect(result.current.state.status).toBe('playing_scene')
+    expect(result.current.state.playbackIssue).toBe('next_scene_play_rejected')
+  })
 })
