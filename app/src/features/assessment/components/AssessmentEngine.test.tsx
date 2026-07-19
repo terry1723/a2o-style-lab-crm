@@ -3,6 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssessmentEngine } from './AssessmentEngine'
 
+const { cancelSoundtrackFade, fadeAudioVolume } = vi.hoisted(() => ({
+  cancelSoundtrackFade: vi.fn(),
+  fadeAudioVolume: vi.fn(),
+}))
+
+vi.mock('../services/audioVolume', () => ({ fadeAudioVolume }))
+
 async function advanceToFinalQuestion(container: HTMLElement) {
   const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
   fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
@@ -30,10 +37,142 @@ async function advanceToFinalQuestion(container: HTMLElement) {
 describe('AssessmentEngine media layers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.clearAllMocks()
     vi.useRealTimers()
+    fadeAudioVolume.mockReturnValue(cancelSoundtrackFade)
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined)
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     localStorage.clear()
     sessionStorage.clear()
+  })
+
+  it('renders the looping preloaded assessment soundtrack without starting it on opening', () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio')
+
+    expect(soundtrack).toHaveAttribute('src', '/media/assessment/soundtrack.mp3')
+    expect(soundtrack).toHaveAttribute('preload', 'auto')
+    expect(soundtrack).toHaveAttribute('loop')
+    expect(soundtrack).toHaveAttribute('aria-hidden', 'true')
+    expect(play).not.toHaveBeenCalled()
+    expect(fadeAudioVolume).not.toHaveBeenCalled()
+  })
+
+  it('starts the soundtrack synchronously in the opening gesture with baseline volume and mute state', () => {
+    let inStartGesture = false
+    const soundtrackSnapshots: Array<{ gesture: boolean; volume: number; muted: boolean; currentTime: number }> = []
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      if (this.tagName === 'AUDIO') {
+        soundtrackSnapshots.push({
+          gesture: inStartGesture,
+          volume: this.volume,
+          muted: this.muted,
+          currentTime: this.currentTime,
+        })
+      }
+      return Promise.resolve()
+    })
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+    soundtrack.currentTime = 12
+    fireEvent.click(screen.getByRole('button', { name: '靜音' }))
+
+    inStartGesture = true
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    inStartGesture = false
+
+    expect(soundtrackSnapshots).toEqual([{
+      gesture: true,
+      volume: 0.1,
+      muted: true,
+      currentTime: 0,
+    }])
+  })
+
+  it('fades up for a question and back down for the next scene', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get')
+      .mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA)
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.1, 240))
+    fireEvent.ended(firstVideo)
+    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.18, 240))
+    fireEvent.click(await screen.findByRole('radio', { name: '6' }))
+
+    await waitFor(() => {
+      const lastCall = fadeAudioVolume.mock.calls.at(-1)
+      expect(lastCall).toEqual([soundtrack, 0.1, 240])
+    })
+    expect(cancelSoundtrackFade).toHaveBeenCalled()
+  })
+
+  it('keeps the soundtrack mute state in sync with the top-right media control', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+    const activeVideo = container.querySelector('video.z-10') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '靜音' }))
+    expect(soundtrack.muted).toBe(true)
+    expect(activeVideo.muted).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: '開啟聲音' }))
+    expect(soundtrack.muted).toBe(false)
+    expect(activeVideo.muted).toBe(false)
+  })
+
+  it('pauses and rewinds the soundtrack when restarting', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    soundtrack.currentTime = 9
+    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
+
+    expect(pause.mock.instances).toContain(soundtrack)
+    expect(soundtrack.currentTime).toBe(0)
+    expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument()
+  })
+
+  it('does not block q1 when soundtrack playback is rejected', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      return this.tagName === 'AUDIO'
+        ? Promise.reject(new Error('soundtrack rejected'))
+        : Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.ended(firstVideo)
+
+    expect(await screen.findByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
+  })
+
+  it('cancels soundtrack fading and stops playback on unmount', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container, unmount } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.1, 240))
+    soundtrack.currentTime = 5
+    unmount()
+
+    expect(cancelSoundtrackFade).toHaveBeenCalled()
+    expect(pause.mock.instances).toContain(soundtrack)
+    expect(soundtrack.currentTime).toBe(0)
   })
 
   it('renders only two scene buffers and no authored transition video', () => {

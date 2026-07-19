@@ -7,6 +7,7 @@ import { useVideoPreloader } from '../hooks/useVideoPreloader'
 import { getAssessmentConfig, getEnabledAssessmentScenes } from '../services/assessmentConfigRepository'
 import { getAttribution } from '../services/attribution'
 import { trackAssessmentEvent } from '../services/analytics'
+import { fadeAudioVolume } from '../services/audioVolume'
 import {
   createAssessmentSession,
   persistAssessmentAnswer,
@@ -27,6 +28,9 @@ import { TransitionVideoLayer } from './TransitionVideoLayer'
 
 const assessmentConfig = getAssessmentConfig()
 const enabledAssessmentScenes = getEnabledAssessmentScenes()
+const SOUNDTRACK_SCENE_VOLUME = 0.1
+const SOUNDTRACK_PROMPT_VOLUME = 0.18
+const SOUNDTRACK_FADE_DURATION_MS = 240
 
 function waitForMediaEnd(video: HTMLVideoElement | null, timeoutMs = 6500, signal?: AbortSignal) {
   if (!video) return Promise.resolve()
@@ -64,6 +68,8 @@ export function AssessmentEngine() {
   const sceneARef = useRef<HTMLVideoElement>(null)
   const sceneBRef = useRef<HTMLVideoElement>(null)
   const transitionRef = useRef<HTMLVideoElement>(null)
+  const soundtrackRef = useRef<HTMLAudioElement>(null)
+  const soundtrackFadeCleanupRef = useRef<(() => void) | null>(null)
   const generationRef = useRef(0)
   const stateRef = useRef(state)
   const preparationRef = useRef<NextPreparation | null>(null)
@@ -107,7 +113,35 @@ export function AssessmentEngine() {
     if (active) active.muted = state.muted
     if (inactive) inactive.muted = true
     if (transitionRef.current) transitionRef.current.muted = state.muted
+    if (soundtrackRef.current) soundtrackRef.current.muted = state.muted
   }, [state.activeBuffer, state.muted])
+
+  useEffect(() => {
+    soundtrackFadeCleanupRef.current?.()
+    soundtrackFadeCleanupRef.current = null
+    const soundtrack = soundtrackRef.current
+    if (!soundtrack) return
+
+    const sceneStatuses = ['playing_scene', 'playing_next_scene', 'transitioning']
+    const promptStatuses = ['showing_question', 'submitting_answer', 'completed']
+    const target = sceneStatuses.includes(state.status)
+      ? SOUNDTRACK_SCENE_VOLUME
+      : promptStatuses.includes(state.status)
+        ? SOUNDTRACK_PROMPT_VOLUME
+        : null
+    if (target === null) return
+
+    const cleanup = fadeAudioVolume(
+      soundtrack,
+      target,
+      reducedMotion ? 0 : SOUNDTRACK_FADE_DURATION_MS,
+    )
+    soundtrackFadeCleanupRef.current = cleanup
+    return () => {
+      cleanup()
+      if (soundtrackFadeCleanupRef.current === cleanup) soundtrackFadeCleanupRef.current = null
+    }
+  }, [reducedMotion, state.status])
 
   useEffect(() => {
     if (state.status !== 'playing_next_scene') return
@@ -167,12 +201,25 @@ export function AssessmentEngine() {
     )
   }, [currentScene.transitionVideoUrl, nextScene, state.activeBuffer, state.currentSceneIndex, state.status])
 
-  useEffect(() => () => {
-    generationRef.current += 1
-    preparationRef.current?.controller.abort()
-    transitionControllerRef.current?.abort()
-    playbackMonitorCleanupRef.current?.()
-    if (completionTimerRef.current !== null) window.clearTimeout(completionTimerRef.current)
+  useEffect(() => {
+    const soundtrack = soundtrackRef.current
+    return () => {
+      generationRef.current += 1
+      preparationRef.current?.controller.abort()
+      transitionControllerRef.current?.abort()
+      playbackMonitorCleanupRef.current?.()
+      if (completionTimerRef.current !== null) window.clearTimeout(completionTimerRef.current)
+      soundtrackFadeCleanupRef.current?.()
+      soundtrackFadeCleanupRef.current = null
+      soundtrack?.pause()
+      if (soundtrack) {
+        try {
+          soundtrack.currentTime = 0
+        } catch {
+          // Some browsers reject seeking before soundtrack metadata is ready.
+        }
+      }
+    }
   }, [])
 
   const reportActiveSceneLoadError = (
@@ -204,6 +251,21 @@ export function AssessmentEngine() {
     if (!video) {
       dispatch({ type: 'FATAL_ERROR', message: '未能準備第一段影片。' })
       return
+    }
+    const soundtrack = soundtrackRef.current
+    if (soundtrack) {
+      soundtrack.volume = SOUNDTRACK_SCENE_VOLUME
+      soundtrack.muted = state.muted
+      try {
+        soundtrack.currentTime = 0
+      } catch {
+        // Playback can still begin from the browser's current media position.
+      }
+      try {
+        void soundtrack.play().catch(() => undefined)
+      } catch {
+        // Soundtrack playback is optional and must not block the assessment.
+      }
     }
     video.muted = state.muted
     const reportVisiblePlaybackIssue = monitorVisiblePlayback(
@@ -584,6 +646,17 @@ export function AssessmentEngine() {
     transitionControllerRef.current = null
     playbackMonitorCleanupRef.current?.()
     playbackMonitorCleanupRef.current = null
+    soundtrackFadeCleanupRef.current?.()
+    soundtrackFadeCleanupRef.current = null
+    const soundtrack = soundtrackRef.current
+    soundtrack?.pause()
+    if (soundtrack) {
+      try {
+        soundtrack.currentTime = 0
+      } catch {
+        // Some browsers reject seeking before soundtrack metadata is ready.
+      }
+    }
     for (const video of [sceneARef.current, sceneBRef.current, transitionRef.current]) {
       video?.pause()
       if (video) video.currentTime = 0
@@ -624,6 +697,13 @@ export function AssessmentEngine() {
 
   return (
     <main className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#171310]">
+      <audio
+        ref={soundtrackRef}
+        src="/media/assessment/soundtrack.mp3"
+        preload="auto"
+        loop
+        aria-hidden="true"
+      />
       <div
         data-testid="assessment-ambience"
         className="absolute inset-[-3rem] scale-110 bg-cover bg-center opacity-25 blur-3xl"
