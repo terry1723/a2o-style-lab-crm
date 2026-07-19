@@ -3,27 +3,25 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssessmentEngine } from './AssessmentEngine'
 
-function installAsyncFrameCallbacks(video: HTMLVideoElement) {
-  let requestId = 0
-  const requestFrame = vi.fn((callback: VideoFrameRequestCallback) => {
-    requestId += 1
-    queueMicrotask(() => callback(0, {} as VideoFrameCallbackMetadata))
-    return requestId
-  })
-  video.requestVideoFrameCallback = requestFrame
-  video.cancelVideoFrameCallback = vi.fn()
-  return requestFrame
-}
-
-async function advanceViaFallbacksToFinalQuestion(container: HTMLElement) {
+async function advanceToFinalQuestion(container: HTMLElement) {
   const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
   fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
   fireEvent.ended(firstVideo)
 
-  for (const answerName of ['6', '見客、銷售或傾生意', '客戶信任同成交機會']) {
+  for (const [answerName, nextScene] of [
+    ['6', 'question-02'],
+    ['見客、銷售或傾生意', 'question-03'],
+    ['客戶信任同成交機會', 'question-04'],
+  ] as const) {
     const answer = await screen.findByRole('radio', { name: answerName })
     await waitFor(() => expect(answer).toBeEnabled())
     fireEvent.click(answer)
+    const nextVideo = await waitFor(() => {
+      const video = container.querySelector(`video[src*="${nextScene}"]`) as HTMLVideoElement
+      expect(video).toHaveClass('z-10')
+      return video
+    })
+    fireEvent.ended(nextVideo)
   }
 
   return screen.findByRole('radio', { name: '髮型同頭部輪廓' })
@@ -33,6 +31,7 @@ describe('AssessmentEngine media layers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.useRealTimers()
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined)
     localStorage.clear()
     sessionStorage.clear()
   })
@@ -98,7 +97,7 @@ describe('AssessmentEngine media layers', () => {
     expect(screen.queryByText('繼續形象檢測')).not.toBeInTheDocument()
   })
 
-  it('falls back to the current question when video playback is rejected', async () => {
+  it('keeps q1 visible with recovery when its playback is rejected', async () => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new Error('playback rejected'))
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     const user = userEvent.setup()
@@ -106,8 +105,8 @@ describe('AssessmentEngine media layers', () => {
 
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
 
-    expect(await screen.findByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
-    expect(screen.getAllByRole('radio')).toHaveLength(10)
+    expect(await screen.findByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).not.toBeInTheDocument()
   })
 
   it('shows manual recovery when q1 visible playback never starts or progresses', async () => {
@@ -159,7 +158,7 @@ describe('AssessmentEngine media layers', () => {
       vi.advanceTimersByTime(5000)
       await Promise.resolve()
     })
-    fireEvent.click(screen.getByRole('button', { name: '點擊繼續播放' }))
+    fireEvent.click(screen.getByRole('button', { name: '點擊播放影片' }))
     await act(async () => Promise.resolve())
     expect(screen.queryByText('影片暫停了，你仍然可以繼續診斷。')).not.toBeInTheDocument()
 
@@ -186,6 +185,21 @@ describe('AssessmentEngine media layers', () => {
     expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
   })
 
+  it('shows a question only after the active video genuinely ends', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    Object.defineProperty(firstVideo, 'currentTime', { configurable: true, value: 10_000 })
+    fireEvent.timeUpdate(firstVideo)
+
+    expect(screen.queryByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).not.toBeInTheDocument()
+    fireEvent.ended(firstVideo)
+    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+  })
+
   it('does not let repeated waiting or stalled events extend the no-progress deadline', async () => {
     vi.useFakeTimers()
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
@@ -208,7 +222,7 @@ describe('AssessmentEngine media layers', () => {
     expect(screen.getByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
   })
 
-  it('cleans the visible watchdog when a scene error falls back to its question', async () => {
+  it('keeps the active scene and question hidden when that scene fails to load', async () => {
     vi.useFakeTimers()
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
@@ -217,19 +231,20 @@ describe('AssessmentEngine media layers', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.error(firstVideo)
-    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).not.toBeInTheDocument()
     await act(async () => {
       vi.advanceTimersByTime(5000)
       await Promise.resolve()
     })
 
-    expect(screen.queryByText('影片暫停了，你仍然可以繼續診斷。')).not.toBeInTheDocument()
+    expect(screen.getByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
   })
 
-  it('prepares the inactive q2 buffer silently on decoded frames while q1 is active', async () => {
-    const playSnapshots: Array<{ video: HTMLMediaElement; muted: boolean }> = []
+  it('prepares the inactive q2 buffer with load/current data and no hidden playback', async () => {
+    const playSnapshots: HTMLMediaElement[] = []
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
-      playSnapshots.push({ video: this, muted: this.muted })
+      playSnapshots.push(this)
       return Promise.resolve()
     })
     const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) {
@@ -237,17 +252,13 @@ describe('AssessmentEngine media layers', () => {
     })
     vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get')
       .mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA)
-    const user = userEvent.setup()
     const { container } = render(<AssessmentEngine />)
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
-    const requestFrame = installAsyncFrameCallbacks(secondVideo)
 
-    await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
 
-    await waitFor(() => expect(playSnapshots.filter(({ video }) => video === secondVideo)).toHaveLength(1))
-    await waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(2))
-    expect(playSnapshots.find(({ video }) => video === secondVideo)?.muted).toBe(true)
-    expect(pause.mock.instances).toContain(secondVideo)
+    await waitFor(() => expect(pause.mock.instances).toContain(secondVideo))
+    expect(playSnapshots).not.toContain(secondVideo)
     expect(secondVideo.currentTime).toBe(0)
     expect(secondVideo.muted).toBe(true)
     expect(secondVideo).toHaveClass('z-0')
@@ -274,10 +285,7 @@ describe('AssessmentEngine media layers', () => {
     const { container } = render(<AssessmentEngine />)
     const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
-    installAsyncFrameCallbacks(secondVideo)
-
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    await waitFor(() => expect(q2PlaySnapshots).toHaveLength(1))
     fireEvent.ended(firstVideo)
     const answer = await screen.findByRole('radio', { name: '6' })
     await waitFor(() => expect(answer).toBeEnabled())
@@ -286,15 +294,12 @@ describe('AssessmentEngine media layers', () => {
     inAnswerGesture = false
 
     await waitFor(() => expect(secondVideo).toHaveClass('z-10'))
-    expect(q2PlaySnapshots).toEqual([
-      { muted: true, active: false, gesture: false },
-      { muted: false, active: true, gesture: true },
-    ])
+    expect(q2PlaySnapshots).toEqual([{ muted: false, active: true, gesture: true }])
     expect(secondVideo.currentTime).toBeLessThanOrEqual(0.05)
     expect(secondVideo.muted).toBe(false)
   })
 
-  it('stops rejected q2 playback and shows its canonical fallback question without audible playback', async () => {
+  it('routes rejected q2 playback to recovery without exposing its question', async () => {
     let q2PlayCount = 0
     const q2PlaySnapshots: Array<{ muted: boolean; active: boolean }> = []
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
@@ -305,25 +310,22 @@ describe('AssessmentEngine media layers', () => {
       }
       return Promise.resolve()
     })
-    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get')
       .mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA)
     const user = userEvent.setup()
     const { container } = render(<AssessmentEngine />)
     const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
-    installAsyncFrameCallbacks(secondVideo)
-
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    await waitFor(() => expect(q2PlayCount).toBe(1))
     fireEvent.ended(firstVideo)
     await user.click(await screen.findByRole('radio', { name: '6' }))
 
-    expect(await screen.findByRole('heading', { name: '你認為目前形象最影響到你邊一個場合？' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '你認為目前形象最影響到你邊一個場合？' })).not.toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
     expect(secondVideo).toHaveAttribute('poster', '/images/assessment-landing.png')
-    expect(q2PlaySnapshots).toEqual([{ muted: true, active: false }])
-    expect(pause.mock.instances).toContain(secondVideo)
+    expect(q2PlaySnapshots).toEqual([{ muted: false, active: true }])
     expect(q2PlayCount).toBe(1)
   })
 
@@ -332,7 +334,7 @@ describe('AssessmentEngine media layers', () => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
       if (this.getAttribute('src')?.includes('question-02')) {
         q2PlayCount += 1
-        if (q2PlayCount === 2) return Promise.reject(new Error('visible playback rejected'))
+        if (q2PlayCount === 1) return Promise.reject(new Error('visible playback rejected'))
       }
       return Promise.resolve()
     })
@@ -343,10 +345,7 @@ describe('AssessmentEngine media layers', () => {
     const { container } = render(<AssessmentEngine />)
     const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
-    installAsyncFrameCallbacks(secondVideo)
-
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    await waitFor(() => expect(q2PlayCount).toBe(1))
     fireEvent.ended(firstVideo)
     const answer = await screen.findByRole('radio', { name: '6' })
     await waitFor(() => expect(answer).toBeEnabled())
@@ -369,9 +368,6 @@ describe('AssessmentEngine media layers', () => {
     const { container } = render(<AssessmentEngine />)
     const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
-    secondVideo.requestVideoFrameCallback = vi.fn(() => 1)
-    secondVideo.cancelVideoFrameCallback = vi.fn()
-
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.ended(firstVideo)
     const answer = await screen.findByRole('radio', { name: '6' })
@@ -383,12 +379,57 @@ describe('AssessmentEngine media layers', () => {
     expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
   })
 
+  it('never skips q2, q3, or q4 after failed preparation and rejected visible playback', async () => {
+    const visiblePlayAttempts = new Map<string, number>()
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(function (this: HTMLMediaElement) {
+      this.dispatchEvent(new Event('error'))
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      const src = this.getAttribute('src') ?? ''
+      if (!/question-0[234]/.test(src)) return Promise.resolve()
+      const attempts = (visiblePlayAttempts.get(src) ?? 0) + 1
+      visiblePlayAttempts.set(src, attempts)
+      return attempts === 1
+        ? Promise.reject(new Error(`Safari rejected ${src}`))
+        : Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.ended(firstVideo)
+
+    for (const step of [
+      { answer: '6', scene: 'question-02', nextAnswer: '見客、銷售或傾生意' },
+      { answer: '見客、銷售或傾生意', scene: 'question-03', nextAnswer: '客戶信任同成交機會' },
+      { answer: '客戶信任同成交機會', scene: 'question-04', nextAnswer: '髮型同頭部輪廓' },
+    ]) {
+      fireEvent.click(await screen.findByRole('radio', { name: step.answer }))
+      const nextVideo = await waitFor(() => {
+        const video = container.querySelector(`video[src*="${step.scene}"]`) as HTMLVideoElement
+        expect(video).toHaveClass('z-10')
+        return video
+      })
+
+      expect(screen.queryByRole('radio', { name: step.nextAnswer })).not.toBeInTheDocument()
+      fireEvent.click(await screen.findByRole('button', { name: '點擊播放影片' }))
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
+      })
+      expect(screen.queryByRole('radio', { name: step.nextAnswer })).not.toBeInTheDocument()
+
+      fireEvent.ended(nextVideo)
+      expect(await screen.findByRole('radio', { name: step.nextAnswer })).toBeInTheDocument()
+    }
+  })
+
   it('routes an immediate WebKit policy pause on visible q2 to manual recovery', async () => {
     let q2PlayCount = 0
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
       if (this.getAttribute('src')?.includes('question-02')) {
         q2PlayCount += 1
-        if (q2PlayCount === 2) queueMicrotask(() => this.dispatchEvent(new Event('pause')))
+        if (q2PlayCount === 1) queueMicrotask(() => this.dispatchEvent(new Event('pause')))
       }
       return Promise.resolve()
     })
@@ -399,10 +440,7 @@ describe('AssessmentEngine media layers', () => {
     const { container } = render(<AssessmentEngine />)
     const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
-    installAsyncFrameCallbacks(secondVideo)
-
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    await waitFor(() => expect(q2PlayCount).toBe(1))
     fireEvent.ended(firstVideo)
     const answer = await screen.findByRole('radio', { name: '6' })
     await waitFor(() => expect(answer).toBeEnabled())
@@ -420,7 +458,6 @@ describe('AssessmentEngine media layers', () => {
     const { container } = render(<AssessmentEngine />)
     const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
-    installAsyncFrameCallbacks(secondVideo)
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.ended(firstVideo)
     const answer = await screen.findByRole('radio', { name: '6' })
@@ -443,7 +480,7 @@ describe('AssessmentEngine media layers', () => {
     })
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     const { container } = render(<AssessmentEngine />)
-    const q4Answer = await advanceViaFallbacksToFinalQuestion(container)
+    const q4Answer = await advanceToFinalQuestion(container)
     vi.useFakeTimers()
     fireEvent.click(q4Answer)
     fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
@@ -462,7 +499,7 @@ describe('AssessmentEngine media layers', () => {
     })
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     const { container, unmount } = render(<AssessmentEngine />)
-    const q4Answer = await advanceViaFallbacksToFinalQuestion(container)
+    const q4Answer = await advanceToFinalQuestion(container)
 
     vi.useFakeTimers()
     const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
@@ -476,30 +513,22 @@ describe('AssessmentEngine media layers', () => {
     expect(clearTimeoutSpy).toHaveBeenCalledWith(completionTimer)
   })
 
-  it('cancels deferred q2 preparation on restart without a stale buffer swap', async () => {
-    const frameCallbacks: VideoFrameRequestCallback[] = []
+  it('cancels deferred load-based q2 preparation on restart without a stale buffer swap', async () => {
     const pausedVideos: HTMLMediaElement[] = []
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) {
       pausedVideos.push(this)
     })
-    vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get')
-      .mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA)
+    const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined)
     const user = userEvent.setup()
     const { container } = render(<AssessmentEngine />)
     const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
-    secondVideo.requestVideoFrameCallback = vi.fn((callback) => {
-      frameCallbacks.push(callback)
-      return frameCallbacks.length
-    })
-    secondVideo.cancelVideoFrameCallback = vi.fn()
-
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    await waitFor(() => expect(frameCallbacks).toHaveLength(1))
+    await waitFor(() => expect(load.mock.instances).toContain(secondVideo))
     await user.click(screen.getByRole('button', { name: '重新開始診斷' }))
     const pausesAfterRestart = pausedVideos.filter((video) => video === secondVideo).length
-    frameCallbacks[0](0, {} as VideoFrameCallbackMetadata)
+    fireEvent.loadedData(secondVideo)
 
     await waitFor(() => expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument())
     expect(firstVideo).toHaveClass('z-10')
@@ -507,13 +536,13 @@ describe('AssessmentEngine media layers', () => {
     expect(pausedVideos.filter((video) => video === secondVideo)).toHaveLength(pausesAfterRestart)
   })
 
-  it('times out stalled q2 preparation and enables the canonical fallback answer path', async () => {
+  it('shows stalled-preparation q2 and routes its rejected visible play to recovery', async () => {
     vi.useFakeTimers()
     const q2Plays: Array<{ muted: boolean; active: boolean }> = []
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
       if (this.getAttribute('src')?.includes('question-02')) {
         q2Plays.push({ muted: this.muted, active: this.classList.contains('z-10') })
-        return new Promise<void>(() => undefined)
+        return Promise.reject(new Error('visible q2 playback rejected'))
       }
       return Promise.resolve()
     })
@@ -531,11 +560,13 @@ describe('AssessmentEngine media layers', () => {
     const answer = screen.getByRole('radio', { name: '6' })
     expect(answer).toBeEnabled()
     fireEvent.click(answer)
+    await act(async () => Promise.resolve())
 
-    expect(screen.getByRole('heading', { name: '你認為目前形象最影響到你邊一個場合？' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '你認為目前形象最影響到你邊一個場合？' })).not.toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
     expect(secondVideo).toHaveAttribute('poster', '/images/assessment-landing.png')
-    expect(q2Plays).toEqual([{ muted: true, active: false }])
+    expect(q2Plays).toEqual([{ muted: false, active: true }])
     expect(pause.mock.instances).toContain(secondVideo)
   })
 })

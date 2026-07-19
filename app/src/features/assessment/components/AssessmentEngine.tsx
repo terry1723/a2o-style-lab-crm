@@ -56,7 +56,6 @@ type NextPreparation = {
   nextSceneId: string
   video: FrameVideo
   controller: AbortController
-  status: 'pending' | 'ready' | 'failed'
 }
 
 export function AssessmentEngine() {
@@ -71,7 +70,6 @@ export function AssessmentEngine() {
   const transitionControllerRef = useRef<AbortController | null>(null)
   const playbackMonitorCleanupRef = useRef<(() => void) | null>(null)
   const completionTimerRef = useRef<number | null>(null)
-  const [, setPreparationRevision] = useState(0)
   const [submittingLead, setSubmittingLead] = useState(false)
   const [leadSubmitted, setLeadSubmitted] = useState(false)
   const attribution = useMemo(() => getAttribution(), [])
@@ -95,21 +93,6 @@ export function AssessmentEngine() {
   const isQuestionVisible = state.status === 'showing_question' || state.status === 'submitting_answer'
   const isTransitioning = state.status === 'transitioning'
   const isReady = state.status === 'ready' || state.status === 'boot'
-  const preparationMatchesCurrent = (preparation: NextPreparation | null) => Boolean(
-    preparation
-    && preparation.generation === generationRef.current
-    && preparation.sceneIndex === state.currentSceneIndex
-    && preparation.activeBuffer === state.activeBuffer
-    && preparation.nextSceneId === nextScene?.id,
-  )
-  const directPreparation = preparationMatchesCurrent(preparationRef.current)
-    ? preparationRef.current
-    : null
-  const isDirectPreparationPending = Boolean(
-    nextScene
-    && !currentScene.transitionVideoUrl
-    && (!directPreparation || directPreparation.status === 'pending'),
-  )
 
   useEffect(() => {
     dispatch({ type: 'BOOT_READY' })
@@ -161,10 +144,8 @@ export function AssessmentEngine() {
       nextSceneId: nextScene.id,
       video,
       controller: new AbortController(),
-      status: 'pending',
     }
     preparationRef.current = preparation
-    setPreparationRevision((value) => value + 1)
     const isCurrent = () => {
       const live = stateRef.current
       const liveInactive = live.activeBuffer === 0 ? sceneBRef.current : sceneARef.current
@@ -181,11 +162,7 @@ export function AssessmentEngine() {
       1500,
       preparation.controller.signal,
       isCurrent,
-    ).then((ready) => {
-      if (!isCurrent() || preparationRef.current !== preparation) return
-      preparation.status = ready ? 'ready' : 'failed'
-      setPreparationRevision((value) => value + 1)
-    })
+    )
   }, [currentScene.transitionVideoUrl, nextScene, state.activeBuffer, state.currentSceneIndex, state.status])
 
   useEffect(() => () => {
@@ -196,15 +173,19 @@ export function AssessmentEngine() {
     if (completionTimerRef.current !== null) window.clearTimeout(completionTimerRef.current)
   }, [])
 
-  const fallBackToCurrentQuestion = (message: string) => {
+  const reportActiveSceneLoadError = (activeBuffer: 0 | 1) => {
+    const live = stateRef.current
+    if (live.activeBuffer !== activeBuffer) return
+    const activeScene = scenes[live.currentSceneIndex]
+    if (!activeScene) return
     playbackMonitorCleanupRef.current?.()
     playbackMonitorCleanupRef.current = null
     trackAssessmentEvent('video_playback_error', {
-      session_id: state.sessionId,
-      scene_id: currentScene.id,
-      error: message,
+      session_id: live.sessionId,
+      scene_id: activeScene.id,
+      error: 'scene_load_error',
     })
-    dispatch({ type: 'SHOW_QUESTION' })
+    dispatch({ type: 'SET_PLAYBACK_ISSUE', message: 'scene_load_error' })
   }
 
   const start = () => {
@@ -214,7 +195,7 @@ export function AssessmentEngine() {
       return
     }
     video.muted = state.muted
-    monitorVisiblePlayback(
+    const reportVisiblePlaybackIssue = monitorVisiblePlayback(
       video,
       generationRef.current,
       state.currentSceneIndex,
@@ -222,7 +203,7 @@ export function AssessmentEngine() {
       currentScene.id,
     )
     void video.play().catch(() => {
-      fallBackToCurrentQuestion('play_rejected')
+      reportVisiblePlaybackIssue('play_rejected')
     })
     dispatch({ type: 'START' })
     void createAssessmentSession(state.sessionId, attribution)
@@ -233,20 +214,16 @@ export function AssessmentEngine() {
   }
 
   const showQuestion = () => {
-    if (state.status !== 'playing_scene') return
+    if (!['playing_scene', 'playing_next_scene'].includes(state.status)) return
     playbackMonitorCleanupRef.current?.()
     playbackMonitorCleanupRef.current = null
+    if (state.status === 'playing_next_scene') dispatch({ type: 'SCENE_STABLE' })
     dispatch({ type: 'SHOW_QUESTION' })
     trackAssessmentEvent('question_shown', {
       session_id: state.sessionId,
       scene_id: currentScene.id,
       question_id: currentScene.question.id,
     })
-  }
-
-  const handleTimeUpdate = () => {
-    const video = activeVideo()
-    if (video && video.currentTime >= currentScene.questionCueSeconds) showQuestion()
   }
 
   function monitorVisiblePlayback(
@@ -354,22 +331,23 @@ export function AssessmentEngine() {
     }
 
     if (!hasAuthoredTransition) {
-      const preparation = preparationRef.current
-      if (!next || !preparationMatchesCurrent(preparation) || preparation?.status !== 'ready') {
-        if (next) {
-          next.muted = true
-          next.pause()
-        }
-        trackAssessmentEvent('video_playback_error', {
-          session_id: state.sessionId,
-          scene_id: nextScene.id,
-          error: 'next_scene_play_rejected',
-        })
-        dispatch({ type: 'NEXT_SCENE_FALLBACK' })
+      if (!next) {
+        dispatch({ type: 'FATAL_ERROR', message: '未能準備下一段影片。' })
         return
       }
 
+      const preparation = preparationRef.current
+      preparationRef.current = null
+      preparation?.controller.abort()
       current?.pause()
+      next.pause()
+      try {
+        next.currentTime = 0
+      } catch {
+        // Safari may reject a seek before metadata is available. The visible
+        // buffer still gets the original click's play attempt and recovery UI.
+      }
+      next.muted = state.muted
       flushSync(() => {
         dispatch({ type: 'BEGIN_TRANSITION' })
         dispatch({ type: 'NEXT_SCENE_READY' })
@@ -383,7 +361,11 @@ export function AssessmentEngine() {
         nextBuffer,
         nextScene.id,
       )
-      void next.play().catch(() => reportVisiblePlaybackIssue('next_scene_play_rejected'))
+      try {
+        void next.play().catch(() => reportVisiblePlaybackIssue('next_scene_play_rejected'))
+      } catch {
+        reportVisiblePlaybackIssue('next_scene_play_rejected')
+      }
       return
     }
 
@@ -601,9 +583,8 @@ export function AssessmentEngine() {
           poster={posterA}
           active={state.activeBuffer === 0}
           muted={state.activeBuffer === 0 ? state.muted : true}
-          onTimeUpdate={handleTimeUpdate}
           onEnded={showQuestion}
-          onError={() => fallBackToCurrentQuestion('scene_load_error')}
+          onError={() => reportActiveSceneLoadError(0)}
         />
         <SceneVideoBuffer
           ref={sceneBRef}
@@ -611,9 +592,8 @@ export function AssessmentEngine() {
           poster={posterB}
           active={state.activeBuffer === 1}
           muted={state.activeBuffer === 1 ? state.muted : true}
-          onTimeUpdate={handleTimeUpdate}
           onEnded={showQuestion}
-          onError={() => fallBackToCurrentQuestion('scene_load_error')}
+          onError={() => reportActiveSceneLoadError(1)}
         />
         <TransitionVideoLayer
           ref={transitionRef}
@@ -707,7 +687,7 @@ export function AssessmentEngine() {
           <QuestionOverlay
             question={currentScene.question}
             progress={`${state.currentSceneIndex + 1} / ${scenes.length}`}
-            disabled={state.status === 'submitting_answer' || isDirectPreparationPending}
+            disabled={state.status === 'submitting_answer'}
             onConfirm={confirmAnswer}
           />
         )}
@@ -720,7 +700,7 @@ export function AssessmentEngine() {
               onClick={resumePlayback}
               className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-a2o-black"
             >
-              <Play className="h-4 w-4 fill-current" /> 點擊繼續播放
+              <Play className="h-4 w-4 fill-current" /> 點擊播放影片
             </button>
           </div>
         )}
