@@ -375,6 +375,7 @@ export function AssessmentEngine() {
   return (
     <main className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#171310]">
       <div
+        data-testid="assessment-ambience"
         className="absolute inset-[-3rem] scale-110 bg-cover bg-center opacity-25 blur-3xl"
         style={{ backgroundImage: `url(${assessmentConfig.opening.posterUrl})` }}
         aria-hidden="true"

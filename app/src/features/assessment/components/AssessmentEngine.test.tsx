@@ -41,6 +41,14 @@ describe('AssessmentEngine media layers', () => {
     expect(container.querySelector('main')).toHaveClass('flex', 'items-center', 'justify-center')
   })
 
+  it('uses the canonical opening cover for the desktop ambience', () => {
+    render(<AssessmentEngine />)
+
+    expect(screen.getByTestId('assessment-ambience').style.backgroundImage).toContain(
+      '/images/assessment-landing.png',
+    )
+  })
+
   it('renders the canonical opening cover independently from the video buffers', () => {
     const { container } = render(<AssessmentEngine />)
     const opening = screen.getByTestId('assessment-opening')
