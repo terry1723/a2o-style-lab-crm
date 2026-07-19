@@ -23,6 +23,7 @@ function installMockAudioContext(options: { failSourceCreation?: boolean } = {})
     connect: vi.fn(),
     disconnect: vi.fn(),
   } as unknown as GainNode
+  const resume = vi.fn(() => Promise.resolve())
   const context = {
     destination,
     createMediaElementSource: vi.fn(() => {
@@ -30,14 +31,14 @@ function installMockAudioContext(options: { failSourceCreation?: boolean } = {})
       return source
     }),
     createGain: vi.fn(() => gain),
-    resume: vi.fn(() => Promise.resolve()),
+    resume,
     close: vi.fn(() => Promise.resolve()),
   } as unknown as AudioContext
   const AudioContextConstructor = vi.fn(function MockAudioContext() {
     return context
   })
   vi.stubGlobal('AudioContext', AudioContextConstructor)
-  return { AudioContextConstructor, context, destination, gain, gainParam, source }
+  return { AudioContextConstructor, context, destination, gain, gainParam, resume, source }
 }
 
 async function advanceToFinalQuestion(container: HTMLElement) {
@@ -200,6 +201,74 @@ describe('AssessmentEngine media layers', () => {
     expect(graph.context.createGain).toHaveBeenCalledTimes(1)
     expect(graph.source.connect).toHaveBeenCalledTimes(1)
     expect(graph.context.resume).toHaveBeenCalledTimes(2)
+  })
+
+  it('ignores a stale resume rejection after restart and a newer successful start', async () => {
+    const graph = installMockAudioContext()
+    let rejectFirstResume: (reason?: unknown) => void = () => undefined
+    const firstResume = new Promise<void>((_resolve, reject) => {
+      rejectFirstResume = reject
+    })
+    graph.resume
+      .mockImplementationOnce(() => firstResume)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+    const playedAudio: HTMLMediaElement[] = []
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      if (this.tagName === 'AUDIO') playedAudio.push(this)
+      return Promise.resolve()
+    })
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    const pausesBeforeStaleRejection = pause.mock.instances.filter((media) => media === soundtrack).length
+
+    await act(async () => {
+      rejectFirstResume(new Error('stale resume rejected'))
+      await Promise.resolve()
+    })
+
+    expect(pause.mock.instances.filter((media) => media === soundtrack)).toHaveLength(
+      pausesBeforeStaleRejection,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    expect(graph.resume).toHaveBeenCalledTimes(3)
+    expect(playedAudio).toHaveLength(3)
+  })
+
+  it('disables soundtrack after the current start resume rejects without blocking video', async () => {
+    const graph = installMockAudioContext()
+    let rejectResume: (reason?: unknown) => void = () => undefined
+    graph.resume.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => {
+      rejectResume = reject
+    }))
+    const playedMedia: HTMLMediaElement[] = []
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      playedMedia.push(this)
+      return Promise.resolve()
+    })
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    await act(async () => {
+      rejectResume(new Error('current resume rejected'))
+      await Promise.resolve()
+    })
+
+    expect(pause.mock.instances).toContain(soundtrack)
+    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    expect(graph.resume).toHaveBeenCalledTimes(1)
+    expect(playedMedia.filter((media) => media === soundtrack)).toHaveLength(1)
+    expect(playedMedia.filter((media) => media === firstVideo)).toHaveLength(2)
   })
 
   it('skips soundtrack playback when Web Audio setup fails without blocking q1 video', async () => {

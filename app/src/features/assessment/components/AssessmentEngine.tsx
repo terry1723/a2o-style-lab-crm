@@ -82,6 +82,7 @@ export function AssessmentEngine() {
   const soundtrackSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
   const soundtrackGainNodeRef = useRef<GainNode | null>(null)
   const soundtrackWebAudioFailedRef = useRef(false)
+  const soundtrackStartAttemptRef = useRef(0)
   const generationRef = useRef(0)
   const stateRef = useRef(state)
   const preparationRef = useRef<NextPreparation | null>(null)
@@ -283,6 +284,9 @@ export function AssessmentEngine() {
     }
     const soundtrack = soundtrackRef.current
     if (soundtrack) {
+      const soundtrackStartAttempt = soundtrackStartAttemptRef.current + 1
+      soundtrackStartAttemptRef.current = soundtrackStartAttempt
+      const soundtrackGeneration = generationRef.current
       const AudioContextConstructor = getAudioContextConstructor()
       let soundtrackReady = !soundtrackWebAudioFailedRef.current
       if (soundtrackReady && AudioContextConstructor) {
@@ -301,7 +305,16 @@ export function AssessmentEngine() {
           }
           gainNode.gain.value = SOUNDTRACK_SCENE_VOLUME
           soundtrack.volume = 1
+          const sourceNode = soundtrackSourceNodeRef.current
           void audioContext.resume().catch(() => {
+            if (
+              generationRef.current !== soundtrackGeneration
+              || soundtrackStartAttemptRef.current !== soundtrackStartAttempt
+              || soundtrackRef.current !== soundtrack
+              || soundtrackAudioContextRef.current !== audioContext
+              || soundtrackSourceNodeRef.current !== sourceNode
+              || soundtrackGainNodeRef.current !== gainNode
+            ) return
             soundtrackWebAudioFailedRef.current = true
             soundtrackFadeCleanupRef.current?.()
             soundtrackFadeCleanupRef.current = null
