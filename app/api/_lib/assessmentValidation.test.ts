@@ -13,6 +13,7 @@ const validPayload = {
     q4: ['q4_e'],
   },
   photoPath: '2026/07/session-1234567890/123e4567-e89b-12d3-a456-426614174000.jpg',
+  uploadReceipt: 'signed-upload-receipt',
   attribution: { utmSource: 'instagram' },
 }
 
@@ -46,5 +47,10 @@ describe('validateAssessmentSubmission', () => {
       ...validPayload,
       answers: { ...validPayload.answers, q3: [] },
     })).toThrow('invalid_answers')
+  })
+
+  it('requires the server-issued upload receipt', () => {
+    expect(() => validateAssessmentSubmission({ ...validPayload, uploadReceipt: '' }))
+      .toThrow('invalid_upload_receipt')
   })
 })

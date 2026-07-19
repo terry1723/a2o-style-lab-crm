@@ -8,6 +8,9 @@ const runtimeFiles = [
   '_lib/storageService.ts',
   '_lib/supabaseAdmin.ts',
   '_lib/googleSheetWebhook.ts',
+  '_lib/uploadReceipt.ts',
+  '_lib/requestRateLimit.ts',
+  '_lib/assessmentRateLimit.ts',
 ]
 
 describe('Vercel Node ESM imports', () => {

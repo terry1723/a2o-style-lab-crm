@@ -11,6 +11,7 @@ export type AssessmentSubmissionPayload = {
   consent: true
   answers: AssessmentAnswerMap
   photoPath: string
+  uploadReceipt: string
   attribution: Attribution
 }
 
@@ -76,6 +77,9 @@ export function validateAssessmentSubmission(value: unknown): AssessmentSubmissi
   const photoMatch = PHOTO_PATH_PATTERN.exec(photoPath)
   if (!photoMatch || photoMatch[3] !== sessionId) throw new Error('invalid_photo_path')
 
+  const uploadReceipt = typeof input.uploadReceipt === 'string' ? input.uploadReceipt : ''
+  if (!uploadReceipt || uploadReceipt.length > 4096) throw new Error('invalid_upload_receipt')
+
   return {
     sessionId,
     name,
@@ -83,6 +87,7 @@ export function validateAssessmentSubmission(value: unknown): AssessmentSubmissi
     consent: true,
     answers: parseAnswers(input.answers),
     photoPath,
+    uploadReceipt,
     attribution: parseAttribution(input.attribution),
   }
 }

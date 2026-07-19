@@ -18,9 +18,15 @@ type SignedUrlResult = {
   error: unknown
 }
 
+type ListResult = {
+  data: Array<{ name: string; metadata?: Record<string, unknown> | null }> | null
+  error: unknown
+}
+
 export type AssessmentStorageBucket = {
   createSignedUploadUrl: (path: string) => Promise<SignedUploadResult>
   createSignedUrl: (path: string, expiresIn: number) => Promise<SignedUrlResult>
+  list: (path: string, options: { limit: number; search: string }) => Promise<ListResult>
 }
 
 export type PhotoUploadRequest = {
@@ -60,4 +66,28 @@ export async function createPhotoReadUrl(
   const { data, error } = await storage.createSignedUrl(path, expiresIn)
   if (error || !data?.signedUrl) throw new Error('photo_read_signing_failed')
   return data.signedUrl
+}
+
+export async function assertUploadedPhoto(
+  path: string,
+  expectedMimeType: string,
+  expectedFileSize: number,
+  storage: AssessmentStorageBucket = createAssessmentStorageBucket(),
+) {
+  const separator = path.lastIndexOf('/')
+  if (separator <= 0 || separator === path.length - 1) throw new Error('uploaded_photo_invalid')
+  const folder = path.slice(0, separator)
+  const filename = path.slice(separator + 1)
+  const { data, error } = await storage.list(folder, { limit: 2, search: filename })
+  const object = data?.find((item) => item.name === filename)
+  const size = object?.metadata?.size
+  const mimeType = object?.metadata?.mimetype ?? object?.metadata?.contentType
+
+  if (
+    error
+    || !object
+    || typeof size !== 'number'
+    || size !== expectedFileSize
+    || mimeType !== expectedMimeType
+  ) throw new Error('uploaded_photo_invalid')
 }

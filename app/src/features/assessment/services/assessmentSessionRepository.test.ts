@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { saveClient } from '../../../lib/clientData'
 import type { AssessmentAnswerMap, Attribution } from '../types/assessment'
 import { submitAssessmentLeadToPipeline } from './assessmentLeadApi'
 import { submitAssessmentLead } from './assessmentSessionRepository'
-
-vi.mock('../../../lib/clientData', () => ({
-  saveClient: vi.fn().mockResolvedValue({ id: 'client-1' }),
-}))
 
 vi.mock('./assessmentLeadApi', () => ({
   submitAssessmentLeadToPipeline: vi.fn().mockResolvedValue({ ok: true, duplicate: false }),
@@ -14,7 +9,6 @@ vi.mock('./assessmentLeadApi', () => ({
 
 describe('submitAssessmentLead', () => {
   beforeEach(() => {
-    vi.mocked(saveClient).mockClear()
     vi.mocked(submitAssessmentLeadToPipeline).mockClear()
   })
 
@@ -51,7 +45,6 @@ describe('submitAssessmentLead', () => {
       answers,
       attribution,
     })
-    expect(saveClient).not.toHaveBeenCalled()
     expect(submitAssessmentLeadToPipeline).toHaveBeenCalledWith(expect.not.objectContaining({
       result: expect.anything(),
       config: expect.anything(),
