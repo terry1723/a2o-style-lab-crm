@@ -13,7 +13,7 @@ function createReadyVideo() {
     configurable: true,
     get: () => HTMLMediaElement.HAVE_CURRENT_DATA,
   })
-  video.requestVideoFrameCallback = (callback) => {
+  video.requestVideoFrameCallback = (callback): number => {
     queueMicrotask(() => callback(0, {} as VideoFrameCallbackMetadata))
     return 1
   }
@@ -23,7 +23,7 @@ function createReadyVideo() {
 describe('hidden video playback', () => {
   it('accepts a synchronously confirmed decoded frame without cancelling it', async () => {
     const video = createReadyVideo()
-    const requestFrame = vi.fn((callback: () => void) => {
+    const requestFrame = vi.fn((callback: () => void): number => {
       callback()
       return 41
     })
@@ -122,7 +122,7 @@ describe('hidden video playback', () => {
 
   it('loads a hidden swap buffer when current data is absent', async () => {
     const video = document.createElement('video')
-    let readyState = HTMLMediaElement.HAVE_NOTHING
+    let readyState: number = HTMLMediaElement.HAVE_NOTHING
     Object.defineProperty(video, 'readyState', {
       configurable: true,
       get: () => readyState,
@@ -161,7 +161,7 @@ describe('hidden video playback', () => {
   it('does not seek again after confirming current data at the start', async () => {
     const video = document.createElement('video')
     let currentTime = 1
-    let readyState = HTMLMediaElement.HAVE_CURRENT_DATA
+    let readyState: number = HTMLMediaElement.HAVE_CURRENT_DATA
     let seekCount = 0
     Object.defineProperty(video, 'currentTime', {
       configurable: true,
@@ -187,7 +187,7 @@ describe('hidden video playback', () => {
 
   it('accepts a Safari-ready paused hidden buffer without trying to play it', async () => {
     const video = createReadyVideo()
-    video.requestVideoFrameCallback = vi.fn(() => 1)
+    video.requestVideoFrameCallback = vi.fn((): number => 1)
     const play = vi.spyOn(video, 'play').mockResolvedValue()
     const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
 
@@ -251,7 +251,7 @@ describe('hidden video playback', () => {
   it('rejects a hidden swap preparation that becomes stale while loading', async () => {
     const video = document.createElement('video')
     let isCurrent = true
-    let readyState = HTMLMediaElement.HAVE_NOTHING
+    let readyState: number = HTMLMediaElement.HAVE_NOTHING
     Object.defineProperty(video, 'readyState', {
       configurable: true,
       get: () => readyState,

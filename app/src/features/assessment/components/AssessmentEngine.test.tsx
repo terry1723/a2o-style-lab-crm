@@ -24,12 +24,13 @@ function installMockAudioContext(options: { failSourceCreation?: boolean } = {})
     disconnect: vi.fn(),
   } as unknown as GainNode
   const resume = vi.fn(() => Promise.resolve())
+  const createMediaElementSource = vi.fn((_element: HTMLMediaElement): MediaElementAudioSourceNode => {
+    if (options.failSourceCreation) throw new Error('source creation failed')
+    return source
+  })
   const context = {
     destination,
-    createMediaElementSource: vi.fn(() => {
-      if (options.failSourceCreation) throw new Error('source creation failed')
-      return source
-    }),
+    createMediaElementSource,
     createGain: vi.fn(() => gain),
     resume,
     close: vi.fn(() => Promise.resolve()),
@@ -38,7 +39,16 @@ function installMockAudioContext(options: { failSourceCreation?: boolean } = {})
     return context
   })
   vi.stubGlobal('AudioContext', AudioContextConstructor)
-  return { AudioContextConstructor, context, destination, gain, gainParam, resume, source }
+  return {
+    AudioContextConstructor,
+    context,
+    createMediaElementSource,
+    destination,
+    gain,
+    gainParam,
+    resume,
+    source,
+  }
 }
 
 async function advanceToFinalQuestion(container: HTMLElement) {
@@ -150,7 +160,7 @@ describe('AssessmentEngine media layers', () => {
     inStartGesture = false
 
     expect(graph.AudioContextConstructor).toHaveBeenCalledTimes(1)
-    expect(graph.context.createMediaElementSource).toHaveBeenCalledWith(soundtrack)
+    expect(graph.createMediaElementSource).toHaveBeenCalledWith(soundtrack)
     expect(graph.source.connect).toHaveBeenCalledWith(graph.gain)
     expect(graph.gain.connect).toHaveBeenCalledWith(graph.destination)
     expect(graph.context.resume).toHaveBeenCalledTimes(1)
@@ -161,7 +171,10 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.ended(firstVideo)
     await waitFor(() => expect(fadeAudioParam).toHaveBeenCalledWith(graph.gainParam, 0.18, 240))
     fireEvent.click(await screen.findByRole('radio', { name: '6' }))
-    await waitFor(() => expect(fadeAudioParam.mock.calls.at(-1)).toEqual([graph.gainParam, 0.1, 240]))
+    await waitFor(() => {
+      const calls = fadeAudioParam.mock.calls
+      expect(calls[calls.length - 1]).toEqual([graph.gainParam, 0.1, 240])
+    })
     expect(cancelSoundtrackFade).toHaveBeenCalled()
   })
 
@@ -181,7 +194,8 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(await screen.findByRole('radio', { name: '6' }))
 
     await waitFor(() => {
-      const lastCall = fadeAudioVolume.mock.calls.at(-1)
+      const calls = fadeAudioVolume.mock.calls
+      const lastCall = calls[calls.length - 1]
       expect(lastCall).toEqual([soundtrack, 0.1, 240])
     })
     expect(cancelSoundtrackFade).toHaveBeenCalled()
@@ -197,7 +211,7 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
 
     expect(graph.AudioContextConstructor).toHaveBeenCalledTimes(1)
-    expect(graph.context.createMediaElementSource).toHaveBeenCalledTimes(1)
+    expect(graph.createMediaElementSource).toHaveBeenCalledTimes(1)
     expect(graph.context.createGain).toHaveBeenCalledTimes(1)
     expect(graph.source.connect).toHaveBeenCalledTimes(1)
     expect(graph.context.resume).toHaveBeenCalledTimes(2)
@@ -218,21 +232,24 @@ describe('AssessmentEngine media layers', () => {
       if (this.tagName === 'AUDIO') playedAudio.push(this)
       return Promise.resolve()
     })
-    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const pausedMedia: HTMLMediaElement[] = []
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) {
+      pausedMedia.push(this)
+    })
     const { container } = render(<AssessmentEngine />)
     const soundtrack = container.querySelector('audio') as HTMLAudioElement
 
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    const pausesBeforeStaleRejection = pause.mock.instances.filter((media) => media === soundtrack).length
+    const pausesBeforeStaleRejection = pausedMedia.filter((media) => media === soundtrack).length
 
     await act(async () => {
       rejectFirstResume(new Error('stale resume rejected'))
       await Promise.resolve()
     })
 
-    expect(pause.mock.instances.filter((media) => media === soundtrack)).toHaveLength(
+    expect(pausedMedia.filter((media) => media === soundtrack)).toHaveLength(
       pausesBeforeStaleRejection,
     )
     fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
