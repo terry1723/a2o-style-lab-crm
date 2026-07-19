@@ -130,13 +130,15 @@ describe('hidden video playback', () => {
     const video = createReadyVideo()
     video.requestVideoFrameCallback = vi.fn(() => 1)
     const play = vi.spyOn(video, 'play').mockResolvedValue()
-    vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
 
     await expect(prepareHiddenVideoForSwap(video, 10, 10)).resolves.toBe(true)
 
     expect(play).not.toHaveBeenCalled()
+    expect(pause).toHaveBeenCalled()
     expect(video.paused).toBe(true)
     expect(video.currentTime).toBe(0)
+    expect(video.muted).toBe(true)
   })
 
   it('times out a never-settling hidden play and stops the muted buffer', async () => {
