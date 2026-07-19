@@ -25,30 +25,7 @@ function createSessionId() {
 
 function createInitialState(): AssessmentMachineState {
   const muted = sessionStorage.getItem(MUTE_KEY) === 'true'
-
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as Partial<AssessmentMachineState> | null
-    if (saved?.sessionId && saved.answers && typeof saved.currentSceneIndex === 'number') {
-      const hasProgress = saved.status !== 'ready'
-        || saved.currentSceneIndex > 0
-        || Object.keys(saved.answers).length > 0
-
-      if (hasProgress) {
-        return {
-          status: saved.status === 'completed' ? 'completed' : 'ready',
-          sessionId: saved.sessionId,
-          currentSceneIndex: saved.currentSceneIndex,
-          activeBuffer: 0,
-          answers: saved.answers,
-          muted,
-          recovered: true,
-        }
-      }
-      localStorage.removeItem(STORAGE_KEY)
-    }
-  } catch {
-    localStorage.removeItem(STORAGE_KEY)
-  }
+  localStorage.removeItem(STORAGE_KEY)
 
   return {
     status: 'boot',
@@ -121,16 +98,6 @@ function reducer(state: AssessmentMachineState, action: Action): AssessmentMachi
 
 export function useAssessmentMachine() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
-
-  useEffect(() => {
-    if (state.status === 'boot') return
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      sessionId: state.sessionId,
-      status: state.status,
-      currentSceneIndex: state.currentSceneIndex,
-      answers: state.answers,
-    }))
-  }, [state.answers, state.currentSceneIndex, state.sessionId, state.status])
 
   useEffect(() => {
     sessionStorage.setItem(MUTE_KEY, String(state.muted))
