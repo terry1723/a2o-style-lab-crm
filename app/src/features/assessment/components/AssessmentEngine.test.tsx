@@ -356,6 +356,33 @@ describe('AssessmentEngine media layers', () => {
     expect(secondVideo).toHaveClass('z-10')
   })
 
+  it('keeps Safari q2 video visible with recovery controls instead of skipping to its question', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      if (this.getAttribute('src')?.includes('question-02')) {
+        return Promise.reject(new Error('Safari could not start q2 playback'))
+      }
+      return Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get')
+      .mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+    const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
+    secondVideo.requestVideoFrameCallback = vi.fn(() => 1)
+    secondVideo.cancelVideoFrameCallback = vi.fn()
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.ended(firstVideo)
+    const answer = await screen.findByRole('radio', { name: '6' })
+    await waitFor(() => expect(answer).toBeEnabled())
+    fireEvent.click(answer)
+
+    await waitFor(() => expect(secondVideo).toHaveClass('z-10'))
+    expect(screen.queryByRole('radio', { name: '見客、銷售或傾生意' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
+  })
+
   it('routes an immediate WebKit policy pause on visible q2 to manual recovery', async () => {
     let q2PlayCount = 0
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {

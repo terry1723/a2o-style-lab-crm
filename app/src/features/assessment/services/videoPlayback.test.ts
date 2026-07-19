@@ -126,6 +126,19 @@ describe('hidden video playback', () => {
     expect(video.muted).toBe(true)
   })
 
+  it('accepts a Safari-ready paused hidden buffer without trying to play it', async () => {
+    const video = createReadyVideo()
+    video.requestVideoFrameCallback = vi.fn(() => 1)
+    const play = vi.spyOn(video, 'play').mockResolvedValue()
+    vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(prepareHiddenVideoForSwap(video, 10, 10)).resolves.toBe(true)
+
+    expect(play).not.toHaveBeenCalled()
+    expect(video.paused).toBe(true)
+    expect(video.currentTime).toBe(0)
+  })
+
   it('times out a never-settling hidden play and stops the muted buffer', async () => {
     const video = createReadyVideo()
     vi.spyOn(video, 'play').mockReturnValue(new Promise<void>(() => undefined))
