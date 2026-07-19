@@ -1,85 +1,181 @@
 ---
 name: consultation-funnel-builder
-description: [TODO: Complete and informative explanation of what the skill does and when to use it. Include WHEN to use this skill - specific scenarios, file types, or tasks that trigger it.]
+description: Use when creating, adapting, diagnosing, or launching an interactive consultation, assessment, or lead-qualification website, especially when the journey uses presenter videos, sequential questions, private uploads, Google Sheets, WhatsApp conversion, or an existing CRM that must remain isolated.
 ---
 
 # Consultation Funnel Builder
 
-## Overview
+## Purpose
 
-[TODO: 1-2 sentences explaining what this skill enables]
+Build a reusable campaign-to-consultation journey that qualifies a lead before
+human follow-up. Treat the A2O implementation as a proven case study, never as
+a brand template to copy.
 
-## Structuring This Skill
+## Non-Negotiable Rules
 
-[TODO: Choose the structure that best fits this skill's purpose. Common patterns:
+1. Inspect the destination repository, instructions, framework, routes,
+   integrations, authentication, CRM boundaries, and deployment configuration
+   before proposing implementation.
+2. Ask one material intake question at a time. Maintain a private ledger of
+   confirmed decisions, assumptions, missing inputs, and risks.
+3. Confirm the business objective, qualification outcome, and conversion action
+   before designing the interface.
+4. Present a funnel brief and architecture for user approval before changing
+   code or external systems.
+5. Never request secrets in chat, expose them to browser code, or commit them.
+6. Never copy A2O customer data, contact details, media, branding, Sheet IDs, or
+   credentials into another business.
+7. Preserve existing CRM, authentication, customer data, and production routes
+   unless the user explicitly authorizes a defined change.
+8. Do not claim an upload, Sheet write, WhatsApp send, or deployment succeeded
+   without direct verification.
 
-**1. Workflow-Based** (best for sequential processes)
-- Works well when there are clear step-by-step procedures
-- Example: DOCX skill with "Workflow Decision Tree" -> "Reading" -> "Creating" -> "Editing"
-- Structure: ## Overview -> ## Workflow Decision Tree -> ## Step 1 -> ## Step 2...
+## Workflow
 
-**2. Task-Based** (best for tool collections)
-- Works well when the skill offers different operations/capabilities
-- Example: PDF skill with "Quick Start" -> "Merge PDFs" -> "Split PDFs" -> "Extract Text"
-- Structure: ## Overview -> ## Quick Start -> ## Task Category 1 -> ## Task Category 2...
+### 1. Discover the Existing Environment
 
-**3. Reference/Guidelines** (best for standards or specifications)
-- Works well for brand guidelines, coding standards, or requirements
-- Example: Brand styling with "Brand Guidelines" -> "Colors" -> "Typography" -> "Features"
-- Structure: ## Overview -> ## Guidelines -> ## Specifications -> ## Usage...
+- Read repository instructions and relevant documentation completely.
+- Detect framework, package manager, hosting, API boundaries, storage, Sheets,
+  analytics, authentication, and CRM code.
+- Record systems that must remain unchanged.
+- If no repository exists, record the approved greenfield stack instead of
+  silently choosing one.
 
-**4. Capabilities-Based** (best for integrated systems)
-- Works well when the skill provides multiple interrelated features
-- Example: Product Management with "Core Capabilities" -> numbered capability list
-- Structure: ## Overview -> ## Core Capabilities -> ### 1. Feature -> ### 2. Feature...
+Read [intake-and-discovery.md](references/intake-and-discovery.md) for the
+ordered interview and decision gates.
 
-Patterns can be mixed and matched as needed. Most skills combine patterns (e.g., start with task-based, add workflow for complex operations).
+### 2. Interview One Decision at a Time
 
-Delete this entire "Structuring This Skill" section when done - it's just guidance.]
+Start with the highest-impact unknown:
 
-## [TODO: Replace with the first main section based on chosen structure]
+> Which audience or lead should this funnel qualify, and what makes that lead
+> worth a human consultation?
 
-[TODO: Add content here. See examples in existing skills:
-- Code samples for technical skills
-- Decision trees for complex workflows
-- Concrete examples with realistic user requests
-- References to scripts/templates/references as needed]
+Then proceed through offer, campaign promise, presenter, media, questions,
+capture fields, consent, integrations, WhatsApp, browser support, deployment,
+and ownership. Do not send the user a long questionnaire unless they explicitly
+ask for a form.
 
-## Resources (optional)
+Copy [new-funnel-brief.yaml](assets/new-funnel-brief.yaml) into the destination
+project and update it after each confirmed answer.
 
-Create only the resource directories this skill actually needs. Delete this section if no resources are required.
+### 3. Confirm the Funnel Design
 
-### scripts/
-Executable code (Python/Bash/etc.) that can be run directly to perform specific operations.
+Define:
 
-**Examples from other skills:**
-- PDF skill: `fill_fillable_fields.py`, `extract_form_field_info.py` - utilities for PDF manipulation
-- DOCX skill: `document.py`, `utilities.py` - Python modules for document processing
+```text
+campaign → opening → video/question sequence → qualification result
+→ upload/contact → trusted submission → WhatsApp handoff → human follow-up
+```
 
-**Appropriate for:** Python scripts, shell scripts, or any executable code that performs automation, data processing, or specific operations.
+Separate facts from recommendations and open questions. Confirm the question
+order, answer options, qualification/scoring, completion condition, response
+promise, and treatment of unqualified leads.
 
-**Note:** Scripts may be executed without loading into context, but can still be read by Codex for patching or environment adjustments.
+Read [funnel-blueprint.md](references/funnel-blueprint.md) for the state model,
+responsive experience, accessibility, and reference architecture.
 
-### references/
-Documentation and reference material intended to be loaded into context to inform Codex's process and thinking.
+### 4. Prepare Content and Media
 
-**Examples from other skills:**
-- Product management: `communication.md`, `context_building.md` - detailed workflow guides
-- BigQuery: API reference documentation and query examples
-- Finance: Schema documentation, company policies
+- Assign stable scene and question IDs before naming public files.
+- Record every source, poster, transcript, duration, codec, and browser check in
+  [content-and-media-manifest.yaml](assets/content-and-media-manifest.yaml).
+- Convert production video to a browser-compatible format while retaining the
+  approved master outside the public bundle.
+- Keep the active visual stable during scene changes.
+- Reveal a question only after its own active video's genuine completion.
+- Provide accessible manual recovery for browser playback rejection or stalls.
 
-**Appropriate for:** In-depth documentation, API references, database schemas, comprehensive guides, or any detailed information that Codex should reference while working.
+Read [media-and-browser-playback.md](references/media-and-browser-playback.md)
+whenever the journey includes video or soundtrack.
 
-### assets/
-Files not intended to be loaded into context, but rather used within the output Codex produces.
+### 5. Build with Tests First
 
-**Examples from other skills:**
-- Brand styling: PowerPoint template files (.pptx), logo files
-- Frontend builder: HTML/React boilerplate project directories
-- Typography: Font files (.ttf, .woff2)
+- Model allowed states and transitions before UI components.
+- Write failing tests for question order, completion gates, retries, duplicate
+  submission, CRM boundaries, and browser-specific regressions.
+- Implement the smallest change that passes each test.
+- Reuse the destination project's architecture and components where sensible.
+- Keep opening, assessment, submission, success, and recovery states accessible
+  on mobile, tablet, and desktop.
 
-**Appropriate for:** Templates, boilerplate code, document templates, images, icons, fonts, or any files meant to be copied or used in the final output.
+For a reported defect, reproduce the symptom before proposing a fix. Consult
+[failure-patterns.md](references/failure-patterns.md) for known symptoms,
+evidence, corrective patterns, and regression tests.
 
----
+### 6. Connect Data Safely
 
-**Not every skill requires all three types of resources.**
+Default trusted flow:
+
+```text
+browser → short-lived upload authorization → private object storage
+browser → validated server endpoint → idempotent Google Sheet write
+success → approved WhatsApp CTA or staff handoff
+```
+
+- Put service credentials only in trusted server environment variables.
+- Use non-identifying private object paths and a stable Session ID.
+- Normalize and allowlist all fields server-side.
+- Preserve inputs after retryable failures.
+- Show success only when every required operation succeeds or a verified
+  idempotent duplicate is recognized.
+- Keep the public funnel outside existing CRM writes by default.
+
+Read [data-privacy-and-integrations.md](references/data-privacy-and-integrations.md)
+before implementing storage, Sheets, personal data, consent, CRM, or WhatsApp.
+
+### 7. Verify and Launch
+
+- Run targeted tests, full relevant tests, type checks, lint, and build.
+- Verify mobile, tablet, desktop, Safari, and Chrome in proportion to audience
+  risk.
+- Use synthetic leads and non-personal media; remove test records afterwards.
+- Inspect WhatsApp destinations without sending a real message.
+- Smoke-test protected CRM and login routes read-only.
+- Review a preview deployment, then promote that exact commit to production.
+- Record rollback commit, account owners, known risks, and post-launch owner in
+  [handoff-checklist.md](assets/handoff-checklist.md).
+
+Read [verification-and-launch.md](references/verification-and-launch.md) before
+claiming completion or deploying.
+
+## Authority Gates
+
+Stop and request direction before any of these actions if authority is absent:
+
+- modifying CRM or authentication logic or data;
+- creating or changing storage access policies;
+- editing a live Google Sheet or Apps Script;
+- changing a production WhatsApp number or prefilled message;
+- adding or rotating credentials;
+- sending external messages;
+- promoting a preview to production;
+- deleting test or production data.
+
+Read [a2o-case-study.md](references/a2o-case-study.md) only when historical
+evidence or the origin of a rule is useful. Do not load it for a simple intake.
+
+## Quick Reference
+
+| Need | Load |
+| --- | --- |
+| Start a new business funnel | `intake-and-discovery.md` + `new-funnel-brief.yaml` |
+| Design journey and states | `funnel-blueprint.md` |
+| Prepare video/audio | `media-and-browser-playback.md` + media manifest |
+| Debug a known symptom | `failure-patterns.md` |
+| Add uploads, Sheets, consent, CRM, WhatsApp | `data-privacy-and-integrations.md` |
+| Test, deploy, or hand off | `verification-and-launch.md` + handoff checklist |
+| Understand the proven source case | `a2o-case-study.md` |
+
+## Example
+
+**User:** 用 `$consultation-funnel-builder` 幫 Terry AI Lab 整一個AI顧問篩選網站。
+
+**Agent:** 我會先檢查現有專案同需要保留嘅系統。第一條問題：呢個漏斗最終想篩選出邊一類公司或決策人？
+
+After the answer, ask the next highest-impact question, update the brief, and
+continue until business, content, data, conversion, and delivery inputs are
+confirmed. Then present the journey and architecture for approval. Build with
+tests, connect only authorized accounts, verify a preview with synthetic data,
+and hand off the source, configuration record, deployment, and rollback path.
+Never pretend missing media, consent, credentials, or account access exists.
