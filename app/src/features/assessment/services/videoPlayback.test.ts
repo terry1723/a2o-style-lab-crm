@@ -19,18 +19,6 @@ function createReadyVideo() {
   return video
 }
 
-function dispatchSeekedWhenRewound(video: HTMLVideoElement) {
-  let currentTime = 0
-  Object.defineProperty(video, 'currentTime', {
-    configurable: true,
-    get: () => currentTime,
-    set: (value: number) => {
-      currentTime = value
-      if (value === 0) queueMicrotask(() => video.dispatchEvent(new Event('seeked')))
-    },
-  })
-}
-
 describe('hidden video playback', () => {
   it('cancels a pending decoded-frame request when confirmation times out', async () => {
     const video = createReadyVideo()
@@ -62,68 +50,89 @@ describe('hidden video playback', () => {
     expect(video.muted).toBe(true)
   })
 
-  it('keeps both hidden preparation play calls muted and resumes at the first frame', async () => {
+  it('starts authored playback muted from the prepared first frame', async () => {
     const video = createReadyVideo()
-    dispatchSeekedWhenRewound(video)
     const requestFrame = vi.spyOn(video, 'requestVideoFrameCallback')
     const mutedDuringPlay: boolean[] = []
     const play = vi.spyOn(video, 'play').mockImplementation(() => {
       mutedDuringPlay.push(video.muted)
-      if (mutedDuringPlay.length === 1) video.currentTime = 0.8
       return Promise.resolve()
     })
     const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
 
     await expect(prepareHiddenVideo(video, 20, 20)).resolves.toBe(true)
 
-    expect(play).toHaveBeenCalledTimes(2)
-    expect(requestFrame).toHaveBeenCalledTimes(2)
-    expect(mutedDuringPlay).toEqual([true, true])
+    expect(play).toHaveBeenCalledOnce()
+    expect(requestFrame).not.toHaveBeenCalled()
+    expect(mutedDuringPlay).toEqual([true])
     expect(pause).toHaveBeenCalled()
     expect(video.currentTime).toBeLessThanOrEqual(0.05)
     expect(video.muted).toBe(true)
   })
 
-  it('fails without resuming when the rewound first frame is never decoded', async () => {
-    const video = createReadyVideo()
-    dispatchSeekedWhenRewound(video)
-    let frameCallbackCount = 0
-    video.requestVideoFrameCallback = (callback) => {
-      frameCallbackCount += 1
-      if (frameCallbackCount === 1) callback(0, {} as VideoFrameCallbackMetadata)
-      return frameCallbackCount
-    }
-    const play = vi.spyOn(video, 'play').mockImplementation(() => {
-      if (play.mock.calls.length === 1) video.currentTime = 0.8
-      return Promise.resolve()
+  it('loads a hidden swap buffer when current data is absent', async () => {
+    const video = document.createElement('video')
+    let readyState = HTMLMediaElement.HAVE_NOTHING
+    Object.defineProperty(video, 'readyState', {
+      configurable: true,
+      get: () => readyState,
     })
-    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
-
-    await expect(prepareHiddenVideo(video, 20, 20)).resolves.toBe(false)
-
-    expect(frameCallbackCount).toBe(2)
-    expect(play).toHaveBeenCalledOnce()
-    expect(pause).toHaveBeenCalled()
-    expect(video.muted).toBe(true)
-  })
-
-  it('prepares a hidden swap buffer on two decoded frames and leaves it paused', async () => {
-    const video = createReadyVideo()
-    dispatchSeekedWhenRewound(video)
-    const requestFrame = vi.spyOn(video, 'requestVideoFrameCallback')
-    const play = vi.spyOn(video, 'play').mockImplementation(() => {
-      video.currentTime = 0.8
-      return Promise.resolve()
+    const load = vi.spyOn(video, 'load').mockImplementation(() => {
+      readyState = HTMLMediaElement.HAVE_CURRENT_DATA
+      queueMicrotask(() => video.dispatchEvent(new Event('loadeddata')))
     })
+    const play = vi.spyOn(video, 'play').mockResolvedValue()
     const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
 
     await expect(prepareHiddenVideoForSwap(video, 20, 20)).resolves.toBe(true)
 
-    expect(play).toHaveBeenCalledOnce()
-    expect(requestFrame).toHaveBeenCalledTimes(2)
+    expect(load).toHaveBeenCalledOnce()
+    expect(play).not.toHaveBeenCalled()
+    expect(pause).toHaveBeenCalled()
+    expect(video.currentTime).toBe(0)
+    expect(video.muted).toBe(true)
+  })
+
+  it('prepares a hidden swap buffer from current data and leaves it paused', async () => {
+    const video = createReadyVideo()
+    const requestFrame = vi.spyOn(video, 'requestVideoFrameCallback')
+    const play = vi.spyOn(video, 'play').mockResolvedValue()
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(prepareHiddenVideoForSwap(video, 20, 20)).resolves.toBe(true)
+
+    expect(play).not.toHaveBeenCalled()
+    expect(requestFrame).not.toHaveBeenCalled()
     expect(pause).toHaveBeenCalled()
     expect(video.currentTime).toBeLessThanOrEqual(0.05)
     expect(video.muted).toBe(true)
+  })
+
+  it('does not seek again after confirming current data at the start', async () => {
+    const video = document.createElement('video')
+    let currentTime = 1
+    let readyState = HTMLMediaElement.HAVE_CURRENT_DATA
+    let seekCount = 0
+    Object.defineProperty(video, 'currentTime', {
+      configurable: true,
+      get: () => currentTime,
+      set: (value: number) => {
+        seekCount += 1
+        currentTime = value
+        if (seekCount > 1) readyState = HTMLMediaElement.HAVE_METADATA
+      },
+    })
+    Object.defineProperty(video, 'readyState', {
+      configurable: true,
+      get: () => readyState,
+    })
+    vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(prepareHiddenVideoForSwap(video, 20, 20)).resolves.toBe(true)
+
+    expect(seekCount).toBe(1)
+    expect(video.readyState).toBe(HTMLMediaElement.HAVE_CURRENT_DATA)
+    expect(video.currentTime).toBe(0)
   })
 
   it('accepts a Safari-ready paused hidden buffer without trying to play it', async () => {
@@ -141,14 +150,77 @@ describe('hidden video playback', () => {
     expect(video.muted).toBe(true)
   })
 
-  it('times out a never-settling hidden play and stops the muted buffer', async () => {
-    const video = createReadyVideo()
-    vi.spyOn(video, 'play').mockReturnValue(new Promise<void>(() => undefined))
+  it('times out when a hidden swap buffer never receives current data', async () => {
+    const video = document.createElement('video')
+    const load = vi.spyOn(video, 'load').mockImplementation(() => undefined)
+    const play = vi.spyOn(video, 'play').mockResolvedValue()
     const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
 
     await expect(prepareHiddenVideoForSwap(video, 20, 20)).resolves.toBe(false)
 
+    expect(load).toHaveBeenCalledOnce()
+    expect(play).not.toHaveBeenCalled()
     expect(pause).toHaveBeenCalled()
+    expect(video.currentTime).toBe(0)
+    expect(video.muted).toBe(true)
+  })
+
+  it('fails preparation when loading the hidden swap buffer errors', async () => {
+    const video = document.createElement('video')
+    vi.spyOn(video, 'load').mockImplementation(() => {
+      queueMicrotask(() => video.dispatchEvent(new Event('error')))
+    })
+    const play = vi.spyOn(video, 'play').mockResolvedValue()
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(prepareHiddenVideoForSwap(video, 20, 20)).resolves.toBe(false)
+
+    expect(play).not.toHaveBeenCalled()
+    expect(pause).toHaveBeenCalled()
+    expect(video.currentTime).toBe(0)
+    expect(video.muted).toBe(true)
+  })
+
+  it('aborts pending hidden swap preparation and leaves the buffer stopped', async () => {
+    const video = document.createElement('video')
+    const controller = new AbortController()
+    vi.spyOn(video, 'load').mockImplementation(() => queueMicrotask(() => controller.abort()))
+    const play = vi.spyOn(video, 'play').mockResolvedValue()
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(
+      prepareHiddenVideoForSwap(video, 20, 20, controller.signal),
+    ).resolves.toBe(false)
+
+    expect(play).not.toHaveBeenCalled()
+    expect(pause).toHaveBeenCalled()
+    expect(video.currentTime).toBe(0)
+    expect(video.muted).toBe(true)
+  })
+
+  it('rejects a hidden swap preparation that becomes stale while loading', async () => {
+    const video = document.createElement('video')
+    let isCurrent = true
+    let readyState = HTMLMediaElement.HAVE_NOTHING
+    Object.defineProperty(video, 'readyState', {
+      configurable: true,
+      get: () => readyState,
+    })
+    vi.spyOn(video, 'load').mockImplementation(() => {
+      isCurrent = false
+      readyState = HTMLMediaElement.HAVE_CURRENT_DATA
+      queueMicrotask(() => video.dispatchEvent(new Event('loadeddata')))
+    })
+    const play = vi.spyOn(video, 'play').mockResolvedValue()
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(
+      prepareHiddenVideoForSwap(video, 20, 20, undefined, () => isCurrent),
+    ).resolves.toBe(false)
+
+    expect(play).not.toHaveBeenCalled()
+    expect(pause).toHaveBeenCalled()
+    expect(video.currentTime).toBe(0)
     expect(video.muted).toBe(true)
   })
 
@@ -160,7 +232,7 @@ describe('hidden video playback', () => {
     await expect(prepareHiddenVideo(video, 20, 20)).resolves.toBe(false)
 
     expect(play).toHaveBeenCalledOnce()
-    expect(pause).toHaveBeenCalledOnce()
+    expect(pause).toHaveBeenCalled()
     expect(video.muted).toBe(true)
   })
 })

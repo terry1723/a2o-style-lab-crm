@@ -37,6 +37,66 @@ function playHiddenVideo(video: HTMLVideoElement, timeoutMs: number, signal?: Ab
   })
 }
 
+function waitForCurrentDataAtStart(
+  video: HTMLVideoElement,
+  timeoutMs: number,
+  signal?: AbortSignal,
+) {
+  video.muted = true
+  video.pause()
+  try {
+    video.currentTime = 0
+  } catch {
+    return Promise.resolve(false)
+  }
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false
+    const finish = (ready: boolean) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timeout)
+      video.removeEventListener('loadeddata', onReady)
+      video.removeEventListener('error', onError)
+      signal?.removeEventListener('abort', onAbort)
+      video.muted = true
+      video.pause()
+      if (!ready) {
+        try {
+          video.currentTime = 0
+        } catch {
+          // The element must still stay paused and silent when seeking is unavailable.
+        }
+      }
+      resolve(ready)
+    }
+    const onReady = () => finish(
+      video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+      && video.currentTime <= 0.05,
+    )
+    const onError = () => finish(false)
+    const onAbort = () => finish(false)
+    const timeout = window.setTimeout(() => finish(false), timeoutMs)
+
+    video.addEventListener('loadeddata', onReady, { once: true })
+    video.addEventListener('error', onError, { once: true })
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) {
+      onAbort()
+      return
+    }
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      onReady()
+      return
+    }
+    try {
+      video.load()
+    } catch {
+      finish(false)
+    }
+  })
+}
+
 export function waitForActualFrame(
   video: FrameVideo | null,
   timeoutMs = 3000,
@@ -174,7 +234,7 @@ export async function unlockHiddenVideo(
 export async function prepareHiddenVideoForSwap(
   video: FrameVideo | null,
   frameTimeoutMs = 3000,
-  rewindTimeoutMs = 1500,
+  _rewindTimeoutMs = 1500,
   signal?: AbortSignal,
   isCurrent: () => boolean = () => true,
 ) {
@@ -183,36 +243,19 @@ export async function prepareHiddenVideoForSwap(
   if (!current()) return false
 
   try {
-    video.muted = true
-    video.currentTime = 0
-    const playbackStarted = await playHiddenVideo(video, frameTimeoutMs, signal)
-    if (!playbackStarted) return false
-    if (!current()) return false
-
-    const frameReady = await waitForActualFrame(video, frameTimeoutMs, signal)
-    if (!current()) return false
-    if (!frameReady) {
-      video.muted = true
-      video.pause()
-      return false
-    }
-
-    video.muted = true
-    const firstFrameReady = await rewindToFirstFrame(video, rewindTimeoutMs, signal)
-    if (!current()) return false
-    if (!firstFrameReady) {
-      video.muted = true
-      video.pause()
-      return false
-    }
-
+    const ready = await waitForCurrentDataAtStart(video, frameTimeoutMs, signal)
     video.muted = true
     video.pause()
-    return true
+    if (!current()) return false
+    return ready
   } catch {
-    if (!current()) return false
     video.muted = true
     video.pause()
+    try {
+      video.currentTime = 0
+    } catch {
+      // The element may not have loaded metadata yet; it must still stay silent.
+    }
     return false
   }
 }
