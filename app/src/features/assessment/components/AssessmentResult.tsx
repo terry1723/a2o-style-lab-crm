@@ -1,4 +1,9 @@
-import { ClipboardCheck, RotateCcw } from 'lucide-react'
+import type { MouseEventHandler } from 'react'
+import { ClipboardCheck, MessageCircle } from 'lucide-react'
+import {
+  ASSESSMENT_WHATSAPP_LABEL,
+  ASSESSMENT_WHATSAPP_URL,
+} from '../config/assessmentWhatsApp'
 import type { AssessmentLeadInput } from '../types/assessment'
 import { AssessmentLeadForm } from './AssessmentLeadForm'
 
@@ -6,14 +11,14 @@ type Props = {
   submitted: boolean
   submitting: boolean
   onSubmit: (input: AssessmentLeadInput) => Promise<void>
-  onRestart: () => void
+  onWhatsAppClick: MouseEventHandler<HTMLAnchorElement>
 }
 
 export function AssessmentResult({
   submitted,
   submitting,
   onSubmit,
-  onRestart,
+  onWhatsAppClick,
 }: Props) {
   return (
     <section className="absolute inset-0 z-40 overflow-y-auto bg-black/72 px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+4.5rem)] text-white backdrop-blur-xl">
@@ -35,13 +40,16 @@ export function AssessmentResult({
             onSubmit={onSubmit}
           />
 
-          <button
-            type="button"
-            onClick={onRestart}
-            className="mx-auto mt-5 flex items-center gap-2 text-xs font-medium text-white/50 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink"
+          <a
+            href={ASSESSMENT_WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onWhatsAppClick}
+            className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-a2o-pink px-5 py-3 text-center text-sm font-semibold text-white shadow-lg transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> 重新開始檢測
-          </button>
+            <MessageCircle className="h-4 w-4" />
+            {ASSESSMENT_WHATSAPP_LABEL}
+          </a>
         </div>
       </div>
     </section>
