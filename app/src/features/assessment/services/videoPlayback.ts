@@ -3,6 +3,40 @@ export type FrameVideo = HTMLVideoElement & {
   cancelVideoFrameCallback?: (handle: number) => void
 }
 
+function playHiddenVideo(video: HTMLVideoElement, timeoutMs: number, signal?: AbortSignal) {
+  return new Promise<boolean>((resolve) => {
+    let settled = false
+    const finish = (started: boolean, stop: boolean) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timeout)
+      signal?.removeEventListener('abort', onAbort)
+      if (stop) {
+        video.muted = true
+        video.pause()
+      }
+      resolve(started)
+    }
+    const onAbort = () => finish(false, true)
+    const timeout = window.setTimeout(() => finish(false, true), timeoutMs)
+
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) {
+      finish(false, true)
+      return
+    }
+
+    try {
+      void video.play().then(
+        () => finish(true, false),
+        () => finish(false, true),
+      )
+    } catch {
+      finish(false, true)
+    }
+  })
+}
+
 export function waitForActualFrame(
   video: FrameVideo | null,
   timeoutMs = 3000,
@@ -151,7 +185,8 @@ export async function prepareHiddenVideoForSwap(
   try {
     video.muted = true
     video.currentTime = 0
-    await video.play()
+    const playbackStarted = await playHiddenVideo(video, frameTimeoutMs, signal)
+    if (!playbackStarted) return false
     if (!current()) return false
 
     const frameReady = await waitForActualFrame(video, frameTimeoutMs, signal)
@@ -192,11 +227,8 @@ export async function prepareHiddenVideo(
 
   try {
     video.muted = true
-    await video.play()
-    return true
+    return await playHiddenVideo(video, frameTimeoutMs)
   } catch {
-    video.muted = true
-    video.pause()
     return false
   }
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssessmentEngine } from './AssessmentEngine'
@@ -17,6 +17,7 @@ function installAsyncFrameCallbacks(video: HTMLVideoElement) {
 
 describe('AssessmentEngine media layers', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
     localStorage.clear()
     sessionStorage.clear()
@@ -283,5 +284,37 @@ describe('AssessmentEngine media layers', () => {
     expect(firstVideo).toHaveClass('z-10')
     expect(secondVideo).toHaveClass('z-0')
     expect(pausedVideos.filter((video) => video === secondVideo)).toHaveLength(pausesAfterRestart)
+  })
+
+  it('times out stalled q2 preparation and enables the canonical fallback answer path', async () => {
+    vi.useFakeTimers()
+    const q2Plays: Array<{ muted: boolean; active: boolean }> = []
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      if (this.getAttribute('src')?.includes('question-02')) {
+        q2Plays.push({ muted: this.muted, active: this.classList.contains('z-10') })
+        return new Promise<void>(() => undefined)
+      }
+      return Promise.resolve()
+    })
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+    const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    await act(async () => {
+      vi.advanceTimersByTime(3001)
+      await Promise.resolve()
+    })
+    fireEvent.ended(firstVideo)
+    const answer = screen.getByRole('radio', { name: '6' })
+    expect(answer).toBeEnabled()
+    fireEvent.click(answer)
+
+    expect(screen.getByRole('heading', { name: '你認為目前形象最影響到你邊一個場合？' })).toBeInTheDocument()
+    expect(secondVideo).toHaveClass('z-10')
+    expect(secondVideo).toHaveAttribute('poster', '/images/assessment-landing.png')
+    expect(q2Plays).toEqual([{ muted: true, active: false }])
+    expect(pause.mock.instances).toContain(secondVideo)
   })
 })

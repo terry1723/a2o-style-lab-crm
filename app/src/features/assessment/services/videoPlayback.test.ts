@@ -126,6 +126,17 @@ describe('hidden video playback', () => {
     expect(video.muted).toBe(true)
   })
 
+  it('times out a never-settling hidden play and stops the muted buffer', async () => {
+    const video = createReadyVideo()
+    vi.spyOn(video, 'play').mockReturnValue(new Promise<void>(() => undefined))
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => undefined)
+
+    await expect(prepareHiddenVideoForSwap(video, 20, 20)).resolves.toBe(false)
+
+    expect(pause).toHaveBeenCalled()
+    expect(video.muted).toBe(true)
+  })
+
   it('stops and keeps a hidden video muted when playback is rejected', async () => {
     const video = createReadyVideo()
     const play = vi.spyOn(video, 'play').mockRejectedValue(new Error('playback rejected'))
