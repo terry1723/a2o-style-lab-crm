@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { motion, useReducedMotion } from 'framer-motion'
-import { LoaderCircle, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react'
+import { LoaderCircle, MessageCircle, Play, Volume2, VolumeX } from 'lucide-react'
+import {
+  ASSESSMENT_WHATSAPP_LABEL,
+  ASSESSMENT_WHATSAPP_URL,
+} from '../config/assessmentWhatsApp'
 import { useAssessmentMachine } from '../hooks/useAssessmentMachine'
 import { useVideoPreloader } from '../hooks/useVideoPreloader'
 import { getAssessmentConfig, getEnabledAssessmentScenes } from '../services/assessmentConfigRepository'
@@ -28,8 +32,8 @@ import { TransitionVideoLayer } from './TransitionVideoLayer'
 
 const assessmentConfig = getAssessmentConfig()
 const enabledAssessmentScenes = getEnabledAssessmentScenes()
-const SOUNDTRACK_SCENE_VOLUME = 0.1
-const SOUNDTRACK_PROMPT_VOLUME = 0.18
+const SOUNDTRACK_SCENE_VOLUME = 0.2
+const SOUNDTRACK_PROMPT_VOLUME = 0.32
 const SOUNDTRACK_FADE_DURATION_MS = 240
 
 type WebkitAudioWindow = Window & {
@@ -659,6 +663,13 @@ export function AssessmentEngine() {
 
   const toggleMuted = () => dispatch({ type: 'SET_MUTED', muted: !state.muted })
 
+  const trackWhatsAppClick = (source: 'header' | 'result') => {
+    trackAssessmentEvent('whatsapp_clicked', {
+      session_id: state.sessionId,
+      source,
+    })
+  }
+
   const resumePlayback = () => {
     const video = activeVideo()
     if (!video) return
@@ -852,14 +863,16 @@ export function AssessmentEngine() {
               {state.muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
             {!isReady && state.status !== 'completed' && (
-              <button
-                type="button"
-                onClick={restart}
-                aria-label="重新開始診斷"
+              <a
+                href={ASSESSMENT_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackWhatsAppClick('header')}
+                aria-label={ASSESSMENT_WHATSAPP_LABEL}
                 className="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink"
               >
-                <RotateCcw className="h-4 w-4" />
-              </button>
+                <MessageCircle className="h-4 w-4" />
+              </a>
             )}
           </div>
         </header>
@@ -938,7 +951,7 @@ export function AssessmentEngine() {
             submitted={leadSubmitted}
             submitting={submittingLead}
             onSubmit={submitLead}
-            onRestart={restart}
+            onWhatsAppClick={() => trackWhatsAppClick('result')}
           />
         )}
       </div>

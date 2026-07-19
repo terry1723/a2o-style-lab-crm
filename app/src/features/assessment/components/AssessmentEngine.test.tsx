@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  ASSESSMENT_WHATSAPP_LABEL,
+  ASSESSMENT_WHATSAPP_URL,
+} from '../config/assessmentWhatsApp'
 import { AssessmentEngine } from './AssessmentEngine'
 
 const { cancelSoundtrackFade, fadeAudioParam, fadeAudioVolume } = vi.hoisted(() => ({
@@ -92,6 +96,66 @@ describe('AssessmentEngine media layers', () => {
     vi.unstubAllGlobals()
   })
 
+  it('shows the approved WhatsApp action only during the active assessment and tracks it', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const analyticsEvents: Array<Record<string, unknown>> = []
+    const analyticsListener = (event: Event) => {
+      analyticsEvents.push((event as CustomEvent<Record<string, unknown>>).detail)
+    }
+    window.addEventListener('a2o:analytics', analyticsListener)
+    render(<AssessmentEngine />)
+
+    expect(screen.queryByRole('link', { name: ASSESSMENT_WHATSAPP_LABEL })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+
+    const headerLink = screen.getByRole('link', { name: ASSESSMENT_WHATSAPP_LABEL })
+    expect(headerLink).toHaveAttribute('href', ASSESSMENT_WHATSAPP_URL)
+    expect(headerLink).toHaveAttribute('target', '_blank')
+    expect(headerLink).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.queryByRole('button', { name: '重新開始診斷' })).not.toBeInTheDocument()
+
+    headerLink.addEventListener('click', (event) => event.preventDefault(), { once: true })
+    fireEvent.click(headerLink)
+    expect(analyticsEvents).toContainEqual(expect.objectContaining({
+      event: 'whatsapp_clicked',
+      source: 'header',
+      session_id: expect.any(String),
+    }))
+
+    window.removeEventListener('a2o:analytics', analyticsListener)
+  })
+
+  it('tracks the result WhatsApp action and hides the header action when completed', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    const analyticsEvents: Array<Record<string, unknown>> = []
+    const analyticsListener = (event: Event) => {
+      analyticsEvents.push((event as CustomEvent<Record<string, unknown>>).detail)
+    }
+    window.addEventListener('a2o:analytics', analyticsListener)
+    const { container } = render(<AssessmentEngine />)
+    const q4Answer = await advanceToFinalQuestion(container)
+
+    vi.useFakeTimers()
+    fireEvent.click(q4Answer)
+    await act(async () => {
+      vi.advanceTimersByTime(400)
+      await Promise.resolve()
+    })
+
+    const resultLink = screen.getByRole('link', { name: ASSESSMENT_WHATSAPP_LABEL })
+    expect(screen.getAllByRole('link', { name: ASSESSMENT_WHATSAPP_LABEL })).toHaveLength(1)
+    resultLink.addEventListener('click', (event) => event.preventDefault(), { once: true })
+    fireEvent.click(resultLink)
+    expect(analyticsEvents).toContainEqual(expect.objectContaining({
+      event: 'whatsapp_clicked',
+      source: 'result',
+      session_id: expect.any(String),
+    }))
+
+    window.removeEventListener('a2o:analytics', analyticsListener)
+  })
+
   it('renders the looping preloaded assessment soundtrack without starting it on opening', () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
     const { container } = render(<AssessmentEngine />)
@@ -130,11 +194,11 @@ describe('AssessmentEngine media layers', () => {
 
     expect(soundtrackSnapshots).toEqual([{
       gesture: true,
-      volume: 0.1,
+      volume: 0.2,
       muted: true,
       currentTime: 0,
     }])
-    expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.1, 240)
+    expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.2, 240)
     expect(fadeAudioParam).not.toHaveBeenCalled()
   })
 
@@ -164,16 +228,16 @@ describe('AssessmentEngine media layers', () => {
     expect(graph.source.connect).toHaveBeenCalledWith(graph.gain)
     expect(graph.gain.connect).toHaveBeenCalledWith(graph.destination)
     expect(graph.context.resume).toHaveBeenCalledTimes(1)
-    expect(soundtrackPlayGains).toEqual([0.1])
-    await waitFor(() => expect(fadeAudioParam).toHaveBeenCalledWith(graph.gainParam, 0.1, 240))
+    expect(soundtrackPlayGains).toEqual([0.2])
+    await waitFor(() => expect(fadeAudioParam).toHaveBeenCalledWith(graph.gainParam, 0.2, 240))
     expect(fadeAudioVolume).not.toHaveBeenCalled()
 
     fireEvent.ended(firstVideo)
-    await waitFor(() => expect(fadeAudioParam).toHaveBeenCalledWith(graph.gainParam, 0.18, 240))
+    await waitFor(() => expect(fadeAudioParam).toHaveBeenCalledWith(graph.gainParam, 0.32, 240))
     fireEvent.click(await screen.findByRole('radio', { name: '6' }))
     await waitFor(() => {
       const calls = fadeAudioParam.mock.calls
-      expect(calls[calls.length - 1]).toEqual([graph.gainParam, 0.1, 240])
+      expect(calls[calls.length - 1]).toEqual([graph.gainParam, 0.2, 240])
     })
     expect(cancelSoundtrackFade).toHaveBeenCalled()
   })
@@ -188,60 +252,36 @@ describe('AssessmentEngine media layers', () => {
     const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
 
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.1, 240))
+    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.2, 240))
     fireEvent.ended(firstVideo)
-    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.18, 240))
+    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.32, 240))
     fireEvent.click(await screen.findByRole('radio', { name: '6' }))
 
     await waitFor(() => {
       const calls = fadeAudioVolume.mock.calls
       const lastCall = calls[calls.length - 1]
-      expect(lastCall).toEqual([soundtrack, 0.1, 240])
+      expect(lastCall).toEqual([soundtrack, 0.2, 240])
     })
     expect(cancelSoundtrackFade).toHaveBeenCalled()
   })
 
-  it('reuses the Web Audio graph after restart without creating a duplicate media source', () => {
-    const graph = installMockAudioContext()
-    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
-    render(<AssessmentEngine />)
-
-    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
-    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
-
-    expect(graph.AudioContextConstructor).toHaveBeenCalledTimes(1)
-    expect(graph.createMediaElementSource).toHaveBeenCalledTimes(1)
-    expect(graph.context.createGain).toHaveBeenCalledTimes(1)
-    expect(graph.source.connect).toHaveBeenCalledTimes(1)
-    expect(graph.context.resume).toHaveBeenCalledTimes(2)
-  })
-
-  it('ignores a stale resume rejection after restart and a newer successful start', async () => {
+  it('ignores a stale resume rejection after unmount', async () => {
     const graph = installMockAudioContext()
     let rejectFirstResume: (reason?: unknown) => void = () => undefined
     const firstResume = new Promise<void>((_resolve, reject) => {
       rejectFirstResume = reject
     })
-    graph.resume
-      .mockImplementationOnce(() => firstResume)
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
-    const playedAudio: HTMLMediaElement[] = []
-    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
-      if (this.tagName === 'AUDIO') playedAudio.push(this)
-      return Promise.resolve()
-    })
+    graph.resume.mockImplementationOnce(() => firstResume)
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
     const pausedMedia: HTMLMediaElement[] = []
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) {
       pausedMedia.push(this)
     })
-    const { container } = render(<AssessmentEngine />)
+    const { container, unmount } = render(<AssessmentEngine />)
     const soundtrack = container.querySelector('audio') as HTMLAudioElement
 
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
-    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    unmount()
     const pausesBeforeStaleRejection = pausedMedia.filter((media) => media === soundtrack).length
 
     await act(async () => {
@@ -252,10 +292,6 @@ describe('AssessmentEngine media layers', () => {
     expect(pausedMedia.filter((media) => media === soundtrack)).toHaveLength(
       pausesBeforeStaleRejection,
     )
-    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
-    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    expect(graph.resume).toHaveBeenCalledTimes(3)
-    expect(playedAudio).toHaveLength(3)
   })
 
   it('disables soundtrack after the current start resume rejects without blocking video', async () => {
@@ -281,11 +317,9 @@ describe('AssessmentEngine media layers', () => {
     })
 
     expect(pause.mock.instances).toContain(soundtrack)
-    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
-    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     expect(graph.resume).toHaveBeenCalledTimes(1)
     expect(playedMedia.filter((media) => media === soundtrack)).toHaveLength(1)
-    expect(playedMedia.filter((media) => media === firstVideo)).toHaveLength(2)
+    expect(playedMedia.filter((media) => media === firstVideo)).toHaveLength(1)
   })
 
   it('skips soundtrack playback when Web Audio setup fails without blocking q1 video', async () => {
@@ -335,21 +369,6 @@ describe('AssessmentEngine media layers', () => {
     expect(activeVideo.muted).toBe(false)
   })
 
-  it('pauses and rewinds the soundtrack when restarting', () => {
-    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
-    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
-    const { container } = render(<AssessmentEngine />)
-    const soundtrack = container.querySelector('audio') as HTMLAudioElement
-
-    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    soundtrack.currentTime = 9
-    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
-
-    expect(pause.mock.instances).toContain(soundtrack)
-    expect(soundtrack.currentTime).toBe(0)
-    expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument()
-  })
-
   it('does not block q1 when soundtrack playback is rejected', async () => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
       return this.tagName === 'AUDIO'
@@ -374,7 +393,7 @@ describe('AssessmentEngine media layers', () => {
     const soundtrack = container.querySelector('audio') as HTMLAudioElement
 
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
-    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.1, 240))
+    await waitFor(() => expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.2, 240))
     soundtrack.currentTime = 5
     unmount()
 
@@ -603,10 +622,6 @@ describe('AssessmentEngine media layers', () => {
     expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
-    fireEvent.error(firstVideo)
-    expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
   })
 
   it('reloads an errored active video inside recovery before retrying playback', async () => {
@@ -878,25 +893,6 @@ describe('AssessmentEngine media layers', () => {
     expect(screen.getByText('影片暫停了，你仍然可以繼續診斷。')).toBeInTheDocument()
   })
 
-  it('does not finish a stale q4 submission after restart', async () => {
-    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
-      return this.muted ? Promise.reject(new Error('skip background preparation')) : Promise.resolve()
-    })
-    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
-    const { container } = render(<AssessmentEngine />)
-    const q4Answer = await advanceToFinalQuestion(container)
-    vi.useFakeTimers()
-    fireEvent.click(q4Answer)
-    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
-    await act(async () => {
-      vi.advanceTimersByTime(1000)
-      await Promise.resolve()
-    })
-
-    expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument()
-    expect(screen.queryByText('你的初步形象分析')).not.toBeInTheDocument()
-  })
-
   it('clears a pending q4 completion when the assessment unmounts', async () => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
       return this.muted ? Promise.reject(new Error('skip background preparation')) : Promise.resolve()
@@ -917,27 +913,26 @@ describe('AssessmentEngine media layers', () => {
     expect(clearTimeoutSpy).toHaveBeenCalledWith(completionTimer)
   })
 
-  it('cancels deferred load-based q2 preparation on restart without a stale buffer swap', async () => {
+  it('cancels deferred load-based q2 preparation on unmount', async () => {
     const pausedVideos: HTMLMediaElement[] = []
-    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) {
       pausedVideos.push(this)
     })
     const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined)
     const user = userEvent.setup()
-    const { container } = render(<AssessmentEngine />)
-    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+    const { container, unmount } = render(<AssessmentEngine />)
     const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
     await waitFor(() => expect(load.mock.instances).toContain(secondVideo))
-    await user.click(screen.getByRole('button', { name: '重新開始診斷' }))
-    const pausesAfterRestart = pausedVideos.filter((video) => video === secondVideo).length
+    unmount()
     fireEvent.loadedData(secondVideo)
+    await act(async () => Promise.resolve())
 
-    await waitFor(() => expect(screen.getByRole('button', { name: '開始形象檢測' })).toBeInTheDocument())
-    expect(firstVideo).toHaveClass('z-10')
+    expect(play.mock.instances).not.toContain(secondVideo)
     expect(secondVideo).toHaveClass('z-0')
-    expect(pausedVideos.filter((video) => video === secondVideo)).toHaveLength(pausesAfterRestart)
+    expect(secondVideo.muted).toBe(true)
+    expect(pausedVideos).toContain(secondVideo)
   })
 
   it('shows stalled-preparation q2 and routes its rejected visible play to recovery', async () => {
