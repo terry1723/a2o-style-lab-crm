@@ -1,5 +1,5 @@
-import { assessmentConfig } from '../../src/features/assessment/config/assessmentConfig'
-import type { AssessmentAnswerMap, Attribution } from '../../src/features/assessment/types/assessment'
+import { assessmentConfig } from '../../src/features/assessment/config/assessmentConfig.js'
+import type { AssessmentAnswerMap, Attribution } from '../../src/features/assessment/types/assessment.js'
 
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{16,80}$/
 const PHOTO_PATH_PATTERN = /^(20\d{2})\/(0[1-9]|1[0-2])\/([A-Za-z0-9_-]{16,80})\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.(jpe?g|png|webp)$/i

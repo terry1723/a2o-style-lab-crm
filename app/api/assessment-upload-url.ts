@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getStorageBucketName } from './_lib/supabaseAdmin'
-import { createPhotoUpload, type PhotoUploadRequest } from './_lib/storageService'
+import { getStorageBucketName } from './_lib/supabaseAdmin.js'
+import { createPhotoUpload, type PhotoUploadRequest } from './_lib/storageService.js'
 
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024
 

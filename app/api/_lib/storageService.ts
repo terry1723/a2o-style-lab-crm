@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { createAssessmentStorageBucket } from './supabaseAdmin'
+import { createAssessmentStorageBucket } from './supabaseAdmin.js'
 
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{16,80}$/
 const MIME_EXTENSIONS: Record<string, string[]> = {

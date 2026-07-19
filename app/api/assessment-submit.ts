@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { assessmentConfig } from '../src/features/assessment/config/assessmentConfig'
-import { calculateAssessmentResult, getSelectedLabels } from '../src/features/assessment/services/scoring'
-import type { AssessmentSubmissionPayload } from './_lib/assessmentValidation'
-import { validateAssessmentSubmission } from './_lib/assessmentValidation'
-import { appendAssessmentLead, type AssessmentSheetRow } from './_lib/googleSheetWebhook'
-import { createPhotoReadUrl } from './_lib/storageService'
+import { assessmentConfig } from '../src/features/assessment/config/assessmentConfig.js'
+import { calculateAssessmentResult, getSelectedLabels } from '../src/features/assessment/services/scoring.js'
+import type { AssessmentSubmissionPayload } from './_lib/assessmentValidation.js'
+import { validateAssessmentSubmission } from './_lib/assessmentValidation.js'
+import { appendAssessmentLead, type AssessmentSheetRow } from './_lib/googleSheetWebhook.js'
+import { createPhotoReadUrl } from './_lib/storageService.js'
 
 type RequestLike = {
   method?: string
