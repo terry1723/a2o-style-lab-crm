@@ -204,22 +204,19 @@ export function AssessmentEngine() {
     const current = activeVideo()
     const next = inactiveVideo() as FrameVideo | null
     const transition = transitionRef.current
+    const hasAuthoredTransition = Boolean(currentScene.transitionVideoUrl)
 
     if (next) {
-      // Prime the hidden buffer silently. It only inherits the user's audio
-      // preference after it becomes the visible buffer.
-      next.muted = true
+      // Direct scene changes start inside the answer click so mobile browsers
+      // keep the user's audio permission. Authored transitions stay silent
+      // while their hidden next buffer is being prepared.
+      next.muted = hasAuthoredTransition ? true : state.muted
       next.currentTime = 0
     }
     if (transition) {
       transition.muted = state.muted
       transition.currentTime = 0
     }
-
-    const transitionDone = currentScene.transitionVideoUrl
-      ? waitForMediaEnd(transition, reducedMotion ? 3500 : 6500)
-      : new Promise<void>((resolve) => window.setTimeout(resolve, 260))
-    const nextFrame = waitForActualFrame(next)
 
     const nextPlayback = next
       ? next.play()
@@ -233,6 +230,24 @@ export function AssessmentEngine() {
           return false
         })
       : Promise.resolve(false)
+    const nextFrame = waitForActualFrame(next)
+
+    if (!hasAuthoredTransition) {
+      const [nextFrameReady, nextPlaybackReady] = await Promise.all([nextFrame, nextPlayback])
+      if (!next || !nextFrameReady || !nextPlaybackReady) {
+        dispatch({ type: 'NEXT_SCENE_FALLBACK' })
+        return
+      }
+
+      current?.pause()
+      dispatch({ type: 'BEGIN_TRANSITION' })
+      dispatch({ type: 'NEXT_SCENE_READY' })
+      return
+    }
+
+    const transitionDone = currentScene.transitionVideoUrl
+      ? waitForMediaEnd(transition, reducedMotion ? 3500 : 6500)
+      : new Promise<void>((resolve) => window.setTimeout(resolve, 260))
     if (transition && currentScene.transitionVideoUrl) {
       void transition.play().catch(() => trackAssessmentEvent('video_playback_error', {
         session_id: state.sessionId,

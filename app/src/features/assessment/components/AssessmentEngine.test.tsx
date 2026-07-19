@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssessmentEngine } from './AssessmentEngine'
@@ -50,5 +50,32 @@ describe('AssessmentEngine media layers', () => {
 
     expect(await screen.findByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
     expect(screen.getAllByRole('radio')).toHaveLength(10)
+  })
+
+  it('starts the next direct scene once inside the answer gesture without pausing and replaying it', async () => {
+    const playedVideos: HTMLMediaElement[] = []
+    const pausedVideos: HTMLMediaElement[] = []
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      playedVideos.push(this)
+      return Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) {
+      pausedVideos.push(this)
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get')
+      .mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA)
+    const user = userEvent.setup()
+    const { container } = render(<AssessmentEngine />)
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+    const secondVideo = container.querySelector('video[src*="question-02"]') as HTMLVideoElement
+
+    await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.ended(firstVideo)
+    await user.click(await screen.findByRole('radio', { name: '6' }))
+
+    await waitFor(() => expect(secondVideo).toHaveClass('z-10'))
+    expect(playedVideos.filter((video) => video === secondVideo)).toHaveLength(1)
+    expect(pausedVideos).not.toContain(secondVideo)
+    expect(secondVideo.muted).toBe(false)
   })
 })
