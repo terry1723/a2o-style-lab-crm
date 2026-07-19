@@ -4,7 +4,6 @@ import type { AssessmentScene } from '../types/assessment'
 export function useVideoPreloader(currentSceneIndex: number, scenes: AssessmentScene[]) {
   useEffect(() => {
     const urls = [
-      scenes[currentSceneIndex]?.transitionVideoUrl,
       scenes[currentSceneIndex + 1]?.sceneVideoUrl,
       scenes[currentSceneIndex + 1]?.posterUrl,
     ].filter(Boolean) as string[]

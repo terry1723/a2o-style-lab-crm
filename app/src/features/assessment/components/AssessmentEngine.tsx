@@ -65,6 +65,35 @@ function waitForActualFrame(video: FrameVideo | null, timeoutMs = 3000) {
   })
 }
 
+function rewindToFirstFrame(video: HTMLVideoElement, timeoutMs = 1500) {
+  video.pause()
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false
+    const finish = (ready: boolean) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timeout)
+      video.removeEventListener('seeked', onSeeked)
+      video.removeEventListener('error', onError)
+      resolve(ready)
+    }
+    const onSeeked = () => finish(video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
+    const onError = () => finish(false)
+    const timeout = window.setTimeout(
+      () => finish(video.currentTime <= 0.05 && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA),
+      timeoutMs,
+    )
+
+    video.addEventListener('seeked', onSeeked, { once: true })
+    video.addEventListener('error', onError, { once: true })
+    const alreadyAtStart = video.currentTime <= 0.05
+    video.currentTime = 0
+
+    if (alreadyAtStart && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) finish(true)
+  })
+}
+
 export function AssessmentEngine() {
   const { state, dispatch, clearCompletedSession } = useAssessmentMachine()
   const reducedMotion = useReducedMotion()
@@ -100,10 +129,12 @@ export function AssessmentEngine() {
   }, [dispatch, state.sessionId])
 
   useEffect(() => {
-    for (const video of [sceneARef.current, sceneBRef.current, transitionRef.current]) {
-      if (video) video.muted = state.muted
-    }
-  }, [state.muted])
+    const active = state.activeBuffer === 0 ? sceneARef.current : sceneBRef.current
+    const inactive = state.activeBuffer === 0 ? sceneBRef.current : sceneARef.current
+    if (active) active.muted = state.muted
+    if (inactive) inactive.muted = true
+    if (transitionRef.current) transitionRef.current.muted = state.muted
+  }, [state.activeBuffer, state.muted])
 
   useEffect(() => {
     if (state.status !== 'playing_next_scene') return
@@ -129,6 +160,15 @@ export function AssessmentEngine() {
     })
   }
 
+  const fallBackToCurrentQuestion = (message: string) => {
+    trackAssessmentEvent('video_playback_error', {
+      session_id: state.sessionId,
+      scene_id: currentScene.id,
+      error: message,
+    })
+    dispatch({ type: 'SHOW_QUESTION' })
+  }
+
   const start = () => {
     const video = activeVideo()
     if (!video) {
@@ -136,7 +176,7 @@ export function AssessmentEngine() {
       return
     }
     video.muted = state.muted
-    void video.play().catch(() => reportPlaybackIssue('play_rejected'))
+    void video.play().catch(() => fallBackToCurrentQuestion('play_rejected'))
     dispatch({ type: 'START' })
     void createAssessmentSession(state.sessionId, attribution)
     trackAssessmentEvent('assessment_start', {
@@ -166,7 +206,9 @@ export function AssessmentEngine() {
     const transition = transitionRef.current
 
     if (next) {
-      next.muted = state.muted
+      // Prime the hidden buffer silently. It only inherits the user's audio
+      // preference after it becomes the visible buffer.
+      next.muted = true
       next.currentTime = 0
     }
     if (transition) {
@@ -179,7 +221,18 @@ export function AssessmentEngine() {
       : new Promise<void>((resolve) => window.setTimeout(resolve, 260))
     const nextFrame = waitForActualFrame(next)
 
-    void next?.play().catch(() => reportPlaybackIssue('next_scene_play_rejected'))
+    const nextPlayback = next
+      ? next.play()
+        .then(() => true)
+        .catch(() => {
+          trackAssessmentEvent('video_playback_error', {
+            session_id: state.sessionId,
+            scene_id: nextScene.id,
+            error: 'next_scene_play_rejected',
+          })
+          return false
+        })
+      : Promise.resolve(false)
     if (transition && currentScene.transitionVideoUrl) {
       void transition.play().catch(() => trackAssessmentEvent('video_playback_error', {
         session_id: state.sessionId,
@@ -188,16 +241,32 @@ export function AssessmentEngine() {
       }))
     }
 
-    window.setTimeout(() => {
-      current?.pause()
-      dispatch({ type: 'BEGIN_TRANSITION' })
-      trackAssessmentEvent('transition_started', {
-        session_id: state.sessionId,
-        scene_id: currentScene.id,
-      })
-    }, reducedMotion ? 80 : 220)
+    const [, nextFrameReady, nextPlaybackReady] = await Promise.all([transitionDone, nextFrame, nextPlayback])
+    if (!next || !nextFrameReady || !nextPlaybackReady) {
+      dispatch({ type: 'NEXT_SCENE_FALLBACK' })
+      return
+    }
 
-    await Promise.all([transitionDone, nextFrame])
+    // The priming play may have advanced the timeline while the video was
+    // hidden. Rewind to a decoded first frame, then resume silently before the
+    // buffer swap so the question starts from the beginning with no audio lead.
+    const firstFrameReady = await rewindToFirstFrame(next)
+    if (!firstFrameReady) {
+      dispatch({ type: 'NEXT_SCENE_FALLBACK' })
+      return
+    }
+    const resumedSilently = await next.play().then(() => true).catch(() => false)
+    if (!resumedSilently) {
+      dispatch({ type: 'NEXT_SCENE_FALLBACK' })
+      return
+    }
+
+    current?.pause()
+    dispatch({ type: 'BEGIN_TRANSITION' })
+    trackAssessmentEvent('transition_started', {
+      session_id: state.sessionId,
+      scene_id: currentScene.id,
+    })
     dispatch({ type: 'NEXT_SCENE_READY' })
     trackAssessmentEvent('transition_completed', {
       session_id: state.sessionId,
@@ -275,10 +344,6 @@ export function AssessmentEngine() {
     }
   }
 
-  const whatsappUrl = `https://wa.me/${assessmentConfig.whatsappNumber}?text=${encodeURIComponent(
-    `你好，我完成了 A2O 形象診斷，結果是「${result.title}」。Session: ${state.sessionId}`,
-  )}`
-
   if (state.status === 'fatal_error') {
     return (
       <main className="grid min-h-[100dvh] place-items-center bg-a2o-beige p-6 text-center">
@@ -293,7 +358,7 @@ export function AssessmentEngine() {
   }
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#171310]">
+    <main className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#171310]">
       <div
         className="absolute inset-[-3rem] scale-110 bg-cover bg-center opacity-25 blur-3xl"
         style={{ backgroundImage: `url(${currentScene.posterUrl})` }}
@@ -307,20 +372,20 @@ export function AssessmentEngine() {
           src={sourceA}
           poster={posterA}
           active={state.activeBuffer === 0}
-          muted={state.muted}
+          muted={state.activeBuffer === 0 ? state.muted : true}
           onTimeUpdate={handleTimeUpdate}
           onEnded={showQuestion}
-          onError={() => reportPlaybackIssue('scene_load_error')}
+          onError={() => fallBackToCurrentQuestion('scene_load_error')}
         />
         <SceneVideoBuffer
           ref={sceneBRef}
           src={sourceB}
           poster={posterB}
           active={state.activeBuffer === 1}
-          muted={state.muted}
+          muted={state.activeBuffer === 1 ? state.muted : true}
           onTimeUpdate={handleTimeUpdate}
           onEnded={showQuestion}
-          onError={() => reportPlaybackIssue('scene_load_error')}
+          onError={() => fallBackToCurrentQuestion('scene_load_error')}
         />
         <TransitionVideoLayer
           ref={transitionRef}
@@ -430,15 +495,9 @@ export function AssessmentEngine() {
 
         {state.status === 'completed' && (
           <AssessmentResult
-            result={result}
             submitted={leadSubmitted}
             submitting={submittingLead}
-            whatsappUrl={whatsappUrl}
             onSubmit={submitLead}
-            onWhatsApp={() => trackAssessmentEvent('whatsapp_clicked', {
-              session_id: state.sessionId,
-              result_type: result.id,
-            })}
             onRestart={restart}
           />
         )}

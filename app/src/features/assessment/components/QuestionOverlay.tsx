@@ -11,6 +11,7 @@ type Props = {
 
 export function QuestionOverlay({ question, progress, disabled, onConfirm }: Props) {
   const [selected, setSelected] = useState<string[]>([])
+  const isScale = question.layout === 'scale'
 
   useEffect(() => {
     setSelected([])
@@ -46,7 +47,10 @@ export function QuestionOverlay({ question, progress, disabled, onConfirm }: Pro
         </h2>
         {question.subtitle && <p className="mt-1 text-xs text-white/60">{question.subtitle}</p>}
 
-        <div className="mt-4 grid gap-2" role={question.type === 'single' ? 'radiogroup' : 'group'}>
+        <div
+          className={`mt-4 grid gap-2 ${isScale ? 'grid-cols-5' : ''}`}
+          role={question.type === 'single' ? 'radiogroup' : 'group'}
+        >
           {question.options.map((option) => {
             const checked = selected.includes(option.id)
             return (
@@ -57,16 +61,20 @@ export function QuestionOverlay({ question, progress, disabled, onConfirm }: Pro
                 aria-checked={checked}
                 disabled={disabled}
                 onClick={() => choose(option.id)}
-                className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-wait ${
+                className={`flex min-h-12 w-full items-center rounded-2xl border py-3 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-wait ${
+                  isScale ? 'justify-center px-2 text-center text-base tabular-nums' : 'justify-between gap-3 px-4 text-left text-sm'
+                } ${
                   checked
                     ? 'border-a2o-pink bg-a2o-pink text-white'
                     : 'border-white/15 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
                 }`}
               >
                 <span>{option.label}</span>
-                <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${checked ? 'border-white bg-white text-a2o-pink' : 'border-white/35'}`}>
-                  {checked && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-                </span>
+                {!isScale && (
+                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${checked ? 'border-white bg-white text-a2o-pink' : 'border-white/35'}`}>
+                    {checked && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                  </span>
+                )}
               </button>
             )
           })}

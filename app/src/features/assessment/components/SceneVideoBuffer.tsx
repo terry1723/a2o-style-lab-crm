@@ -17,12 +17,12 @@ export const SceneVideoBuffer = forwardRef<HTMLVideoElement, Props>(function Sce
   return (
     <video
       ref={ref}
-      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+      className={`absolute inset-0 h-full w-full object-cover ${
         active ? 'z-10 opacity-100' : 'z-0 opacity-0'
       }`}
       src={src}
       poster={poster}
-      preload={active ? 'auto' : 'metadata'}
+      preload="auto"
       playsInline
       muted={muted}
       controls={false}

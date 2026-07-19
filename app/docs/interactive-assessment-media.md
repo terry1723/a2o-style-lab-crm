@@ -1,21 +1,22 @@
-# Interactive assessment media replacement
+# Interactive assessment media
 
-The assessment engine is driven by `src/features/assessment/config/assessmentConfig.ts`.
-Final Martin and transition media can be introduced without editing the player or state machine.
+The homepage assessment uses four Martin question videos. There are no authored transition clips in this version; choosing an answer starts the next preloaded question video directly.
 
-## Replace a scene
+## Stable files
 
-1. Add the final 9:16 MP4 and poster image under `public/media/assessment/` (or use a stable CDN URL).
-2. In the matching scene config, replace `sceneVideoUrl` and `posterUrl`.
-3. Set `questionCueSeconds` to the authored moment where the question should appear.
-4. Update `caption` if the visible caption needs to change.
+Place the final portrait MP4 files under `public/media/assessment/`:
 
-## Replace a transition
+```text
+question-01.mp4
+question-02.mp4
+question-03.mp4
+question-04.mp4
+```
 
-1. Add the final transition MP4 under `public/media/assessment/`.
-2. Replace `transitionVideoUrl` on the scene that leads into the next scene.
-3. Keep the final scene without a transition URL.
+The current supplied files already occupy these four paths. Future replacements should keep the filenames and only replace the binary assets.
 
-Scene IDs and question IDs are stable CRM/analytics identifiers. Do not rename them when only media or copy changes.
+Preferred delivery: 9:16 portrait, H.264 video, AAC audio, with Martin's spoken question ending before the file's last frame. The answer overlay opens on the video's `ended` event.
 
-The local placeholder files validate cue timing, audio unlock, two persistent scene buffers, frame readiness, transition fallback, progress recovery and lead handoff. The optional Supabase migration at `../../supabase/migrations/20260713000000_add_interactive_assessment.sql` is not applied by Preview deployments.
+Question copy, options, posters, and media paths live in `src/features/assessment/config/assessmentConfig.ts`. Scene IDs and question IDs are CRM and analytics identifiers; do not rename them for a media-only replacement.
+
+The player retains two persistent scene buffers and preloads only the next question video. Missing media falls back to the configured poster and must not prevent the visitor from answering.

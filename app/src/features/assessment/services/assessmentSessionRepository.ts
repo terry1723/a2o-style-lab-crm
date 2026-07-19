@@ -32,6 +32,14 @@ function isMissingTable(error: { code?: string; message?: string } | null) {
   return error?.code === 'PGRST205' || error?.message?.includes('assessment_') === true
 }
 
+function normaliseHongKongPhone(phone: string) {
+  const clean = phone.replace(/[\s-]/g, '')
+  if (/^\+852\d{8}$/.test(clean)) return clean
+  if (/^852\d{8}$/.test(clean)) return `+${clean}`
+  if (/^\d{8}$/.test(clean)) return `+852${clean}`
+  return clean
+}
+
 export async function createAssessmentSession(
   sessionId: string,
   attribution: Attribution,
@@ -110,16 +118,18 @@ export async function submitAssessmentLead(
     answers,
     answerLabels: labels,
     attribution,
+    consent: input.consent,
+    submittedAt: new Date().toISOString(),
   })
 
   return saveClient({
     name: input.name.trim(),
-    phone: input.phone.replace(/\s/g, ''),
+    phone: normaliseHongKongPhone(input.phone),
+    before_photo: input.photoDataUrl,
     pain_point: labels.q1?.join('、') ?? '',
     purpose: labels.q2?.join('、') ?? '',
     desired_effect: labels.q3?.join('、') ?? '',
-    body_remark: `希望改善：${labels.q4?.join('、') ?? '-'}\n診斷 Session：${sessionId}`,
-    lifestyle: labels.q5?.join('、') ?? '',
+    body_remark: `優先改善：${labels.q4?.join('、') ?? '-'}\n診斷 Session：${sessionId}`,
     favorite_style: result.title,
     color_notes: metadata,
     plan: 'Interactive Assessment Lead',

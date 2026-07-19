@@ -22,6 +22,7 @@ export type AssessmentOption = {
 export type AssessmentQuestion = {
   id: string
   type: 'single' | 'multi'
+  layout?: 'list' | 'scale'
   title: string
   subtitle?: string
   maxSelections?: number
@@ -93,5 +94,6 @@ export type AssessmentResult = AssessmentResultDefinition & {
 export type AssessmentLeadInput = {
   name: string
   phone: string
-  consent: boolean
+  consent: true
+  photoDataUrl: string
 }

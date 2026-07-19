@@ -1,4 +1,5 @@
-# Placeholder assessment media
+# A2O assessment media
 
-These MP4 files are temporary 720 × 1280 H.264/AAC assets supplied for interaction testing.
-Replace URLs and cue times in `src/features/assessment/config/assessmentConfig.ts`; do not rename scene/question IDs.
+The live four-question files are `question-01.mp4` through `question-04.mp4`.
+
+This version does not use transition videos. Replace only these four stable MP4 files when new Martin edits arrive; keep scene and question IDs unchanged.

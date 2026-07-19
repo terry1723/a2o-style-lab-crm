@@ -11,6 +11,7 @@ type Action =
   | { type: 'SUBMIT_ANSWER'; questionId: string; optionIds: string[] }
   | { type: 'BEGIN_TRANSITION' }
   | { type: 'NEXT_SCENE_READY' }
+  | { type: 'NEXT_SCENE_FALLBACK' }
   | { type: 'SCENE_STABLE' }
   | { type: 'FINISH' }
   | { type: 'SET_MUTED'; muted: boolean }
@@ -28,15 +29,22 @@ function createInitialState(): AssessmentMachineState {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as Partial<AssessmentMachineState> | null
     if (saved?.sessionId && saved.answers && typeof saved.currentSceneIndex === 'number') {
-      return {
-        status: saved.status === 'completed' ? 'completed' : 'ready',
-        sessionId: saved.sessionId,
-        currentSceneIndex: saved.currentSceneIndex,
-        activeBuffer: 0,
-        answers: saved.answers,
-        muted,
-        recovered: true,
+      const hasProgress = saved.status !== 'ready'
+        || saved.currentSceneIndex > 0
+        || Object.keys(saved.answers).length > 0
+
+      if (hasProgress) {
+        return {
+          status: saved.status === 'completed' ? 'completed' : 'ready',
+          sessionId: saved.sessionId,
+          currentSceneIndex: saved.currentSceneIndex,
+          activeBuffer: 0,
+          answers: saved.answers,
+          muted,
+          recovered: true,
+        }
       }
+      localStorage.removeItem(STORAGE_KEY)
     }
   } catch {
     localStorage.removeItem(STORAGE_KEY)
@@ -77,6 +85,14 @@ function reducer(state: AssessmentMachineState, action: Action): AssessmentMachi
         status: 'playing_next_scene',
         currentSceneIndex: state.currentSceneIndex + 1,
         activeBuffer: state.activeBuffer === 0 ? 1 : 0,
+      }
+    case 'NEXT_SCENE_FALLBACK':
+      return {
+        ...state,
+        status: 'showing_question',
+        currentSceneIndex: state.currentSceneIndex + 1,
+        activeBuffer: state.activeBuffer === 0 ? 1 : 0,
+        playbackIssue: undefined,
       }
     case 'SCENE_STABLE':
       return { ...state, status: 'playing_scene', playbackIssue: undefined }
