@@ -1,13 +1,10 @@
 import { isSupabaseConfigured, supabase } from '../../../lib/supabase'
-import { saveClient } from '../../../lib/clientData'
 import type {
   AssessmentAnswerMap,
-  AssessmentConfig,
   AssessmentLeadInput,
-  AssessmentResult,
   Attribution,
 } from '../types/assessment'
-import { getSelectedLabels } from './scoring'
+import { submitAssessmentLeadToPipeline } from './assessmentLeadApi'
 
 const RETRY_KEY = 'a2o_assessment_retry_queue_v1'
 let remoteAssessmentSchema: 'unknown' | 'available' | 'missing' = 'unknown'
@@ -30,14 +27,6 @@ function queueRetry(item: RetryItem) {
 
 function isMissingTable(error: { code?: string; message?: string } | null) {
   return error?.code === 'PGRST205' || error?.message?.includes('assessment_') === true
-}
-
-function normaliseHongKongPhone(phone: string) {
-  const clean = phone.replace(/[\s-]/g, '')
-  if (/^\+852\d{8}$/.test(clean)) return clean
-  if (/^852\d{8}$/.test(clean)) return `+${clean}`
-  if (/^\d{8}$/.test(clean)) return `+852${clean}`
-  return clean
 }
 
 export async function createAssessmentSession(
@@ -107,35 +96,12 @@ export async function submitAssessmentLead(
   input: AssessmentLeadInput,
   sessionId: string,
   answers: AssessmentAnswerMap,
-  result: AssessmentResult,
   attribution: Attribution,
-  config: AssessmentConfig,
 ) {
-  const labels = getSelectedLabels(config, answers)
-  const metadata = JSON.stringify({
-    assessmentSessionId: sessionId,
-    resultType: result.id,
+  return submitAssessmentLeadToPipeline({
+    input,
+    sessionId,
     answers,
-    answerLabels: labels,
     attribution,
-    consent: input.consent,
-    submittedAt: new Date().toISOString(),
-  })
-
-  return saveClient({
-    name: input.name.trim(),
-    phone: normaliseHongKongPhone(input.phone),
-    before_photo: input.photoDataUrl,
-    pain_point: labels.q1?.join('、') ?? '',
-    purpose: labels.q2?.join('、') ?? '',
-    desired_effect: labels.q3?.join('、') ?? '',
-    body_remark: `優先改善：${labels.q4?.join('、') ?? '-'}\n診斷 Session：${sessionId}`,
-    favorite_style: result.title,
-    color_notes: metadata,
-    plan: 'Interactive Assessment Lead',
-    plan_price: 0,
-    amount_paid: 0,
-    balance_due: 0,
-    status: 'active',
   })
 }

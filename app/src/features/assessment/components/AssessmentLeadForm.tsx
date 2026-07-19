@@ -22,6 +22,7 @@ type Props = {
 export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
   const [step, setStep] = useState<'photo' | 'contact'>('photo')
   const [photoDataUrl, setPhotoDataUrl] = useState('')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoName, setPhotoName] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -50,6 +51,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         return
       }
       setPhotoDataUrl(reader.result)
+      setPhotoFile(file)
       setPhotoName(file.name)
       setError('')
     }
@@ -59,6 +61,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
 
   const removePhoto = () => {
     setPhotoDataUrl('')
+    setPhotoFile(null)
     setPhotoName('')
     setError('')
   }
@@ -82,8 +85,14 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     }
 
     setError('')
+    if (!photoFile) {
+      setError('請先上傳正面全身相。')
+      setStep('photo')
+      return
+    }
+
     try {
-      await onSubmit({ name: name.trim(), phone: cleanPhone, consent: true, photoDataUrl })
+      await onSubmit({ name: name.trim(), phone: cleanPhone, consent: true, photo: photoFile })
     } catch {
       setError('暫時未能提交，請稍後再試。你已填嘅資料會保留。')
     }
@@ -155,7 +164,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         {error && <p role="alert" className="mt-3 text-sm text-[#FFB4B4]">{error}</p>}
         <button
           type="button"
-          disabled={!photoDataUrl}
+          disabled={!photoFile}
           onClick={() => {
             setError('')
             setStep('contact')

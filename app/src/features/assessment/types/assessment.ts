@@ -95,5 +95,5 @@ export type AssessmentLeadInput = {
   name: string
   phone: string
   consent: true
-  photoDataUrl: string
+  photo: File
 }

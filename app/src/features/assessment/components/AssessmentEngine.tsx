@@ -332,7 +332,7 @@ export function AssessmentEngine() {
   const submitLead = async (input: AssessmentLeadInput) => {
     setSubmittingLead(true)
     try {
-      await submitAssessmentLead(input, state.sessionId, state.answers, result, attribution, assessmentConfig)
+      await submitAssessmentLead(input, state.sessionId, state.answers, attribution)
       setLeadSubmitted(true)
       clearCompletedSession()
       trackAssessmentEvent('lead_submitted', {

@@ -37,7 +37,10 @@ describe('AssessmentLeadForm', () => {
       name: '陳先生',
       phone: '91234567',
       consent: true,
-      photoDataUrl: expect.stringMatching(/^data:image\/jpeg;base64,/),
+      photo,
+    }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.not.objectContaining({
+      photoDataUrl: expect.anything(),
     }))
   })
 
