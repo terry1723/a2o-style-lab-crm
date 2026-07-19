@@ -5,3 +5,4 @@ app/dist/
 app/.env*
 .audit/
 .env*
+.worktrees/
