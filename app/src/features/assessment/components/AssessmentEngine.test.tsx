@@ -1,14 +1,44 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssessmentEngine } from './AssessmentEngine'
 
-const { cancelSoundtrackFade, fadeAudioVolume } = vi.hoisted(() => ({
+const { cancelSoundtrackFade, fadeAudioParam, fadeAudioVolume } = vi.hoisted(() => ({
   cancelSoundtrackFade: vi.fn(),
+  fadeAudioParam: vi.fn(),
   fadeAudioVolume: vi.fn(),
 }))
 
-vi.mock('../services/audioVolume', () => ({ fadeAudioVolume }))
+vi.mock('../services/audioVolume', () => ({ fadeAudioParam, fadeAudioVolume }))
+
+function installMockAudioContext(options: { failSourceCreation?: boolean } = {}) {
+  const gainParam = { value: 1 } as AudioParam
+  const destination = {} as AudioDestinationNode
+  const source = {
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  } as unknown as MediaElementAudioSourceNode
+  const gain = {
+    gain: gainParam,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  } as unknown as GainNode
+  const context = {
+    destination,
+    createMediaElementSource: vi.fn(() => {
+      if (options.failSourceCreation) throw new Error('source creation failed')
+      return source
+    }),
+    createGain: vi.fn(() => gain),
+    resume: vi.fn(() => Promise.resolve()),
+    close: vi.fn(() => Promise.resolve()),
+  } as unknown as AudioContext
+  const AudioContextConstructor = vi.fn(function MockAudioContext() {
+    return context
+  })
+  vi.stubGlobal('AudioContext', AudioContextConstructor)
+  return { AudioContextConstructor, context, destination, gain, gainParam, source }
+}
 
 async function advanceToFinalQuestion(container: HTMLElement) {
   const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
@@ -39,11 +69,16 @@ describe('AssessmentEngine media layers', () => {
     vi.restoreAllMocks()
     vi.clearAllMocks()
     vi.useRealTimers()
+    fadeAudioParam.mockReturnValue(cancelSoundtrackFade)
     fadeAudioVolume.mockReturnValue(cancelSoundtrackFade)
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined)
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     localStorage.clear()
     sessionStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('renders the looping preloaded assessment soundtrack without starting it on opening', () => {
@@ -88,9 +123,48 @@ describe('AssessmentEngine media layers', () => {
       muted: true,
       currentTime: 0,
     }])
+    expect(fadeAudioVolume).toHaveBeenCalledWith(soundtrack, 0.1, 240)
+    expect(fadeAudioParam).not.toHaveBeenCalled()
   })
 
-  it('fades up for a question and back down for the next scene', async () => {
+  it('unlocks a Web Audio gain graph in the start gesture and fades gain across assessment states', async () => {
+    const graph = installMockAudioContext()
+    let inStartGesture = false
+    const soundtrackPlayGains: number[] = []
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      if (this.tagName === 'AUDIO') {
+        expect(inStartGesture).toBe(true)
+        soundtrackPlayGains.push(graph.gainParam.value)
+      }
+      return Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get')
+      .mockReturnValue(HTMLMediaElement.HAVE_CURRENT_DATA)
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    inStartGesture = true
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    inStartGesture = false
+
+    expect(graph.AudioContextConstructor).toHaveBeenCalledTimes(1)
+    expect(graph.context.createMediaElementSource).toHaveBeenCalledWith(soundtrack)
+    expect(graph.source.connect).toHaveBeenCalledWith(graph.gain)
+    expect(graph.gain.connect).toHaveBeenCalledWith(graph.destination)
+    expect(graph.context.resume).toHaveBeenCalledTimes(1)
+    expect(soundtrackPlayGains).toEqual([0.1])
+    await waitFor(() => expect(fadeAudioParam).toHaveBeenCalledWith(graph.gainParam, 0.1, 240))
+    expect(fadeAudioVolume).not.toHaveBeenCalled()
+
+    fireEvent.ended(firstVideo)
+    await waitFor(() => expect(fadeAudioParam).toHaveBeenCalledWith(graph.gainParam, 0.18, 240))
+    fireEvent.click(await screen.findByRole('radio', { name: '6' }))
+    await waitFor(() => expect(fadeAudioParam.mock.calls.at(-1)).toEqual([graph.gainParam, 0.1, 240]))
+    expect(cancelSoundtrackFade).toHaveBeenCalled()
+  })
+
+  it('fades element volume when Web Audio is unavailable', async () => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get')
@@ -110,6 +184,54 @@ describe('AssessmentEngine media layers', () => {
       expect(lastCall).toEqual([soundtrack, 0.1, 240])
     })
     expect(cancelSoundtrackFade).toHaveBeenCalled()
+  })
+
+  it('reuses the Web Audio graph after restart without creating a duplicate media source', () => {
+    const graph = installMockAudioContext()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    render(<AssessmentEngine />)
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.click(screen.getByRole('button', { name: '重新開始診斷' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+
+    expect(graph.AudioContextConstructor).toHaveBeenCalledTimes(1)
+    expect(graph.context.createMediaElementSource).toHaveBeenCalledTimes(1)
+    expect(graph.context.createGain).toHaveBeenCalledTimes(1)
+    expect(graph.source.connect).toHaveBeenCalledTimes(1)
+    expect(graph.context.resume).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips soundtrack playback when Web Audio setup fails without blocking q1 video', async () => {
+    installMockAudioContext({ failSourceCreation: true })
+    const playedMedia: HTMLMediaElement[] = []
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      playedMedia.push(this)
+      return Promise.resolve()
+    })
+    const { container } = render(<AssessmentEngine />)
+    const soundtrack = container.querySelector('audio') as HTMLAudioElement
+    const firstVideo = container.querySelector('video[src*="question-01"]') as HTMLVideoElement
+
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+    fireEvent.ended(firstVideo)
+
+    expect(playedMedia).not.toContain(soundtrack)
+    expect(playedMedia).toContain(firstVideo)
+    expect(await screen.findByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+  })
+
+  it('disconnects and closes the Web Audio graph on unmount', () => {
+    const graph = installMockAudioContext()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const { unmount } = render(<AssessmentEngine />)
+    fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
+
+    unmount()
+
+    expect(graph.source.disconnect).toHaveBeenCalledTimes(1)
+    expect(graph.gain.disconnect).toHaveBeenCalledTimes(1)
+    expect(graph.context.close).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the soundtrack mute state in sync with the top-right media control', () => {

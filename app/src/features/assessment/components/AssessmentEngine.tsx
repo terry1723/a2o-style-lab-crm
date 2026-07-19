@@ -7,7 +7,7 @@ import { useVideoPreloader } from '../hooks/useVideoPreloader'
 import { getAssessmentConfig, getEnabledAssessmentScenes } from '../services/assessmentConfigRepository'
 import { getAttribution } from '../services/attribution'
 import { trackAssessmentEvent } from '../services/analytics'
-import { fadeAudioVolume } from '../services/audioVolume'
+import { fadeAudioParam, fadeAudioVolume } from '../services/audioVolume'
 import {
   createAssessmentSession,
   persistAssessmentAnswer,
@@ -31,6 +31,14 @@ const enabledAssessmentScenes = getEnabledAssessmentScenes()
 const SOUNDTRACK_SCENE_VOLUME = 0.1
 const SOUNDTRACK_PROMPT_VOLUME = 0.18
 const SOUNDTRACK_FADE_DURATION_MS = 240
+
+type WebkitAudioWindow = Window & {
+  webkitAudioContext?: typeof AudioContext
+}
+
+function getAudioContextConstructor() {
+  return window.AudioContext ?? (window as WebkitAudioWindow).webkitAudioContext
+}
 
 function waitForMediaEnd(video: HTMLVideoElement | null, timeoutMs = 6500, signal?: AbortSignal) {
   if (!video) return Promise.resolve()
@@ -70,6 +78,10 @@ export function AssessmentEngine() {
   const transitionRef = useRef<HTMLVideoElement>(null)
   const soundtrackRef = useRef<HTMLAudioElement>(null)
   const soundtrackFadeCleanupRef = useRef<(() => void) | null>(null)
+  const soundtrackAudioContextRef = useRef<AudioContext | null>(null)
+  const soundtrackSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
+  const soundtrackGainNodeRef = useRef<GainNode | null>(null)
+  const soundtrackWebAudioFailedRef = useRef(false)
   const generationRef = useRef(0)
   const stateRef = useRef(state)
   const preparationRef = useRef<NextPreparation | null>(null)
@@ -121,6 +133,7 @@ export function AssessmentEngine() {
     soundtrackFadeCleanupRef.current = null
     const soundtrack = soundtrackRef.current
     if (!soundtrack) return
+    if (soundtrackWebAudioFailedRef.current) return
 
     const sceneStatuses = ['playing_scene', 'playing_next_scene', 'transitioning']
     const promptStatuses = ['showing_question', 'submitting_answer', 'completed']
@@ -131,11 +144,14 @@ export function AssessmentEngine() {
         : null
     if (target === null) return
 
-    const cleanup = fadeAudioVolume(
-      soundtrack,
-      target,
-      reducedMotion ? 0 : SOUNDTRACK_FADE_DURATION_MS,
-    )
+    const duration = reducedMotion ? 0 : SOUNDTRACK_FADE_DURATION_MS
+    const gain = soundtrackGainNodeRef.current?.gain
+    const cleanup = gain
+      ? fadeAudioParam(gain, target, duration)
+      : getAudioContextConstructor()
+        ? null
+        : fadeAudioVolume(soundtrack, target, duration)
+    if (!cleanup) return
     soundtrackFadeCleanupRef.current = cleanup
     return () => {
       cleanup()
@@ -219,6 +235,19 @@ export function AssessmentEngine() {
           // Some browsers reject seeking before soundtrack metadata is ready.
         }
       }
+      soundtrackSourceNodeRef.current?.disconnect()
+      soundtrackGainNodeRef.current?.disconnect()
+      soundtrackSourceNodeRef.current = null
+      soundtrackGainNodeRef.current = null
+      const audioContext = soundtrackAudioContextRef.current
+      soundtrackAudioContextRef.current = null
+      if (audioContext) {
+        try {
+          void audioContext.close().catch(() => undefined)
+        } catch {
+          // The graph is already disconnected, so context cleanup is best-effort.
+        }
+      }
     }
   }, [])
 
@@ -254,17 +283,63 @@ export function AssessmentEngine() {
     }
     const soundtrack = soundtrackRef.current
     if (soundtrack) {
-      soundtrack.volume = SOUNDTRACK_SCENE_VOLUME
-      soundtrack.muted = state.muted
-      try {
-        soundtrack.currentTime = 0
-      } catch {
-        // Playback can still begin from the browser's current media position.
+      const AudioContextConstructor = getAudioContextConstructor()
+      let soundtrackReady = !soundtrackWebAudioFailedRef.current
+      if (soundtrackReady && AudioContextConstructor) {
+        try {
+          let audioContext = soundtrackAudioContextRef.current
+          let gainNode = soundtrackGainNodeRef.current
+          if (!audioContext || !gainNode) {
+            audioContext = new AudioContextConstructor()
+            soundtrackAudioContextRef.current = audioContext
+            const sourceNode = audioContext.createMediaElementSource(soundtrack)
+            soundtrackSourceNodeRef.current = sourceNode
+            gainNode = audioContext.createGain()
+            soundtrackGainNodeRef.current = gainNode
+            sourceNode.connect(gainNode)
+            gainNode.connect(audioContext.destination)
+          }
+          gainNode.gain.value = SOUNDTRACK_SCENE_VOLUME
+          soundtrack.volume = 1
+          void audioContext.resume().catch(() => {
+            soundtrackWebAudioFailedRef.current = true
+            soundtrackFadeCleanupRef.current?.()
+            soundtrackFadeCleanupRef.current = null
+            soundtrack.pause()
+          })
+        } catch {
+          soundtrackReady = false
+          soundtrackWebAudioFailedRef.current = true
+          soundtrackSourceNodeRef.current?.disconnect()
+          soundtrackGainNodeRef.current?.disconnect()
+          soundtrackSourceNodeRef.current = null
+          soundtrackGainNodeRef.current = null
+          const audioContext = soundtrackAudioContextRef.current
+          soundtrackAudioContextRef.current = null
+          if (audioContext) {
+            try {
+              void audioContext.close().catch(() => undefined)
+            } catch {
+              // Soundtrack setup is optional and must not block the assessment.
+            }
+          }
+        }
+      } else if (soundtrackReady) {
+        soundtrack.volume = SOUNDTRACK_SCENE_VOLUME
       }
-      try {
-        void soundtrack.play().catch(() => undefined)
-      } catch {
-        // Soundtrack playback is optional and must not block the assessment.
+
+      if (soundtrackReady) {
+        soundtrack.muted = state.muted
+        try {
+          soundtrack.currentTime = 0
+        } catch {
+          // Playback can still begin from the browser's current media position.
+        }
+        try {
+          void soundtrack.play().catch(() => undefined)
+        } catch {
+          // Soundtrack playback is optional and must not block the assessment.
+        }
       }
     }
     video.muted = state.muted

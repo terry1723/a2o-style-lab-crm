@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fadeAudioVolume } from './audioVolume'
+import { fadeAudioParam, fadeAudioVolume } from './audioVolume'
 
 describe('fadeAudioVolume', () => {
   let nextFrameId: number
@@ -93,5 +93,74 @@ describe('fadeAudioVolume', () => {
     expect(cancelFrame).toHaveBeenCalledWith(pending[0])
     expect(audio.volume).toBe(0.2)
     expect(requestFrame).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('fadeAudioParam', () => {
+  let nextFrameId: number
+  let frameCallbacks: Map<number, FrameRequestCallback>
+  let cancelFrame: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    nextFrameId = 1
+    frameCallbacks = new Map()
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      const frameId = nextFrameId
+      nextFrameId += 1
+      frameCallbacks.set(frameId, callback)
+      return frameId
+    }))
+    cancelFrame = vi.fn((frameId: number) => frameCallbacks.delete(frameId))
+    vi.stubGlobal('cancelAnimationFrame', cancelFrame)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  function runFrame(timestamp: number) {
+    const next = frameCallbacks.entries().next().value as
+      | [number, FrameRequestCallback]
+      | undefined
+    if (!next) throw new Error('No animation frame is pending')
+    const [frameId, callback] = next
+    frameCallbacks.delete(frameId)
+    callback(timestamp)
+  }
+
+  it('linearly fades an AudioParam to the exact target', () => {
+    const gain = { value: 0.1 } as AudioParam
+
+    fadeAudioParam(gain, 0.18, 100)
+    runFrame(0)
+    runFrame(50)
+    expect(gain.value).toBeCloseTo(0.14)
+
+    runFrame(100)
+    expect(gain.value).toBe(0.18)
+    expect(frameCallbacks.size).toBe(0)
+  })
+
+  it('sets a clamped gain synchronously when fading is disabled', () => {
+    const gain = { value: 0.4 } as AudioParam
+
+    const cleanup = fadeAudioParam(gain, 2, 0)
+
+    expect(gain.value).toBe(1)
+    expect(frameCallbacks.size).toBe(0)
+    expect(() => cleanup()).not.toThrow()
+  })
+
+  it('cancels a pending AudioParam fade', () => {
+    const gain = { value: 0.1 } as AudioParam
+    const cleanup = fadeAudioParam(gain, 0.18, 100)
+    runFrame(0)
+    const pending = frameCallbacks.entries().next().value as [number, FrameRequestCallback]
+
+    cleanup()
+    pending[1](100)
+
+    expect(cancelFrame).toHaveBeenCalledWith(pending[0])
+    expect(gain.value).toBe(0.1)
   })
 })
