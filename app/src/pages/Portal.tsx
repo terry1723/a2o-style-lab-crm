@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { verifyStaff } from '../lib/clientData'
 import { LogIn, ArrowLeft, Eye, EyeOff } from 'lucide-react'
 
 export default function Portal() {
@@ -9,17 +8,40 @@ export default function Portal() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [showPin, setShowPin] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!pin.trim()) {
       setError('請輸入密碼')
       return
     }
-    if (verifyStaff(pin)) {
-      localStorage.setItem('a2o_staff_auth', 'true')
-      navigate('/portal/staff')
-    } else {
-      setError('密碼錯誤')
+
+    setError('')
+    setSubmitting(true)
+    try {
+      const response = await fetch('/api/staff-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      })
+
+      if (response.ok) {
+        localStorage.setItem('a2o_staff_auth', 'true')
+        navigate('/portal/staff')
+        return
+      }
+
+      if (response.status === 429) {
+        setError('嘗試次數太多，請15分鐘後再試')
+      } else if (response.status === 401) {
+        setError('密碼錯誤')
+      } else {
+        setError('登入服務暫時未能使用，請稍後再試')
+      }
+    } catch {
+      setError('網絡連線失敗，請稍後再試')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -42,7 +64,8 @@ export default function Portal() {
                   type={showPin ? 'text' : 'password'}
                   value={pin}
                   onChange={e => setPin(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  onKeyDown={e => e.key === 'Enter' && void handleLogin()}
+                  disabled={submitting}
                   className="w-full px-4 py-3 rounded-xl border border-a2o-warm bg-a2o-beige/50 focus:outline-none focus:ring-2 focus:ring-a2o-pink/50 text-a2o-black pr-12"
                   placeholder="輸入員工密碼"
                 />
@@ -58,8 +81,8 @@ export default function Portal() {
               </motion.div>
             )}
 
-            <button onClick={handleLogin} className="w-full btn-primary justify-center">
-              <LogIn className="w-4 h-4" /> 登入
+            <button onClick={() => void handleLogin()} disabled={submitting} className="w-full btn-primary justify-center disabled:cursor-wait disabled:opacity-60">
+              <LogIn className="w-4 h-4" /> {submitting ? '驗證中…' : '登入'}
             </button>
           </div>
 

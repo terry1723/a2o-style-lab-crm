@@ -292,17 +292,6 @@ export function logoutUser() {
   localStorage.removeItem(STORAGE_KEYS.login)
 }
 
-export function verifyStaff(pin: string): boolean {
-  return pin === ['a2o', '2026'].join('')
-}
-
-export async function verifyStaffDb(pin: string): Promise<{ name: string; role: string } | null> {
-  if (!isSupabaseConfigured()) return verifyStaff(pin) ? { name: 'Admin', role: 'admin' } : null
-  const { data, error } = await supabase.from('staff_profiles').select('*').eq('pin', pin).maybeSingle()
-  if (error || !data) return null
-  return { name: data.name, role: data.role }
-}
-
 export const SEASON_PRESETS: Record<string, {
   suitable: string[]
   avoid: string[]
