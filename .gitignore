@@ -1,0 +1,8 @@
+.vercel
+
+app/node_modules/
+app/dist/
+app/.env*
+.audit/
+.env*
+.worktrees/

@@ -1,0 +1,131 @@
+pattern_version: "1.0"
+
+business:
+  company_name: ""
+  offer: ""
+  target_market: ""
+  immediate_visitor_value: ""
+  response_time_promise: ""
+
+audience:
+  primary_segment: ""
+  decision_maker: ""
+  pain_point: ""
+  language: "Traditional Chinese / English / confirm"
+
+qualification:
+  desired_lead: ""
+  qualifying_signals: []
+  disqualifying_signals: []
+  result_logic: ""
+  unqualified_next_step: ""
+
+campaign:
+  sources: []
+  advertisement_promise: ""
+  landing_objective: ""
+  attribution_fields: []
+
+visual_strategy:
+  mode: "single-image"
+  # Allowed: single-image, question-images, presenter-video, no-assets
+  available_assets: []
+  asset_approval_status: "confirm"
+  persistent_image: true
+  one_asset_per_question: false
+  prototype_only: false
+
+experience:
+  presenter: ""
+  session_policy: "fresh / resume / confirm"
+  question_count: 0
+  opening_cta: ""
+  completion_value: ""
+
+questions: []
+# Each question uses:
+# - question_id: "q1"
+#   prompt: ""
+#   presenter_script: ""
+#   options:
+#     - option_id: ""
+#       label: ""
+#       qualification_effect: ""
+
+lead_capture:
+  required_fields: []
+  optional_fields: []
+  upload_required: false
+  upload_purpose: ""
+  allowed_file_types: []
+  maximum_file_size_mb: 0
+
+privacy_and_consent:
+  purpose: ""
+  approved_consent_copy: ""
+  retention_period: ""
+  deletion_owner: ""
+  staff_access: []
+  marketing_reuse_allowed: false
+
+storage:
+  provider: "reuse existing safe provider / confirm"
+  bucket_or_container_environment_name: ""
+  private_access_required: true
+  durable_path_required: true
+  expiring_staff_link_required: false
+  credential_owner: ""
+
+google_sheet:
+  required: true
+  owner: ""
+  spreadsheet_id_environment_name: ""
+  tab_name: ""
+  idempotency_column: "session_id"
+  columns: []
+
+whatsapp:
+  required: true
+  business_number_owner: ""
+  destination_environment_name: ""
+  approved_prefilled_message: ""
+  visitor_initiates_contact: true
+  staff_follow_up_owner: ""
+
+existing_system_boundaries:
+  protected_routes: []
+  protected_crm_files_or_services: []
+  protected_tables: []
+  authentication_changes_allowed: false
+  crm_writes_allowed: false
+
+analytics:
+  provider: ""
+  approved_non_personal_events: []
+  personal_data_in_events_allowed: false
+
+browser_support:
+  mobile_safari: true
+  mobile_chrome: true
+  desktop_safari: true
+  desktop_chrome: true
+  additional_targets: []
+
+deployment:
+  hosting_provider: ""
+  preview_owner: ""
+  production_owner: ""
+  production_authority_confirmed: false
+  rollback_commit: ""
+
+ownership_and_handoff:
+  source_owner: ""
+  media_owner: ""
+  integration_owner: ""
+  customer_follow_up_owner: ""
+  incident_owner: ""
+
+confirmed_decisions: []
+recommended_defaults: []
+open_questions: []
+risks_and_boundaries: []
