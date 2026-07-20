@@ -10,38 +10,74 @@ const defaultProps = {
 }
 
 describe('AssessmentLeadForm', () => {
-  it('requires one front-facing full-body photo before showing contact fields', () => {
+  it('shows required profile fields before the photo selector', () => {
     render(<AssessmentLeadForm {...defaultProps} />)
+    const controls = [
+      screen.getByLabelText('稱呼／姓名'),
+      screen.getByLabelText('WhatsApp 電話號碼'),
+      screen.getByLabelText('身高（cm）'),
+      screen.getByLabelText('體重（kg）'),
+      screen.getByLabelText('選擇正面全身相'),
+    ]
 
-    expect(screen.getByRole('heading', { name: '上傳正面全身相' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('稱呼／姓名')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '繼續填寫聯絡資料' })).toBeDisabled()
+    for (let index = 1; index < controls.length; index += 1) {
+      expect(
+        controls[index - 1].compareDocumentPosition(controls[index]) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    }
   })
 
-  it('accepts one image and submits only name, WhatsApp, consent and photo', async () => {
+  it('submits numeric height and weight with the contact details and photo', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     render(<AssessmentLeadForm {...defaultProps} onSubmit={onSubmit} />)
     const photo = new File(['portrait'], 'full-body.jpg', { type: 'image/jpeg' })
 
-    await user.upload(screen.getByLabelText('選擇正面全身相'), photo)
-    expect(await screen.findByAltText('已選擇的正面全身相預覽')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '繼續填寫聯絡資料' }))
     await user.type(screen.getByLabelText('稱呼／姓名'), '陳先生')
     await user.type(screen.getByLabelText('WhatsApp 電話號碼'), '9123 4567')
+    await user.type(screen.getByLabelText('身高（cm）'), '175')
+    await user.type(screen.getByLabelText('體重（kg）'), '68.5')
+    await user.upload(screen.getByLabelText('選擇正面全身相'), photo)
+    expect(await screen.findByAltText('已選擇的正面全身相預覽')).toBeInTheDocument()
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
 
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({
       name: '陳先生',
       phone: '91234567',
+      heightCm: 175,
+      weightKg: 68.5,
       consent: true,
       photo,
     }))
     expect(onSubmit).toHaveBeenCalledWith(expect.not.objectContaining({
       photoDataUrl: expect.anything(),
     }))
+  })
+
+  it.each([
+    ['119', '68.5', '請輸入 120 至 230 cm 嘅身高。'],
+    ['231', '68.5', '請輸入 120 至 230 cm 嘅身高。'],
+    ['175.5', '68.5', '請輸入 120 至 230 cm 嘅身高。'],
+    ['175', '34', '請輸入 35 至 200 kg 嘅體重，最多一位小數。'],
+    ['175', '201', '請輸入 35 至 200 kg 嘅體重，最多一位小數。'],
+    ['175', '68.55', '請輸入 35 至 200 kg 嘅體重，最多一位小數。'],
+  ])('rejects invalid measurements height=%s weight=%s', async (height, weight, message) => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<AssessmentLeadForm {...defaultProps} onSubmit={onSubmit} />)
+    const photo = new File(['portrait'], 'full-body.jpg', { type: 'image/jpeg' })
+
+    await user.type(screen.getByLabelText('稱呼／姓名'), '陳先生')
+    await user.type(screen.getByLabelText('WhatsApp 電話號碼'), '9123 4567')
+    await user.type(screen.getByLabelText('身高（cm）'), height)
+    await user.type(screen.getByLabelText('體重（kg）'), weight)
+    await user.upload(screen.getByLabelText('選擇正面全身相'), photo)
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('shows the promised WhatsApp delivery window after successful submission', () => {
@@ -52,27 +88,26 @@ describe('AssessmentLeadForm', () => {
     expect(screen.queryByRole('link', { name: /WhatsApp 預約/ })).not.toBeInTheDocument()
   })
 
-  it('keeps the selected photo and contact details when submission fails', async () => {
+  it('keeps the selected photo and all profile fields when submission fails', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockRejectedValue(new Error('sheet unavailable'))
     render(<AssessmentLeadForm {...defaultProps} onSubmit={onSubmit} />)
     const photo = new File(['portrait'], 'retry-photo.jpg', { type: 'image/jpeg' })
 
-    await user.upload(screen.getByLabelText('選擇正面全身相'), photo)
-    await screen.findByAltText('已選擇的正面全身相預覽')
-    await user.click(screen.getByRole('button', { name: '繼續填寫聯絡資料' }))
     await user.type(screen.getByLabelText('稱呼／姓名'), '陳先生')
     await user.type(screen.getByLabelText('WhatsApp 電話號碼'), '9123 4567')
+    await user.type(screen.getByLabelText('身高（cm）'), '175')
+    await user.type(screen.getByLabelText('體重（kg）'), '68.5')
+    await user.upload(screen.getByLabelText('選擇正面全身相'), photo)
+    await screen.findByAltText('已選擇的正面全身相預覽')
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('你已填嘅資料會保留')
     expect(screen.getByLabelText('稱呼／姓名')).toHaveValue('陳先生')
     expect(screen.getByLabelText('WhatsApp 電話號碼')).toHaveValue('9123 4567')
-    await user.click(screen.getByRole('button', { name: '更換相片' }))
+    expect(screen.getByLabelText('身高（cm）')).toHaveValue('175')
+    expect(screen.getByLabelText('體重（kg）')).toHaveValue('68.5')
     expect(screen.getByAltText('已選擇的正面全身相預覽')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '繼續填寫聯絡資料' }))
-    expect(screen.getByLabelText('稱呼／姓名')).toHaveValue('陳先生')
-    expect(screen.getByLabelText('WhatsApp 電話號碼')).toHaveValue('9123 4567')
   })
 })

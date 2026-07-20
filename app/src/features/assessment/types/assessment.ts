@@ -94,6 +94,8 @@ export type AssessmentResult = AssessmentResultDefinition & {
 export type AssessmentLeadInput = {
   name: string
   phone: string
+  heightCm: number
+  weightKg: number
   consent: true
   photo: File
 }

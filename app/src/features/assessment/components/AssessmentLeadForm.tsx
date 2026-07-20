@@ -1,6 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import {
-  ArrowLeft,
   ArrowRight,
   Camera,
   CheckCircle2,
@@ -19,13 +18,16 @@ type Props = {
   onSubmit: (input: AssessmentLeadInput) => Promise<void>
 }
 
+const inputClassName = 'min-h-12 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-base text-white outline-none placeholder:text-white/35 focus:border-a2o-pink focus:ring-2 focus:ring-a2o-pink/30'
+
 export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
-  const [step, setStep] = useState<'photo' | 'contact'>('photo')
   const [photoDataUrl, setPhotoDataUrl] = useState('')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoName, setPhotoName] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [heightCm, setHeightCm] = useState('')
+  const [weightKg, setWeightKg] = useState('')
   const [consent, setConsent] = useState(false)
   const [error, setError] = useState('')
 
@@ -70,6 +72,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     event.preventDefault()
     const cleanPhone = phone.replace(/[\s-]/g, '')
     const validPhone = /^(?:\+?852)?\d{8}$/.test(cleanPhone)
+    const parsedHeight = Number(heightCm)
+    const parsedWeight = Number(weightKg)
 
     if (!name.trim()) {
       setError('請填寫稱呼或姓名。')
@@ -79,20 +83,33 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
       setError('請填寫有效嘅香港 WhatsApp 電話號碼。')
       return
     }
+    if (!/^\d+$/.test(heightCm) || parsedHeight < 120 || parsedHeight > 230) {
+      setError('請輸入 120 至 230 cm 嘅身高。')
+      return
+    }
+    if (!/^\d+(?:\.\d)?$/.test(weightKg) || parsedWeight < 35 || parsedWeight > 200) {
+      setError('請輸入 35 至 200 kg 嘅體重，最多一位小數。')
+      return
+    }
+    if (!photoFile) {
+      setError('請上傳正面全身相。')
+      return
+    }
     if (!consent) {
       setError('請確認同意資料及相片用途。')
       return
     }
 
     setError('')
-    if (!photoFile) {
-      setError('請先上傳正面全身相。')
-      setStep('photo')
-      return
-    }
-
     try {
-      await onSubmit({ name: name.trim(), phone: cleanPhone, consent: true, photo: photoFile })
+      await onSubmit({
+        name: name.trim(),
+        phone: cleanPhone,
+        heightCm: parsedHeight,
+        weightKg: parsedWeight,
+        consent: true,
+        photo: photoFile,
+      })
     } catch {
       setError('暫時未能提交，請稍後再試。你已填嘅資料會保留。')
     }
@@ -111,15 +128,70 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     )
   }
 
-  if (step === 'photo') {
-    return (
-      <section className="mt-6" aria-labelledby="assessment-photo-title">
+  return (
+    <form className="mt-6 space-y-3" onSubmit={submit} noValidate>
+      <div className="mb-4">
+        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-white/45">最後一步</p>
+        <h2 className="mt-1 text-lg font-semibold">準備你嘅個人檢測報告</h2>
+        <p className="mt-1 text-xs leading-relaxed text-white/55">請填寫以下資料，等我哋可以更準確咁了解你嘅形象需要。</p>
+      </div>
+
+      <div>
+        <label htmlFor="assessment-name" className="mb-1.5 block text-xs font-medium text-white/70">稱呼／姓名</label>
+        <input
+          id="assessment-name"
+          autoComplete="name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className={inputClassName}
+          placeholder="例如：陳先生"
+        />
+      </div>
+      <div>
+        <label htmlFor="assessment-phone" className="mb-1.5 block text-xs font-medium text-white/70">WhatsApp 電話號碼</label>
+        <input
+          id="assessment-phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
+          className={inputClassName}
+          placeholder="例如：9123 4567"
+        />
+      </div>
+      <div>
+        <label htmlFor="assessment-height" className="mb-1.5 block text-xs font-medium text-white/70">身高（cm）</label>
+        <input
+          id="assessment-height"
+          inputMode="numeric"
+          autoComplete="off"
+          value={heightCm}
+          onChange={(event) => setHeightCm(event.target.value)}
+          className={inputClassName}
+          placeholder="例如：175"
+        />
+      </div>
+      <div>
+        <label htmlFor="assessment-weight" className="mb-1.5 block text-xs font-medium text-white/70">體重（kg）</label>
+        <input
+          id="assessment-weight"
+          inputMode="decimal"
+          autoComplete="off"
+          value={weightKg}
+          onChange={(event) => setWeightKg(event.target.value)}
+          className={inputClassName}
+          placeholder="例如：68.5"
+        />
+      </div>
+
+      <section className="pt-2" aria-labelledby="assessment-photo-title">
         <div className="flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-a2o-pink/20 text-[#F1B6C6]">
             <Camera className="h-5 w-5" />
           </span>
           <div>
-            <h2 id="assessment-photo-title" className="text-lg font-semibold">上傳正面全身相</h2>
+            <h3 id="assessment-photo-title" className="text-sm font-semibold">上傳正面全身相</h3>
             <p className="mt-1 text-xs leading-relaxed text-white/60">企直面向鏡頭，請影到由頭到腳；自然光、冇濾鏡會更適合分析。</p>
           </div>
         </div>
@@ -160,65 +232,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
             />
           </label>
         )}
-
-        {error && <p role="alert" className="mt-3 text-sm text-[#FFB4B4]">{error}</p>}
-        <button
-          type="button"
-          disabled={!photoFile}
-          onClick={() => {
-            setError('')
-            setStep('contact')
-          }}
-          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-a2o-pink px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          繼續填寫聯絡資料 <ArrowRight className="h-4 w-4" />
-        </button>
       </section>
-    )
-  }
 
-  return (
-    <form className="mt-6 space-y-3" onSubmit={submit} noValidate>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-white/45">最後一步</p>
-          <h2 className="mt-1 text-lg font-semibold">留下報告接收資料</h2>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setError('')
-            setStep('photo')
-          }}
-          className="inline-flex items-center gap-1 text-xs text-white/55 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> 更換相片
-        </button>
-      </div>
-      <div>
-        <label htmlFor="assessment-name" className="mb-1.5 block text-xs font-medium text-white/70">稱呼／姓名</label>
-        <input
-          id="assessment-name"
-          autoComplete="name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          className="min-h-12 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-base text-white outline-none placeholder:text-white/35 focus:border-a2o-pink focus:ring-2 focus:ring-a2o-pink/30"
-          placeholder="例如：陳先生"
-        />
-      </div>
-      <div>
-        <label htmlFor="assessment-phone" className="mb-1.5 block text-xs font-medium text-white/70">WhatsApp 電話號碼</label>
-        <input
-          id="assessment-phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-          className="min-h-12 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-base text-white outline-none placeholder:text-white/35 focus:border-a2o-pink focus:ring-2 focus:ring-a2o-pink/30"
-          placeholder="例如：9123 4567"
-        />
-      </div>
       <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white/5 p-3 text-xs leading-relaxed text-white/60">
         <input
           type="checkbox"
