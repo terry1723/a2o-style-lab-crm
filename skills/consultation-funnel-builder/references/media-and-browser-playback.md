@@ -1,10 +1,42 @@
-# Media and Browser Playback
+# Visual Modes and Browser Playback
+
+## Choose the Simplest Approved Mode
+
+| Mode | Use when | Required behaviour |
+| --- | --- | --- |
+| `single-image` | One approved business, consultant, or service image exists | Keep it mounted through all questions; recommended fastest MVP. |
+| `question-images` | Each question benefits from a different approved visual | Stable image/question mapping, preload, crossfade, approved fallback. |
+| `presenter-video` | Spoken presenter content materially improves trust or qualification | Apply every video and Safari rule below. |
+| `no-assets` | Content is not approved yet | Labelled synthetic prototype only; no real data or production. |
+
+### Single image
+
+- One image may replace every A2O-style presenter scene, regardless of question
+  count.
+- Questions appear sequentially over or beside the persistent image.
+- Optional CSS fade, light, or slow scale is non-essential and disabled under
+  `prefers-reduced-motion`.
+- Do not add autoplay, soundtrack, `ended` gating, buffering, or Safari video
+  recovery unless separate audio/video is actually selected.
+
+### One image per question
+
+- Give every asset and question a stable ID with explicit mapping.
+- Preload the mapped next image, keep the current stage mounted, then crossfade.
+- On load failure, keep an approved fallback visible and offer a normal retry;
+  never expose an old homepage, unrelated image, or blank stage.
+
+### No assets
+
+Use neutral synthetic placeholders marked as prototype content. Do not copy A2O
+media or connect live personal-data capture, Sheets, WhatsApp, or production.
 
 ## Asset Contract
 
 Keep masters outside the public bundle and map them to stable public URLs in the
-media manifest. Record source, checksum, scene ID, poster, transcript, duration,
-dimensions, container, codecs, fast-start result, and browser checks.
+media manifest. Record asset type, source, checksum, stable mapping, dimensions,
+approval, and relevant browser checks. Video adds poster, transcript, duration,
+container, codecs, and fast-start result.
 
 Recommended delivery for talking-head video:
 
@@ -18,7 +50,7 @@ Recommended delivery for talking-head video:
 Do not assume a `.mov` or renamed extension is browser-compatible. Inspect the
 actual codecs and test the converted output.
 
-## Correct Scene Transition
+## Presenter-Video Transition
 
 The safe sequence is:
 
@@ -34,7 +66,7 @@ The safe sequence is:
 Preloaded metadata is not proof of a decoded visible frame. Audio must not begin
 while the previous scene remains visible.
 
-## Safari Rules
+## Presenter-Video Safari Rules
 
 Safari and iOS may require playback to remain causally attached to a user
 gesture. They may also differ from Chrome in paused-frame callbacks and media
@@ -62,7 +94,7 @@ Chrome success is not Safari evidence. Test both.
 - For desktop ambience, match the central portrait scene without duplicating
   distracting content.
 
-## Soundtrack
+## Optional Video/Audio Soundtrack
 
 - Start from the opening user gesture.
 - Store dialogue and question/result target volumes in one configuration source.
@@ -75,7 +107,7 @@ Chrome success is not Safari evidence. Test both.
 Web Audio gain can provide reliable control where element-volume behaviour
 varies, but include a safe fallback and do not let audio setup block the funnel.
 
-## Recovery Contract
+## Presenter-Video Recovery Contract
 
 | Failure | Keep visible | User action | Question visible? |
 | --- | --- | --- | --- |
@@ -85,7 +117,7 @@ varies, but include a safe fallback and do not let audio setup block the funnel.
 | Soundtrack failure | Normal scene | None required | Normal video rule |
 | Next scene preparing | Current stable stage | Wait | Current question disabled |
 
-## Regression Checks
+## Presenter-Video Regression Checks
 
 - questions remain hidden until their own video emits `ended`;
 - q2–q4 cannot be skipped by a timeout or missing paused callback;

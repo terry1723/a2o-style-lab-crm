@@ -5,7 +5,7 @@
 ```text
 campaign
   → opening promise
-  → sequential consultation scenes
+  → sequential visual questions
   → qualification result
   → upload/contact and consent
   → trusted submission
@@ -17,30 +17,38 @@ The advertising channel supplies intent and attribution. The website replaces a
 static lead form when an interactive consultation adds education, trust, or
 qualification value; it does not replace the advertising platform itself.
 
-## State Model
+## Visual-Mode State Models
 
-Recommended states:
+Image modes:
 
 ```text
-opening
-scene-playing
-playback-recovery
-question
-preparing-next-scene
-upload-and-contact
-submitting
-submission-error
-success
-whatsapp-handoff
+opening → question → preparing-next-question → question
 ```
 
-Allowed transitions:
+Video mode:
 
-- `opening → scene-playing` only from a start gesture;
-- `scene-playing → question` only from the active video's genuine completion;
-- `scene-playing ↔ playback-recovery` for policy rejection, stall, or load error;
-- `question → preparing-next-scene` after a valid approved answer;
-- `preparing-next-scene → scene-playing` after the next visual is committed;
+```text
+opening → scene-playing ↔ playback-recovery → question
+→ preparing-next-scene → scene-playing
+```
+
+Both modes then converge:
+
+```text
+question → upload-and-contact → submitting ↔ submission-error
+→ success → whatsapp-handoff
+```
+
+Allowed shared transitions:
+
+- image mode may show the first question after the opening action without a
+  media-completion event;
+- `single-image` keeps one approved image mounted for every question;
+- `question-images` preloads and commits the mapped next image before replacing
+  the question, without a blank stage;
+- video `opening → scene-playing` begins from a start gesture;
+- video `scene-playing → question` requires the active video's genuine `ended`;
+- video `scene-playing ↔ playback-recovery` handles rejection, stall, or error;
 - final `question → upload-and-contact` after answer validation;
 - `upload-and-contact → submitting` after local validation and consent;
 - `submitting → success` only after every required operation succeeds or an
@@ -48,7 +56,8 @@ Allowed transitions:
 - `submitting → submission-error → submitting` without losing retryable inputs;
 - `success → whatsapp-handoff` when the visitor chooses the approved CTA.
 
-Do not create `timeout → question`; it silently skips consultation content.
+Do not apply video `ended` or playback recovery to static-image mode. In video
+mode, never create `timeout → question`; it silently skips consultation content.
 
 ## Configuration as Source of Truth
 
@@ -56,11 +65,9 @@ Keep stable IDs and customer copy in one typed/configured source:
 
 ```yaml
 funnel_id:
+visual_strategy:
 opening:
-scenes:
-  - scene_id:
-    media_id:
-    question_id:
+assets:
 questions:
   - question_id:
     prompt:
@@ -77,9 +84,9 @@ localized labels as identifiers.
 
 ## Experience Rules
 
-- Start media only after the visitor presses the opening CTA.
+- Start the chosen experience only after the visitor presses the opening CTA.
 - Keep the stage mounted and visually stable across scene changes.
-- Disable repeated answer selection while preparing the next scene.
+- Disable repeated answer selection while preparing the next question/scene.
 - Show clear progress without implying saved cross-visit progress unless resume
   is intentionally implemented.
 - Decide fresh-start, resume, and restart independently. If every visit is

@@ -22,29 +22,32 @@ Record confirmed facts before asking questions already answered by the project.
 Ask the highest-impact unanswered question only. Explain why it matters when the
 trade-off is not obvious.
 
-1. **Qualification outcome** — Who deserves human follow-up, and what observable
+1. **Visual material** — Ask which approved material is available using the
+   stable choices `single-image` (recommended fastest), `question-images`,
+   `presenter-video`, or `no-assets`. One approved image is enough to begin.
+2. **Qualification outcome** — Who deserves human follow-up, and what observable
    answers make that lead suitable?
-2. **Offer and promise** — What service is offered, what immediate value does
+3. **Offer and promise** — What service is offered, what immediate value does
    the visitor receive, and what must not be promised?
-3. **Audience and campaign** — Source, segment, market, language, device mix,
+4. **Audience and campaign** — Source, segment, market, language, device mix,
    and message used in the advertisement.
-4. **Conversion action** — Staff contact, customer-initiated WhatsApp, booking
+5. **Conversion action** — Staff contact, customer-initiated WhatsApp, booking
    link, report delivery, or a combination; define response time.
-5. **Experience format** — Presenter, video/image/text mix, number of scenes,
+6. **Experience details** — Presenter or brand image, number of questions,
    fresh versus resume, and treatment of unqualified leads.
-6. **Questions and logic** — Exact wording, approved option IDs and labels,
+7. **Questions and logic** — Exact wording, approved option IDs and labels,
    branches, scoring, and result explanations.
-7. **Media** — Masters, posters, audio, transcripts, captions, ownership,
-   aspect ratio, durations, and replacement workflow.
-8. **Capture** — Minimum contact fields, optional photo/document, allowed file
+8. **Media** — Images or masters, mappings, posters, audio, transcripts,
+   captions, ownership, aspect ratio, durations, and replacement workflow.
+9. **Capture** — Minimum contact fields, optional photo/document, allowed file
    types and size, and what the visitor may retry.
-9. **Consent and privacy** — Purpose, retention, staff access, deletion,
+10. **Consent and privacy** — Purpose, retention, staff access, deletion,
    marketing use, and approved customer-facing wording.
-10. **Integrations** — Storage owner, Sheet owner/tab/columns, WhatsApp number
+11. **Integrations** — Storage owner, Sheet owner/tab/columns, WhatsApp number
     and exact message, analytics, attribution, and notification owner.
-11. **Protected systems** — CRM, login, client data, APIs, and routes that must
+12. **Protected systems** — CRM, login, client data, APIs, and routes that must
     not be changed.
-12. **Delivery** — Browser/device support, preview reviewer, production owner,
+13. **Delivery** — Browser/device support, preview reviewer, production owner,
     domain, rollback, monitoring, and handoff.
 
 ## Intake Ledger

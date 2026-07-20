@@ -1,6 +1,6 @@
 ---
 name: consultation-funnel-builder
-description: Use when creating, adapting, diagnosing, or launching an interactive consultation, assessment, or lead-qualification website, especially when the journey uses presenter videos, sequential questions, private uploads, Google Sheets, WhatsApp conversion, or an existing CRM that must remain isolated.
+description: Use when creating, adapting, diagnosing, or launching an interactive consultation, assessment, or lead-qualification website, especially when the journey uses static images or presenter videos, sequential questions, private uploads, Google Sheets, WhatsApp conversion, or an existing CRM that must remain isolated.
 ---
 
 # Consultation Funnel Builder
@@ -18,8 +18,8 @@ a brand template to copy.
    before proposing implementation.
 2. Ask one material intake question at a time. Maintain a private ledger of
    confirmed decisions, assumptions, missing inputs, and risks.
-3. Confirm the business objective, qualification outcome, and conversion action
-   before designing the interface.
+3. Confirm the visual-material mode first, then the business objective,
+   qualification outcome, and conversion action before designing the interface.
 4. Present a funnel brief and architecture for user approval before changing
    code or external systems.
 5. Never request secrets in chat, expose them to browser code, or commit them.
@@ -46,15 +46,28 @@ ordered interview and decision gates.
 
 ### 2. Interview One Decision at a Time
 
-Start with the highest-impact unknown:
+Orient the user briefly: the build will eventually need company/offer and target
+customer information, approved questions and answers, one image or video,
+capture fields and consent, Google Sheet ownership/schema, WhatsApp destination
+and message, plus preview/production owners. This is orientation, not a batch
+questionnaire.
 
-> Which audience or lead should this funnel qualify, and what makes that lead
-> worth a human consultation?
+Always ask this first question:
 
-Then proceed through offer, campaign promise, presenter, media, questions,
-capture fields, consent, integrations, WhatsApp, browser support, deployment,
-and ownership. Do not send the user a long questionnaire unless they explicitly
-ask for a form.
+> 你而家可以提供邊一種主要視覺素材？如果未有影片，一張代表公司、顧問或服務嘅相片已經可以開始。
+
+Offer these stable choices:
+
+- `single-image` — 一張主視覺相片（推薦，最快）
+- `question-images` — 每條問題一張相片
+- `presenter-video` — 已有問題影片
+- `no-assets` — 暫時未有素材，先用示範圖片
+
+After the visual choice, ask which audience or lead should qualify and which
+observable answers make that lead worth human follow-up. Then proceed through
+offer, campaign promise, questions, capture fields, consent, integrations,
+WhatsApp, browser support, deployment, and ownership. Do not send the user a
+long questionnaire unless they explicitly ask for a form.
 
 Copy [new-funnel-brief.yaml](assets/new-funnel-brief.yaml) into the destination
 project and update it after each confirmed answer.
@@ -64,7 +77,7 @@ project and update it after each confirmed answer.
 Define:
 
 ```text
-campaign → opening → video/question sequence → qualification result
+campaign → opening → visual question sequence → qualification result
 → upload/contact → trusted submission → WhatsApp handoff → human follow-up
 ```
 
@@ -77,17 +90,23 @@ responsive experience, accessibility, and reference architecture.
 
 ### 4. Prepare Content and Media
 
-- Assign stable scene and question IDs before naming public files.
-- Record every source, poster, transcript, duration, codec, and browser check in
+- Assign stable asset, scene, and question IDs before naming public files.
+- Record asset type, source, mapping, dimensions, and relevant browser checks in
   [content-and-media-manifest.yaml](assets/content-and-media-manifest.yaml).
-- Convert production video to a browser-compatible format while retaining the
-  approved master outside the public bundle.
-- Keep the active visual stable during scene changes.
-- Reveal a question only after its own active video's genuine completion.
-- Provide accessible manual recovery for browser playback rejection or stalls.
+- Default `single-image` to one approved persistent visual across every question.
+  It may use subtle CSS fade, light, or slow scale effects that disappear under
+  reduced motion. It does not need autoplay, soundtrack, a video completion
+  gate, or Safari playback recovery.
+- For `question-images`, preload stable image/question mappings and crossfade
+  without unmounting the current stage or exposing a blank/wrong fallback.
+- For `presenter-video`, convert to a browser-compatible format, keep the active
+  visual stable, reveal a question only after its active video's genuine
+  completion, and provide accessible playback recovery.
+- For `no-assets`, use labelled synthetic placeholders only. Do not collect real
+  personal data or connect live integrations/production until approved.
 
 Read [media-and-browser-playback.md](references/media-and-browser-playback.md)
-whenever the journey includes video or soundtrack.
+for the selected visual mode and load its video sections only when needed.
 
 ### 5. Build with Tests First
 
@@ -161,7 +180,7 @@ evidence or the origin of a rule is useful. Do not load it for a simple intake.
 | --- | --- |
 | Start a new business funnel | `intake-and-discovery.md` + `new-funnel-brief.yaml` |
 | Design journey and states | `funnel-blueprint.md` |
-| Prepare video/audio | `media-and-browser-playback.md` + media manifest |
+| Choose images/video and prepare assets | `media-and-browser-playback.md` + media manifest |
 | Debug a known symptom | `failure-patterns.md` |
 | Add uploads, Sheets, consent, CRM, WhatsApp | `data-privacy-and-integrations.md` |
 | Test, deploy, or hand off | `verification-and-launch.md` + handoff checklist |
@@ -171,9 +190,13 @@ evidence or the origin of a rule is useful. Do not load it for a simple intake.
 
 **User:** 用 `$consultation-funnel-builder` 幫 Terry AI Lab 整一個AI顧問篩選網站。
 
-**Agent:** 我會先檢查現有專案同需要保留嘅系統。第一條問題：呢個漏斗最終想篩選出邊一類公司或決策人？
+**Agent:** 我會先檢查現有專案同需要保留嘅系統。之後需要公司／服務、目標客人、問題、視覺素材、收集資料、Google Sheet、WhatsApp同部署資料。第一條問題：你而家可以提供邊一種主要視覺素材？如果未有影片，一張代表公司、顧問或服務嘅相片已經可以開始。
 
-After the answer, ask the next highest-impact question, update the brief, and
+Offer `single-image`, `question-images`, `presenter-video`, and `no-assets`.
+After the user chooses, ask which lead deserves human follow-up and which
+observable answers identify that lead.
+
+After each answer, ask the next highest-impact question, update the brief, and
 continue until business, content, data, conversion, and delivery inputs are
 confirmed. Then present the journey and architecture for approval. Build with
 tests, connect only authorized accounts, verify a preview with synthetic data,
