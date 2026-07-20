@@ -49,8 +49,8 @@ ordered interview and decision gates.
 Orient the user briefly: the build will eventually need company/offer and target
 customer information, approved questions and answers, one image or video,
 capture fields and consent, Google Sheet ownership/schema, WhatsApp destination
-and message, plus preview/production owners. This is orientation, not a batch
-questionnaire.
+and message, plus hosting, preview, production, and day-to-day operational
+owners. This is orientation, not a batch questionnaire.
 
 Always ask this first question:
 
@@ -190,7 +190,7 @@ evidence or the origin of a rule is useful. Do not load it for a simple intake.
 
 **User:** 用 `$consultation-funnel-builder` 幫 Terry AI Lab 整一個AI顧問篩選網站。
 
-**Agent:** 我會先檢查現有專案同需要保留嘅系統。之後需要公司／服務、目標客人、問題、視覺素材、收集資料、Google Sheet、WhatsApp同部署資料。第一條問題：你而家可以提供邊一種主要視覺素材？如果未有影片，一張代表公司、顧問或服務嘅相片已經可以開始。
+**Agent:** 我會先檢查現有專案同需要保留嘅系統。之後需要公司／服務、目標客人、問題、視覺素材、收集資料、Google Sheet、WhatsApp，以及hosting、preview、production同日常營運負責人。第一條問題：你而家可以提供邊一種主要視覺素材？如果未有影片，一張代表公司、顧問或服務嘅相片已經可以開始。
 
 Offer `single-image`, `question-images`, `presenter-video`, and `no-assets`.
 After the user chooses, ask which lead deserves human follow-up and which

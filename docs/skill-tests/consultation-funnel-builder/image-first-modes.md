@@ -13,8 +13,9 @@ systems.
 ## Observed First Response
 
 The agent briefly oriented the user to company/service, target customer,
-questions/answers, capture and consent, Google Sheet, WhatsApp, and preview/
-production ownership. It then asked only:
+approved questions/answers, visual assets, capture and consent, Google Sheet
+owner/schema, WhatsApp destination/message, and hosting, preview, production,
+and day-to-day operational owners. It then asked only:
 
 > 你而家可以提供邊一種主要視覺素材？如果未有影片，一張代表公司、顧問或服務嘅相片已經可以開始。
 
@@ -80,7 +81,7 @@ Every mode retains:
 
 | Criterion | Result |
 | --- | --- |
-| Short requirements orientation | PASS |
+| Complete short requirements orientation | PASS |
 | Exact visual-material question first | PASS |
 | Four stable choices | PASS |
 | Only one first question | PASS |
@@ -94,4 +95,7 @@ Every mode retains:
 
 ## Skill Change Resulting from Test
 
-None. The initial GREEN run satisfied every approved image-first requirement.
+An independent review found that the initial orientation named preview and
+production owners but omitted hosting and day-to-day operational owners. The
+Skill and this test record were corrected, and a fresh agent re-run passed all
+14 orientation, question, choice, and one-question criteria.
