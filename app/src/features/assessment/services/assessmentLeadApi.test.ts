@@ -30,7 +30,7 @@ describe('submitAssessmentLeadToPipeline', () => {
       }))
 
     await submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '9123 4567', consent: true, photo },
+      input: { name: '陳先生', phone: '9123 4567', heightCm: 175, weightKg: 68.5, consent: true, photo },
       sessionId: 'assessment_session_1234',
       answers,
       attribution,
@@ -58,6 +58,8 @@ describe('submitAssessmentLeadToPipeline', () => {
         sessionId: 'assessment_session_1234',
         name: '陳先生',
         phone: '9123 4567',
+        heightCm: 175,
+        weightKg: 68.5,
         consent: true,
         answers,
         photoPath: '2026/07/assessment_session_1234/photo-id.jpg',
@@ -78,7 +80,7 @@ describe('submitAssessmentLeadToPipeline', () => {
     const uploadToSignedUrl = vi.fn().mockRejectedValue(new Error('photo_upload_failed'))
 
     await expect(submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '91234567', consent: true, photo },
+      input: { name: '陳先生', phone: '91234567', heightCm: 175, weightKg: 68.5, consent: true, photo },
       sessionId: 'assessment_session_1234',
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
@@ -106,7 +108,7 @@ describe('submitAssessmentLeadToPipeline', () => {
       }))
     const uploadToSignedUrl = vi.fn().mockResolvedValue(undefined)
     const pipelineInput = {
-      input: { name: '陳先生', phone: '91234567', consent: true as const, photo },
+      input: { name: '陳先生', phone: '91234567', heightCm: 175, weightKg: 68.5, consent: true as const, photo },
       sessionId: 'retry_session_12345',
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
@@ -151,7 +153,7 @@ describe('submitAssessmentLeadToPipeline', () => {
     }
 
     await expect(submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '91234567', consent: true, photo },
+      input: { name: '陳先生', phone: '91234567', heightCm: 175, weightKg: 68.5, consent: true, photo },
       sessionId: `malformed_session_${isUploadCase ? '1' : '2'}`,
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
