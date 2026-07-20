@@ -26,11 +26,19 @@ campaign:
   landing_objective: ""
   attribution_fields: []
 
+visual_strategy:
+  mode: "single-image"
+  # Allowed: single-image, question-images, presenter-video, no-assets
+  available_assets: []
+  asset_approval_status: "confirm"
+  persistent_image: true
+  one_asset_per_question: false
+  prototype_only: false
+
 experience:
   presenter: ""
-  format: "video / image / text / mixed / confirm"
   session_policy: "fresh / resume / confirm"
-  scene_count: 0
+  question_count: 0
   opening_cta: ""
   completion_value: ""
 

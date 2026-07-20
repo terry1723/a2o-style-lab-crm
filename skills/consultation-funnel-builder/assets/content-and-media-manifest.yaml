@@ -1,10 +1,11 @@
 manifest_version: "1.0"
 funnel_id: ""
+visual_strategy: "single-image"
 public_asset_root: ""
 master_asset_owner: ""
 replacement_approval_owner: ""
 
-audio:
+audio_optional:
   soundtrack_id: ""
   source_asset: ""
   public_url: ""
@@ -14,13 +15,24 @@ audio:
   fade_duration_ms: 0
   browser_checks: []
 
-scenes: []
-# Each scene uses:
-# - scene_id: "scene-01"
-#   question_id: "q1"
-#   media_id: "question-01"
+assets: []
+# Each asset uses the shared fields below. Static images omit video-only fields.
+# - asset_id: "visual-01"
+#   asset_type: "image / video"
+#   question_id: "" # Empty for one persistent image; stable ID for per-question media.
 #   source_asset: ""
 #   public_url: ""
+#   image_format: "webp / jpeg / png"
+#   dimensions:
+#     width: 1080
+#     height: 1920
+#   preload_verified: false
+#   approved_fallback: ""
+#   checksum_sha256: ""
+#   approved_by: ""
+#   approved_at: ""
+#
+# Video-only fields:
 #   poster: ""
 #   transcript_status: "missing / draft / approved"
 #   transcript_file: ""
@@ -28,18 +40,12 @@ scenes: []
 #   container: "mp4"
 #   video_codec: "h264"
 #   audio_codec: "aac"
-#   dimensions:
-#     width: 1080
-#     height: 1920
 #   fast_start_verified: false
-#   checksum_sha256: ""
 #   browser_checks:
 #     mobile_safari: "not-run"
 #     mobile_chrome: "not-run"
 #     desktop_safari: "not-run"
 #     desktop_chrome: "not-run"
-#   approved_by: ""
-#   approved_at: ""
 
 fallbacks:
   opening_poster: ""
@@ -49,7 +55,11 @@ fallbacks:
 verification:
   stable_ids_checked: false
   stable_urls_checked: false
+  visual_strategy_checked: false
+  image_question_mapping_checked: false
+  image_fallback_checked: false
+  reduced_motion_checked: false
   metadata_removed_from_public_assets: false
   full_sequence_checked: false
-  audio_before_picture_regression_checked: false
-  question_completion_gate_checked: false
+  video_audio_before_picture_regression_checked: false
+  video_question_completion_gate_checked: false

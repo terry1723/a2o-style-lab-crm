@@ -16,7 +16,7 @@ branding, browser support, and production authority.
 ```text
 Facebook / Instagram / Google campaign
   → mobile-first interactive consultation
-  → presenter scenes and qualification questions
+  → static-image or presenter-video qualification questions
   → optional private upload and contact consent
   → trusted, idempotent Google Sheet delivery
   → WhatsApp CTA
@@ -29,8 +29,9 @@ add value. It does not replace the advertising platform itself.
 ## Deliverables in the Skill
 
 - one-question-at-a-time discovery workflow;
+- image-first onboarding with one persistent image as the fastest default;
 - reusable funnel and state blueprint;
-- Safari/Chrome media and soundtrack guidance;
+- static-image plus Safari/Chrome video and soundtrack guidance;
 - private upload, Sheet, idempotency, privacy, CRM, and WhatsApp guidance;
 - failure library based on the A2O build;
 - preview, production, rollback, and handoff checklist;
@@ -39,6 +40,8 @@ add value. It does not replace the advertising platform itself.
 
 The approved design is recorded in
 `docs/superpowers/specs/2026-07-20-portable-consultation-funnel-skill-design.md`.
+The image-first onboarding update is recorded in
+`docs/superpowers/specs/2026-07-20-image-first-funnel-onboarding-design.md`.
 
 ## How to Invoke It
 
@@ -51,6 +54,25 @@ After installation, use a request such as:
 The skill first inspects the destination project and asks one material question
 at a time. It creates a confirmed brief before implementation and does not
 assume that A2O content or technology applies.
+
+## Image-First Recommended MVP
+
+Video is optional. The first intake question asks the user to choose:
+
+- `single-image` — one approved main image, recommended and fastest;
+- `question-images` — one approved image per question;
+- `presenter-video` — presenter videos with browser playback safeguards;
+- `no-assets` — a labelled synthetic prototype only.
+
+With `single-image`, one business, consultant, or service image stays visible
+through every question. Questions and answer options change while the visual
+remains stable. Optional CSS fade, light, or slow scale effects must respect
+reduced motion. This mode needs no autoplay, soundtrack, video `ended` gate, or
+Safari playback recovery.
+
+The funnel can later upgrade from one image to mapped images or video without
+changing stable question IDs, qualification logic, private capture, Google
+Sheet delivery, or WhatsApp conversion.
 
 ## Source, Project Copy, and Personal Installation
 
