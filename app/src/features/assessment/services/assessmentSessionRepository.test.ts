@@ -26,6 +26,8 @@ describe('submitAssessmentLead', () => {
       {
         name: '陳先生',
         phone: '9123 4567',
+        heightCm: 175,
+        weightKg: 68.5,
         consent: true,
         photo,
       },
@@ -38,6 +40,8 @@ describe('submitAssessmentLead', () => {
       input: {
         name: '陳先生',
         phone: '9123 4567',
+        heightCm: 175,
+        weightKg: 68.5,
         consent: true,
         photo,
       },
