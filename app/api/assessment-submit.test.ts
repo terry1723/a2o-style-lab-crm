@@ -6,6 +6,8 @@ const validPayload = {
   sessionId: 'session-1234567890',
   name: '陳先生',
   phone: '9123 4567',
+  heightCm: 175,
+  weightKg: 68.5,
   consent: true,
   answers: {
     q1: ['q1_6'],
@@ -75,6 +77,8 @@ describe('assessment-submit endpoint', () => {
     expect(deps.appendAssessmentLead).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: validPayload.sessionId,
       phone: '+85291234567',
+      heightCm: 175,
+      weightKg: 68.5,
       q1: '6',
       q2: '見客、銷售或傾生意',
       q3: '客戶信任同成交機會',

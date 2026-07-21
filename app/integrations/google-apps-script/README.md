@@ -7,7 +7,8 @@ appends assessment leads to the approved Google Sheet.
 
 - Spreadsheet ID: `1Xi_u4DYkkMtpl7ClpaxwOyGjU7VAud6d8_uQGmQRHcY`
 - Sheet: `工作表1`
-- Expected columns: `A:M`
+- Expected columns: `A:O`
+- New append-only fields: `N = 身高（cm）`, `O = 體重（kg）`
 
 ## Required Script Property
 

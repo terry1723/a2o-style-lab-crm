@@ -3,6 +3,8 @@ export type AssessmentSheetRow = {
   sessionId: string
   name: string
   phone: string
+  heightCm: number
+  weightKg: number
   q1: string
   q2: string
   q3: string

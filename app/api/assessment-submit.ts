@@ -92,6 +92,8 @@ export function createSubmissionHandler(dependencies: Dependencies) {
         sessionId: payload.sessionId,
         name: payload.name,
         phone: payload.phone,
+        heightCm: payload.heightCm,
+        weightKg: payload.weightKg,
         q1: labels.q1?.[0] ?? '',
         q2: labels.q2?.[0] ?? '',
         q3: labels.q3?.[0] ?? '',

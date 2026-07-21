@@ -6,6 +6,8 @@ const validRow: AssessmentSheetRow = {
   sessionId: 'session-1234567890',
   name: '陳先生',
   phone: '+85291234567',
+  heightCm: 175,
+  weightKg: 68.5,
   q1: '6',
   q2: '見客、銷售或傾生意',
   q3: '客戶信任同成交機會',
@@ -33,7 +35,12 @@ describe('appendAssessmentLead', () => {
       expect.objectContaining({ method: 'POST', redirect: 'follow' }),
     )
     const body = JSON.parse(String(fetchImpl.mock.calls[0][1]?.body))
-    expect(body).toEqual(expect.objectContaining({ sessionId: validRow.sessionId, secret: 'server-secret' }))
+    expect(body).toEqual(expect.objectContaining({
+      sessionId: validRow.sessionId,
+      heightCm: 175,
+      weightKg: 68.5,
+      secret: 'server-secret',
+    }))
   })
 
   it('rejects an Apps Script write failure without provider details', async () => {

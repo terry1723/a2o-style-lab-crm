@@ -18,6 +18,15 @@ function requireText(payload, key, maximumLength) {
   return value
 }
 
+function requireNumber(payload, key, minimum, maximum, decimalPlaces) {
+  const value = Number(payload[key])
+  const multiplier = Math.pow(10, decimalPlaces)
+  if (!isFinite(value) || value < minimum || value > maximum || Math.round(value * multiplier) !== value * multiplier) {
+    throw new Error('invalid_' + key)
+  }
+  return value
+}
+
 function doPost(event) {
   const lock = LockService.getScriptLock()
   try {
@@ -47,6 +56,8 @@ function doPost(event) {
       requireText(payload, 'photoSignedUrl', 2000),
       safeText(payload.utmSource, 200),
       '新提交',
+      requireNumber(payload, 'heightCm', 120, 230, 0),
+      requireNumber(payload, 'weightKg', 35, 200, 1),
     ]
 
     lock.waitLock(10000)
