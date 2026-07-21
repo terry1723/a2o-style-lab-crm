@@ -30,7 +30,7 @@ export function AssessmentResult({
                 <ClipboardCheck className="h-3.5 w-3.5" /> 四條問題已完成
               </span>
               <h1 className="mt-4 font-serif text-2xl font-medium leading-tight sm:text-3xl">最後一步：準備你嘅個人檢測報告</h1>
-              <p className="mt-3 text-sm leading-relaxed text-white/70">上傳一張正面全身相，再留下接收報告嘅資料。</p>
+              <p className="mt-3 text-sm leading-relaxed text-white/70">先填寫基本資料，再上傳一張正面全身相。</p>
             </>
           )}
 

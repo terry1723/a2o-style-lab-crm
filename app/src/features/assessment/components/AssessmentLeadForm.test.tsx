@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { AssessmentLeadForm } from './AssessmentLeadForm'
@@ -77,6 +77,24 @@ describe('AssessmentLeadForm', () => {
     await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('rejects a name longer than 80 characters before submission', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<AssessmentLeadForm {...defaultProps} onSubmit={onSubmit} />)
+    const photo = new File(['portrait'], 'full-body.jpg', { type: 'image/jpeg' })
+
+    fireEvent.change(screen.getByLabelText('稱呼／姓名'), { target: { value: '陳'.repeat(81) } })
+    await user.type(screen.getByLabelText('WhatsApp 電話號碼'), '9123 4567')
+    await user.type(screen.getByLabelText('身高（cm）'), '175')
+    await user.type(screen.getByLabelText('體重（kg）'), '68.5')
+    await user.upload(screen.getByLabelText('選擇正面全身相'), photo)
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('稱呼或姓名不可多於 80 個字。')
     expect(onSubmit).not.toHaveBeenCalled()
   })
 

@@ -70,13 +70,18 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
+    const trimmedName = name.trim()
     const cleanPhone = phone.replace(/[\s-]/g, '')
     const validPhone = /^(?:\+?852)?\d{8}$/.test(cleanPhone)
     const parsedHeight = Number(heightCm)
     const parsedWeight = Number(weightKg)
 
-    if (!name.trim()) {
+    if (!trimmedName) {
       setError('請填寫稱呼或姓名。')
+      return
+    }
+    if (trimmedName.length > 80) {
+      setError('稱呼或姓名不可多於 80 個字。')
       return
     }
     if (!validPhone) {
@@ -103,7 +108,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     setError('')
     try {
       await onSubmit({
-        name: name.trim(),
+        name: trimmedName,
         phone: cleanPhone,
         heightCm: parsedHeight,
         weightKg: parsedWeight,
@@ -141,6 +146,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         <input
           id="assessment-name"
           autoComplete="name"
+          maxLength={80}
           value={name}
           onChange={(event) => setName(event.target.value)}
           className={inputClassName}
