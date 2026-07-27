@@ -47,7 +47,7 @@ describe('AssessmentLeadForm', () => {
   it('shows the promised WhatsApp delivery window after successful submission', () => {
     render(<AssessmentLeadForm {...defaultProps} submitted />)
 
-    expect(screen.getByRole('heading', { name: '已收到你嘅形象檢測資料' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '已收到你的形象檢測資料' })).toBeInTheDocument()
     expect(screen.getByText(/1–2個工作天內透過 WhatsApp 聯絡你/)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /WhatsApp 預約/ })).not.toBeInTheDocument()
   })
@@ -66,7 +66,7 @@ describe('AssessmentLeadForm', () => {
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('你已填嘅資料會保留')
+    expect(await screen.findByRole('alert')).toHaveTextContent('你已填寫的資料將會保留')
     expect(screen.getByLabelText('稱呼／姓名')).toHaveValue('陳先生')
     expect(screen.getByLabelText('WhatsApp 電話號碼')).toHaveValue('9123 4567')
     await user.click(screen.getByRole('button', { name: '更換相片' }))

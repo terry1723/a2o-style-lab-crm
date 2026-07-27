@@ -62,8 +62,8 @@ async function advanceToFinalQuestion(container: HTMLElement) {
 
   for (const [answerName, nextScene] of [
     ['6', 'question-02'],
-    ['見客、銷售或傾生意', 'question-03'],
-    ['客戶信任同成交機會', 'question-04'],
+    ['會見客戶、銷售或商務洽談', 'question-03'],
+    ['客戶信任與成交機會', 'question-04'],
   ] as const) {
     const answer = await screen.findByRole('radio', { name: answerName })
     await waitFor(() => expect(answer).toBeEnabled())
@@ -76,7 +76,7 @@ async function advanceToFinalQuestion(container: HTMLElement) {
     fireEvent.ended(nextVideo)
   }
 
-  return screen.findByRole('radio', { name: '髮型同頭部輪廓' })
+  return screen.findByRole('radio', { name: '髮型與頭部輪廓' })
 }
 
 describe('AssessmentEngine media layers', () => {
@@ -338,7 +338,7 @@ describe('AssessmentEngine media layers', () => {
 
     expect(playedMedia).not.toContain(soundtrack)
     expect(playedMedia).toContain(firstVideo)
-    expect(await screen.findByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
   })
 
   it('disconnects and closes the Web Audio graph on unmount', () => {
@@ -382,7 +382,7 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.ended(firstVideo)
 
-    expect(await screen.findByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
   })
 
@@ -472,7 +472,7 @@ describe('AssessmentEngine media layers', () => {
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
 
     expect(await screen.findByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).not.toBeInTheDocument()
   })
 
   it('shows manual recovery when q1 visible playback never starts or progresses', async () => {
@@ -548,7 +548,7 @@ describe('AssessmentEngine media layers', () => {
 
     expect(screen.queryByText('影片暫停了，你仍然可以繼續診斷。')).not.toBeInTheDocument()
     fireEvent.ended(firstVideo)
-    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
   })
 
   it('shows a question only after the active video genuinely ends', () => {
@@ -561,9 +561,9 @@ describe('AssessmentEngine media layers', () => {
     Object.defineProperty(firstVideo, 'currentTime', { configurable: true, value: 10_000 })
     fireEvent.timeUpdate(firstVideo)
 
-    expect(screen.queryByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).not.toBeInTheDocument()
     fireEvent.ended(firstVideo)
-    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
   })
 
   it('does not let repeated waiting or stalled events extend the no-progress deadline', async () => {
@@ -598,7 +598,7 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.error(firstVideo)
     expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).not.toBeInTheDocument()
     await act(async () => {
       vi.advanceTimersByTime(5000)
       await Promise.resolve()
@@ -619,7 +619,7 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.ended(firstVideo)
     fireEvent.error(firstVideo)
-    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
 
   })
@@ -655,9 +655,9 @@ describe('AssessmentEngine media layers', () => {
     })
 
     expect(recoveryOrder).toEqual(['load', 'play'])
-    expect(screen.queryByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).not.toBeInTheDocument()
     fireEvent.ended(firstVideo)
-    expect(screen.getByRole('heading', { name: '從1到10分，你會畀自己形象幾多分？' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
   })
 
   it('prepares the inactive q2 buffer with load/current data and no hidden playback', async () => {
@@ -741,7 +741,7 @@ describe('AssessmentEngine media layers', () => {
     await user.click(await screen.findByRole('radio', { name: '6' }))
 
     expect(await screen.findByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '你認為目前形象最影響到你邊一個場合？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '你認為目前的形象最影響哪一個場合？' })).not.toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
     expect(secondVideo).toHaveAttribute('poster', '/images/assessment-landing.png')
     expect(q2PlaySnapshots).toEqual([{ muted: false, active: true }])
@@ -794,7 +794,7 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(answer)
 
     await waitFor(() => expect(secondVideo).toHaveClass('z-10'))
-    expect(screen.queryByRole('radio', { name: '見客、銷售或傾生意' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: '會見客戶、銷售或商務洽談' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
   })
 
@@ -820,9 +820,9 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.ended(firstVideo)
 
     for (const step of [
-      { answer: '6', scene: 'question-02', nextAnswer: '見客、銷售或傾生意' },
-      { answer: '見客、銷售或傾生意', scene: 'question-03', nextAnswer: '客戶信任同成交機會' },
-      { answer: '客戶信任同成交機會', scene: 'question-04', nextAnswer: '髮型同頭部輪廓' },
+      { answer: '6', scene: 'question-02', nextAnswer: '會見客戶、銷售或商務洽談' },
+      { answer: '會見客戶、銷售或商務洽談', scene: 'question-03', nextAnswer: '客戶信任與成交機會' },
+      { answer: '客戶信任與成交機會', scene: 'question-04', nextAnswer: '髮型與頭部輪廓' },
     ]) {
       fireEvent.click(await screen.findByRole('radio', { name: step.answer }))
       const nextVideo = await waitFor(() => {
@@ -962,7 +962,7 @@ describe('AssessmentEngine media layers', () => {
     await act(async () => Promise.resolve())
 
     expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '你認為目前形象最影響到你邊一個場合？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '你認為目前的形象最影響哪一個場合？' })).not.toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
     expect(secondVideo).toHaveAttribute('poster', '/images/assessment-landing.png')
     expect(q2Plays).toEqual([{ muted: false, active: true }])
