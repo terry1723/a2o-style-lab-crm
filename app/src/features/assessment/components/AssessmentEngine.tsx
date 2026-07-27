@@ -931,7 +931,7 @@ export function AssessmentEngine() {
 
         {state.playbackIssue && state.status !== 'completed' && (
           <div className="absolute inset-x-4 top-1/2 z-50 -translate-y-1/2 rounded-3xl border border-white/15 bg-black/75 p-5 text-center text-white shadow-2xl backdrop-blur-xl">
-            <p className="text-sm">影片已暫停，閣下仍可繼續完成診斷。</p>
+            <p className="text-sm">影片已暫停，你仍可繼續完成診斷。</p>
             <button
               type="button"
               onClick={resumePlayback}

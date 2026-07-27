@@ -49,7 +49,7 @@ describe('AssessmentLeadForm', () => {
   it('shows the promised WhatsApp delivery window after successful submission', () => {
     render(<AssessmentLeadForm {...defaultProps} submitted />)
 
-    expect(screen.getByRole('heading', { name: '已收到閣下的形象檢測資料' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '已收到你的形象檢測資料' })).toBeInTheDocument()
     expect(screen.getByText(/1–2 個工作天內透過 WhatsApp 與你聯絡/)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /WhatsApp 預約/ })).not.toBeInTheDocument()
   })
@@ -68,7 +68,7 @@ describe('AssessmentLeadForm', () => {
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: '提交並領取我的免費報告' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('閣下已填寫的資料將會保留')
+    expect(await screen.findByRole('alert')).toHaveTextContent('你已填寫的資料將會保留')
     expect(screen.getByLabelText('稱呼／姓名')).toHaveValue('陳先生')
     expect(screen.getByLabelText('WhatsApp 電話號碼')).toHaveValue('9123 4567')
     await user.click(screen.getByRole('button', { name: '更換相片' }))

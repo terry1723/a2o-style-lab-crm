@@ -5,10 +5,10 @@ describe('assessmentConfig', () => {
   it('defines exactly four approved single-choice scenes without transition media', () => {
     expect(assessmentConfig.scenes).toHaveLength(4)
     expect(assessmentConfig.scenes.map((scene) => scene.question.title)).toEqual([
-      '以 1 至 10 分計算，閣下會給自己的形象多少分？',
-      '閣下認為目前的形象最影響哪一個場合？',
-      '閣下認為目前的形象，最容易使閣下錯失哪一種機會？',
-      '如果只能優先改善一個形象項目，閣下最希望從哪裡開始？',
+      '以 1 至 10 分計算，你會給自己的形象多少分？',
+      '你認為目前的形象最影響哪一個場合？',
+      '你認為目前的形象，最容易使你錯失哪一種機會？',
+      '如果只能優先改善一個形象項目，你最希望從哪裡開始？',
     ])
     expect(assessmentConfig.scenes.every((scene) => scene.question.type === 'single')).toBe(true)
     expect(assessmentConfig.scenes.every((scene) => !scene.transitionVideoUrl)).toBe(true)

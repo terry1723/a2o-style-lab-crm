@@ -95,7 +95,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         ...(photoFile ? { photo: photoFile } : {}),
       })
     } catch {
-      setError('暫時未能提交，請稍後再試。閣下已填寫的資料將會保留。')
+      setError('暫時未能提交，請稍後再試。你已填寫的資料將會保留。')
     }
   }
 
@@ -103,10 +103,10 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     return (
       <div className="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-[#8FD3A8]" />
-        <h2 className="mt-3 font-serif text-2xl font-medium">已收到閣下的形象檢測資料</h2>
+        <h2 className="mt-3 font-serif text-2xl font-medium">已收到你的形象檢測資料</h2>
         <p className="mt-3 text-sm leading-relaxed text-white/70">
-          A2O 團隊會根據閣下的答案及正面全身相，準備個人形象檢測報告。
-          我們會在 1–2 個工作天內透過 WhatsApp 與閣下聯絡，請留意訊息。
+          A2O 團隊會根據你的答案及正面全身相，準備個人形象檢測報告。
+          我們會在 1–2 個工作天內透過 WhatsApp 與你聯絡，請留意訊息。
         </p>
       </div>
     )
@@ -222,10 +222,10 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
       <section aria-labelledby="privacy-consent-title" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-xs leading-relaxed text-white/65">
         <h3 id="privacy-consent-title" className="text-sm font-semibold text-white">私隱及知情同意聲明</h3>
         <p className="mt-2">
-          A2O Style Lab 會收集閣下的姓名、WhatsApp 號碼、問卷答案及自願上傳的相片，用於進行形象及穿搭分析、製作和傳送個人報告，以及處理與本次服務有關的查詢。
+          A2O Style Lab 會收集你的姓名、WhatsApp 號碼、問卷答案及自願上傳的相片，用於進行形象及穿搭分析、製作和傳送個人報告，以及處理與本次服務有關的查詢。
         </p>
         <p className="mt-2">
-          相片屬自願提供，不上傳亦可完成基本分析。未經閣下另行同意，我們不會將相片用於公開宣傳、Before/After 個案、面容識別或 AI 模型訓練。
+          相片屬自願提供，不上傳亦可完成基本分析。未經你另行同意，我們不會將相片用於公開宣傳、Before/After 個案、面容識別或 AI 模型訓練。
         </p>
       </section>
       <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white/5 p-3 text-xs leading-relaxed text-white/70">

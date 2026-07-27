@@ -338,7 +338,7 @@ describe('AssessmentEngine media layers', () => {
 
     expect(playedMedia).not.toContain(soundtrack)
     expect(playedMedia).toContain(firstVideo)
-    expect(await screen.findByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
   })
 
   it('disconnects and closes the Web Audio graph on unmount', () => {
@@ -382,7 +382,7 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.ended(firstVideo)
 
-    expect(await screen.findByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
   })
 
@@ -472,7 +472,7 @@ describe('AssessmentEngine media layers', () => {
     await user.click(screen.getByRole('button', { name: '開始形象檢測' }))
 
     expect(await screen.findByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).not.toBeInTheDocument()
   })
 
   it('shows manual recovery when q1 visible playback never starts or progresses', async () => {
@@ -487,7 +487,7 @@ describe('AssessmentEngine media layers', () => {
       await Promise.resolve()
     })
 
-    expect(screen.getByText('影片已暫停，閣下仍可繼續完成診斷。')).toBeInTheDocument()
+    expect(screen.getByText('影片已暫停，你仍可繼續完成診斷。')).toBeInTheDocument()
   })
 
   it('resets the visible playback deadline on progress', async () => {
@@ -506,7 +506,7 @@ describe('AssessmentEngine media layers', () => {
       })
     }
 
-    expect(screen.queryByText('影片已暫停，閣下仍可繼續完成診斷。')).not.toBeInTheDocument()
+    expect(screen.queryByText('影片已暫停，你仍可繼續完成診斷。')).not.toBeInTheDocument()
   })
 
   it('reinstalls the visible playback watchdog after manual recovery', async () => {
@@ -526,13 +526,13 @@ describe('AssessmentEngine media layers', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '點擊播放影片' }))
     await act(async () => Promise.resolve())
-    expect(screen.queryByText('影片已暫停，閣下仍可繼續完成診斷。')).not.toBeInTheDocument()
+    expect(screen.queryByText('影片已暫停，你仍可繼續完成診斷。')).not.toBeInTheDocument()
 
     await act(async () => {
       vi.advanceTimersByTime(5000)
       await Promise.resolve()
     })
-    expect(screen.getByText('影片已暫停，閣下仍可繼續完成診斷。')).toBeInTheDocument()
+    expect(screen.getByText('影片已暫停，你仍可繼續完成診斷。')).toBeInTheDocument()
   })
 
   it('does not classify the pause preceding natural media completion as a playback issue', async () => {
@@ -546,9 +546,9 @@ describe('AssessmentEngine media layers', () => {
     Object.defineProperty(firstVideo, 'ended', { configurable: true, value: true })
     fireEvent.pause(firstVideo)
 
-    expect(screen.queryByText('影片已暫停，閣下仍可繼續完成診斷。')).not.toBeInTheDocument()
+    expect(screen.queryByText('影片已暫停，你仍可繼續完成診斷。')).not.toBeInTheDocument()
     fireEvent.ended(firstVideo)
-    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
   })
 
   it('shows a question only after the active video genuinely ends', () => {
@@ -561,9 +561,9 @@ describe('AssessmentEngine media layers', () => {
     Object.defineProperty(firstVideo, 'currentTime', { configurable: true, value: 10_000 })
     fireEvent.timeUpdate(firstVideo)
 
-    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).not.toBeInTheDocument()
     fireEvent.ended(firstVideo)
-    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
   })
 
   it('does not let repeated waiting or stalled events extend the no-progress deadline', async () => {
@@ -585,7 +585,7 @@ describe('AssessmentEngine media layers', () => {
       await Promise.resolve()
     })
 
-    expect(screen.getByText('影片已暫停，閣下仍可繼續完成診斷。')).toBeInTheDocument()
+    expect(screen.getByText('影片已暫停，你仍可繼續完成診斷。')).toBeInTheDocument()
   })
 
   it('keeps the active scene and question hidden when that scene fails to load', async () => {
@@ -598,13 +598,13 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.error(firstVideo)
     expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).not.toBeInTheDocument()
     await act(async () => {
       vi.advanceTimersByTime(5000)
       await Promise.resolve()
     })
 
-    expect(screen.getByText('影片已暫停，閣下仍可繼續完成診斷。')).toBeInTheDocument()
+    expect(screen.getByText('影片已暫停，你仍可繼續完成診斷。')).toBeInTheDocument()
   })
 
   it('ignores active-buffer errors outside the current playback lifecycle', () => {
@@ -619,7 +619,7 @@ describe('AssessmentEngine media layers', () => {
     fireEvent.click(screen.getByRole('button', { name: '開始形象檢測' }))
     fireEvent.ended(firstVideo)
     fireEvent.error(firstVideo)
-    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '點擊播放影片' })).not.toBeInTheDocument()
 
   })
@@ -655,9 +655,9 @@ describe('AssessmentEngine media layers', () => {
     })
 
     expect(recoveryOrder).toEqual(['load', 'play'])
-    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).not.toBeInTheDocument()
     fireEvent.ended(firstVideo)
-    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，閣下會給自己的形象多少分？' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '以 1 至 10 分計算，你會給自己的形象多少分？' })).toBeInTheDocument()
   })
 
   it('prepares the inactive q2 buffer with load/current data and no hidden playback', async () => {
@@ -741,7 +741,7 @@ describe('AssessmentEngine media layers', () => {
     await user.click(await screen.findByRole('radio', { name: '6' }))
 
     expect(await screen.findByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '閣下認為目前的形象最影響哪一個場合？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '你認為目前的形象最影響哪一個場合？' })).not.toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
     expect(secondVideo).toHaveAttribute('poster', '/images/assessment-landing.png')
     expect(q2PlaySnapshots).toEqual([{ muted: false, active: true }])
@@ -770,7 +770,7 @@ describe('AssessmentEngine media layers', () => {
     await waitFor(() => expect(answer).toBeEnabled())
     fireEvent.click(answer)
 
-    expect(await screen.findByText('影片已暫停，閣下仍可繼續完成診斷。')).toBeInTheDocument()
+    expect(await screen.findByText('影片已暫停，你仍可繼續完成診斷。')).toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
   })
 
@@ -865,7 +865,7 @@ describe('AssessmentEngine media layers', () => {
     await waitFor(() => expect(answer).toBeEnabled())
     fireEvent.click(answer)
 
-    expect(await screen.findByText('影片已暫停，閣下仍可繼續完成診斷。')).toBeInTheDocument()
+    expect(await screen.findByText('影片已暫停，你仍可繼續完成診斷。')).toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
   })
 
@@ -890,7 +890,7 @@ describe('AssessmentEngine media layers', () => {
       vi.advanceTimersByTime(5000)
       await Promise.resolve()
     })
-    expect(screen.getByText('影片已暫停，閣下仍可繼續完成診斷。')).toBeInTheDocument()
+    expect(screen.getByText('影片已暫停，你仍可繼續完成診斷。')).toBeInTheDocument()
   })
 
   it('clears a pending q4 completion when the assessment unmounts', async () => {
@@ -962,7 +962,7 @@ describe('AssessmentEngine media layers', () => {
     await act(async () => Promise.resolve())
 
     expect(screen.getByRole('button', { name: '點擊播放影片' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '閣下認為目前的形象最影響哪一個場合？' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '你認為目前的形象最影響哪一個場合？' })).not.toBeInTheDocument()
     expect(secondVideo).toHaveClass('z-10')
     expect(secondVideo).toHaveAttribute('poster', '/images/assessment-landing.png')
     expect(q2Plays).toEqual([{ muted: false, active: true }])
