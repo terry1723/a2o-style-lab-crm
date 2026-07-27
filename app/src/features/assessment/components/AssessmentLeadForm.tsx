@@ -95,7 +95,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         ...(photoFile ? { photo: photoFile } : {}),
       })
     } catch {
-      setError('暫時未能提交，請稍後再試。你已填寫的資料將會保留。')
+      setError('暫時未能提交，請稍後再試。閣下已填寫的資料將會保留。')
     }
   }
 
@@ -103,10 +103,10 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     return (
       <div className="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-[#8FD3A8]" />
-        <h2 className="mt-3 font-serif text-2xl font-medium">已收到你的形象檢測資料</h2>
+        <h2 className="mt-3 font-serif text-2xl font-medium">已收到閣下的形象檢測資料</h2>
         <p className="mt-3 text-sm leading-relaxed text-white/70">
-          A2O 團隊會根據你的答案及正面全身相，準備個人形象檢測報告。
-          我們會在 1–2 個工作天內透過 WhatsApp 與你聯絡，請留意訊息。
+          A2O 團隊會根據閣下的答案及正面全身相，準備個人形象檢測報告。
+          我們會在 1–2 個工作天內透過 WhatsApp 與閣下聯絡，請留意訊息。
         </p>
       </div>
     )
