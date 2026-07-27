@@ -7,12 +7,14 @@ const validRow: AssessmentSheetRow = {
   name: '陳先生',
   phone: '+85291234567',
   q1: '6',
-  q2: '見客、銷售或傾生意',
-  q3: '客戶信任同成交機會',
+  q2: '會見客戶、銷售或商務洽談',
+  q3: '客戶信任與成交機會',
   q4: '整體專業形象定位',
   resultTitle: '專業存在感落差',
   photoPath: '2026/07/session-1234567890/photo.jpg',
   photoSignedUrl: 'https://example.supabase.co/signed/photo',
+  privacyConsent: true,
+  marketingConsent: false,
   utmSource: 'instagram',
 }
 

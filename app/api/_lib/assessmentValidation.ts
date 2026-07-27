@@ -8,10 +8,11 @@ export type AssessmentSubmissionPayload = {
   sessionId: string
   name: string
   phone: string
-  consent: true
+  privacyConsent: true
+  marketingConsent: boolean
   answers: AssessmentAnswerMap
-  photoPath: string
-  uploadReceipt: string
+  photoPath?: string
+  uploadReceipt?: string
   attribution: Attribution
 }
 
@@ -71,23 +72,25 @@ export function validateAssessmentSubmission(value: unknown): AssessmentSubmissi
 
   const name = typeof input.name === 'string' ? input.name.trim() : ''
   if (!name || name.length > 80) throw new Error('invalid_name')
-  if (input.consent !== true) throw new Error('consent_required')
+  if (input.privacyConsent !== true) throw new Error('consent_required')
 
   const photoPath = typeof input.photoPath === 'string' ? input.photoPath : ''
-  const photoMatch = PHOTO_PATH_PATTERN.exec(photoPath)
-  if (!photoMatch || photoMatch[3] !== sessionId) throw new Error('invalid_photo_path')
-
   const uploadReceipt = typeof input.uploadReceipt === 'string' ? input.uploadReceipt : ''
-  if (!uploadReceipt || uploadReceipt.length > 4096) throw new Error('invalid_upload_receipt')
+  if (Boolean(photoPath) !== Boolean(uploadReceipt)) throw new Error('invalid_photo_path')
+  if (photoPath) {
+    const photoMatch = PHOTO_PATH_PATTERN.exec(photoPath)
+    if (!photoMatch || photoMatch[3] !== sessionId) throw new Error('invalid_photo_path')
+    if (uploadReceipt.length > 4096) throw new Error('invalid_upload_receipt')
+  }
 
   return {
     sessionId,
     name,
     phone: normaliseHongKongPhone(typeof input.phone === 'string' ? input.phone : ''),
-    consent: true,
+    privacyConsent: true,
+    marketingConsent: input.marketingConsent === true,
     answers: parseAnswers(input.answers),
-    photoPath,
-    uploadReceipt,
+    ...(photoPath ? { photoPath, uploadReceipt } : {}),
     attribution: parseAttribution(input.attribution),
   }
 }

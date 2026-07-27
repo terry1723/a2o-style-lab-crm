@@ -30,7 +30,7 @@ describe('submitAssessmentLeadToPipeline', () => {
       }))
 
     await submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '9123 4567', consent: true, photo },
+      input: { name: '陳先生', phone: '9123 4567', privacyConsent: true, marketingConsent: false, photo },
       sessionId: 'assessment_session_1234',
       answers,
       attribution,
@@ -58,12 +58,34 @@ describe('submitAssessmentLeadToPipeline', () => {
         sessionId: 'assessment_session_1234',
         name: '陳先生',
         phone: '9123 4567',
-        consent: true,
+        privacyConsent: true, marketingConsent: false,
         answers,
         photoPath: '2026/07/assessment_session_1234/photo-id.jpg',
         uploadReceipt: 'signed-upload-receipt',
         attribution,
       }),
+    }))
+  })
+
+  it('submits a basic report request without starting a photo upload', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true, duplicate: false }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    const uploadToSignedUrl = vi.fn()
+
+    await submitAssessmentLeadToPipeline({
+      input: { name: '陳先生', phone: '91234567', privacyConsent: true, marketingConsent: false },
+      sessionId: 'assessment_session_1234',
+      answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
+      attribution: { sourceUrl: '', referrer: '' },
+    }, { fetchImpl, uploadToSignedUrl })
+
+    expect(uploadToSignedUrl).not.toHaveBeenCalled()
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toEqual(expect.objectContaining({
+      privacyConsent: true,
+      marketingConsent: false,
     }))
   })
 
@@ -78,7 +100,7 @@ describe('submitAssessmentLeadToPipeline', () => {
     const uploadToSignedUrl = vi.fn().mockRejectedValue(new Error('photo_upload_failed'))
 
     await expect(submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '91234567', consent: true, photo },
+      input: { name: '陳先生', phone: '91234567', privacyConsent: true, marketingConsent: false, photo },
       sessionId: 'assessment_session_1234',
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
@@ -106,7 +128,7 @@ describe('submitAssessmentLeadToPipeline', () => {
       }))
     const uploadToSignedUrl = vi.fn().mockResolvedValue(undefined)
     const pipelineInput = {
-      input: { name: '陳先生', phone: '91234567', consent: true as const, photo },
+      input: { name: '陳先生', phone: '91234567', privacyConsent: true as const, marketingConsent: false, photo },
       sessionId: 'retry_session_12345',
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
@@ -151,7 +173,7 @@ describe('submitAssessmentLeadToPipeline', () => {
     }
 
     await expect(submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '91234567', consent: true, photo },
+      input: { name: '陳先生', phone: '91234567', privacyConsent: true, marketingConsent: false, photo },
       sessionId: `malformed_session_${isUploadCase ? '1' : '2'}`,
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },

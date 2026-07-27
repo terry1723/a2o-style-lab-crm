@@ -10,12 +10,14 @@ const defaultProps = {
 }
 
 describe('AssessmentLeadForm', () => {
-  it('requires one front-facing full-body photo before showing contact fields', () => {
+  it('makes the photo optional and allows the contact form to continue without one', async () => {
+    const user = userEvent.setup()
     render(<AssessmentLeadForm {...defaultProps} />)
 
-    expect(screen.getByRole('heading', { name: '上傳正面全身相' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '上傳正面全身相（可選）' })).toBeInTheDocument()
     expect(screen.queryByLabelText('稱呼／姓名')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '繼續填寫聯絡資料' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '跳過相片並填寫聯絡資料' }))
+    expect(screen.getByLabelText('稱呼／姓名')).toBeInTheDocument()
   })
 
   it('accepts one image and submits only name, WhatsApp, consent and photo', async () => {
@@ -30,13 +32,13 @@ describe('AssessmentLeadForm', () => {
     await user.type(screen.getByLabelText('稱呼／姓名'), '陳先生')
     await user.type(screen.getByLabelText('WhatsApp 電話號碼'), '9123 4567')
     await user.click(screen.getByRole('checkbox'))
-    await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
+    await user.click(screen.getByRole('button', { name: '提交並領取我的免費報告' }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       name: '陳先生',
       phone: '91234567',
-      consent: true,
+      privacyConsent: true, marketingConsent: false,
       photo,
     }))
     expect(onSubmit).toHaveBeenCalledWith(expect.not.objectContaining({
@@ -48,7 +50,7 @@ describe('AssessmentLeadForm', () => {
     render(<AssessmentLeadForm {...defaultProps} submitted />)
 
     expect(screen.getByRole('heading', { name: '已收到你的形象檢測資料' })).toBeInTheDocument()
-    expect(screen.getByText(/1–2個工作天內透過 WhatsApp 聯絡你/)).toBeInTheDocument()
+    expect(screen.getByText(/1–2 個工作天內透過 WhatsApp 與你聯絡/)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /WhatsApp 預約/ })).not.toBeInTheDocument()
   })
 
@@ -64,7 +66,7 @@ describe('AssessmentLeadForm', () => {
     await user.type(screen.getByLabelText('稱呼／姓名'), '陳先生')
     await user.type(screen.getByLabelText('WhatsApp 電話號碼'), '9123 4567')
     await user.click(screen.getByRole('checkbox'))
-    await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
+    await user.click(screen.getByRole('button', { name: '提交並領取我的免費報告' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('你已填寫的資料將會保留')
     expect(screen.getByLabelText('稱呼／姓名')).toHaveValue('陳先生')

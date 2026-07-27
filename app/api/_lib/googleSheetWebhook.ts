@@ -10,6 +10,8 @@ export type AssessmentSheetRow = {
   resultTitle: string
   photoPath: string
   photoSignedUrl: string
+  privacyConsent: true
+  marketingConsent: boolean
   utmSource: string
 }
 

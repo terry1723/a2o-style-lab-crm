@@ -5,7 +5,7 @@ const validPayload = {
   sessionId: 'session-1234567890',
   name: '陳先生',
   phone: '9123 4567',
-  consent: true,
+  privacyConsent: true, marketingConsent: false,
   answers: {
     q1: ['q1_6'],
     q2: ['q2_a'],
@@ -28,7 +28,7 @@ describe('validateAssessmentSubmission', () => {
 
   it.each([
     ['invalid phone', { phone: '123' }, 'invalid_phone'],
-    ['missing consent', { consent: false }, 'consent_required'],
+    ['missing consent', { privacyConsent: false, marketingConsent: false }, 'consent_required'],
     ['unsafe session id', { sessionId: '../client-name' }, 'invalid_session_id'],
     ['photo outside session prefix', { photoPath: '2026/07/another-session/photo.jpg' }, 'invalid_photo_path'],
   ])('rejects %s', (_label, change, message) => {

@@ -80,36 +80,38 @@ export async function submitAssessmentLeadToPipeline(
   payload: PipelineInput,
   dependencies: Dependencies = defaultDependencies,
 ) {
-  const extension = PHOTO_EXTENSIONS[payload.input.photo.type]
-  if (!extension) throw new Error('invalid_photo_type')
+  let signedUpload: SignedUpload | undefined
+  if (payload.input.photo) {
+    const extension = PHOTO_EXTENSIONS[payload.input.photo.type]
+    if (!extension) throw new Error('invalid_photo_type')
 
-  const cached = completedUploads.get(payload.sessionId)
-  let signedUpload: SignedUpload
-  if (
-    cached
-    && cached.photo === payload.input.photo
-    && Date.now() - cached.cachedAt < UPLOAD_CACHE_TTL_MS
-  ) {
-    signedUpload = cached.upload
-  } else {
-    completedUploads.delete(payload.sessionId)
-    signedUpload = parseSignedUpload(await postJson(
-      dependencies.fetchImpl,
-      '/api/assessment-upload-url',
-      {
-        sessionId: payload.sessionId,
-        mimeType: payload.input.photo.type,
-        extension,
-        fileSize: payload.input.photo.size,
-      },
-    ))
+    const cached = completedUploads.get(payload.sessionId)
+    if (
+      cached
+      && cached.photo === payload.input.photo
+      && Date.now() - cached.cachedAt < UPLOAD_CACHE_TTL_MS
+    ) {
+      signedUpload = cached.upload
+    } else {
+      completedUploads.delete(payload.sessionId)
+      signedUpload = parseSignedUpload(await postJson(
+        dependencies.fetchImpl,
+        '/api/assessment-upload-url',
+        {
+          sessionId: payload.sessionId,
+          mimeType: payload.input.photo.type,
+          extension,
+          fileSize: payload.input.photo.size,
+        },
+      ))
 
-    await dependencies.uploadToSignedUrl({ ...signedUpload, file: payload.input.photo })
-    completedUploads.set(payload.sessionId, {
-      photo: payload.input.photo,
-      upload: signedUpload,
-      cachedAt: Date.now(),
-    })
+      await dependencies.uploadToSignedUrl({ ...signedUpload, file: payload.input.photo })
+      completedUploads.set(payload.sessionId, {
+        photo: payload.input.photo,
+        upload: signedUpload,
+        cachedAt: Date.now(),
+      })
+    }
   }
 
   const result = parseSubmissionResult(await postJson(
@@ -119,10 +121,10 @@ export async function submitAssessmentLeadToPipeline(
       sessionId: payload.sessionId,
       name: payload.input.name,
       phone: payload.input.phone,
-      consent: payload.input.consent,
+      privacyConsent: payload.input.privacyConsent,
+      marketingConsent: payload.input.marketingConsent,
       answers: payload.answers,
-      photoPath: signedUpload.path,
-      uploadReceipt: signedUpload.uploadReceipt,
+      ...(signedUpload ? { photoPath: signedUpload.path, uploadReceipt: signedUpload.uploadReceipt } : {}),
       attribution: payload.attribution,
     },
   ))

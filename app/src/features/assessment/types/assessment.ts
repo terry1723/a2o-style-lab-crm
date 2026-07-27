@@ -94,6 +94,7 @@ export type AssessmentResult = AssessmentResultDefinition & {
 export type AssessmentLeadInput = {
   name: string
   phone: string
-  consent: true
-  photo: File
+  privacyConsent: true
+  marketingConsent: boolean
+  photo?: File
 }

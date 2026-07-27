@@ -26,7 +26,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
   const [photoName, setPhotoName] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [consent, setConsent] = useState(false)
+  const [privacyConsent, setPrivacyConsent] = useState(false)
+  const [marketingConsent, setMarketingConsent] = useState(false)
   const [error, setError] = useState('')
 
   const choosePhoto = (event: ChangeEvent<HTMLInputElement>) => {
@@ -79,20 +80,20 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
       setError('請填寫有效的香港 WhatsApp 電話號碼。')
       return
     }
-    if (!consent) {
-      setError('請確認同意資料及相片用途。')
+    if (!privacyConsent) {
+      setError('請閱讀並同意私隱及知情同意聲明。')
       return
     }
 
     setError('')
-    if (!photoFile) {
-      setError('請先上傳正面全身相。')
-      setStep('photo')
-      return
-    }
-
     try {
-      await onSubmit({ name: name.trim(), phone: cleanPhone, consent: true, photo: photoFile })
+      await onSubmit({
+        name: name.trim(),
+        phone: cleanPhone,
+        privacyConsent: true,
+        marketingConsent,
+        ...(photoFile ? { photo: photoFile } : {}),
+      })
     } catch {
       setError('暫時未能提交，請稍後再試。你已填寫的資料將會保留。')
     }
@@ -119,7 +120,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
             <Camera className="h-5 w-5" />
           </span>
           <div>
-            <h2 id="assessment-photo-title" className="text-lg font-semibold">上傳正面全身相</h2>
+            <h2 id="assessment-photo-title" className="text-lg font-semibold">上傳正面全身相（可選）</h2>
             <p className="mt-1 text-xs leading-relaxed text-white/60">請站直並面向鏡頭，拍攝範圍需包括頭部至雙腳；自然光及無濾鏡的相片更適合分析。</p>
           </div>
         </div>
@@ -164,14 +165,13 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         {error && <p role="alert" className="mt-3 text-sm text-[#FFB4B4]">{error}</p>}
         <button
           type="button"
-          disabled={!photoFile}
           onClick={() => {
             setError('')
             setStep('contact')
           }}
           className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-a2o-pink px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-40"
         >
-          繼續填寫聯絡資料 <ArrowRight className="h-4 w-4" />
+          {photoFile ? '繼續填寫聯絡資料' : '跳過相片並填寫聯絡資料'} <ArrowRight className="h-4 w-4" />
         </button>
       </section>
     )
@@ -219,14 +219,33 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
           placeholder="例如：9123 4567"
         />
       </div>
+      <section aria-labelledby="privacy-consent-title" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-xs leading-relaxed text-white/65">
+        <h3 id="privacy-consent-title" className="text-sm font-semibold text-white">私隱及知情同意聲明</h3>
+        <p className="mt-2">
+          A2O Style Lab 會收集閣下的姓名、WhatsApp 號碼、問卷答案及自願上傳的相片，用於進行形象及穿搭分析、製作和傳送個人報告，以及處理與本次服務有關的查詢。
+        </p>
+        <p className="mt-2">
+          相片屬自願提供，不上傳亦可完成基本分析。未經閣下另行同意，我們不會將相片用於公開宣傳、Before/After 個案、面容識別或 AI 模型訓練。
+        </p>
+      </section>
+      <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white/5 p-3 text-xs leading-relaxed text-white/70">
+        <input
+          type="checkbox"
+          checked={privacyConsent}
+          onChange={(event) => setPrivacyConsent(event.target.checked)}
+          className="mt-0.5 h-4 w-4 accent-[#D4849A]"
+          required
+        />
+        <span>【必須勾選】本人確認已年滿 18 歲，並已閱讀及同意上述私隱及知情同意聲明，同意 A2O Style Lab 按上述用途處理本人資料及透過 WhatsApp 傳送個人報告。</span>
+      </label>
       <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white/5 p-3 text-xs leading-relaxed text-white/60">
         <input
           type="checkbox"
-          checked={consent}
-          onChange={(event) => setConsent(event.target.checked)}
+          checked={marketingConsent}
+          onChange={(event) => setMarketingConsent(event.target.checked)}
           className="mt-0.5 h-4 w-4 accent-[#D4849A]"
         />
-        <span>我同意 A2O Style Lab 使用以上資料及相片，作個人形象檢測及 WhatsApp 跟進之用。</span>
+        <span>【自願勾選】我願意透過 WhatsApp 接收 A2O Style Lab 有關形象服務、穿搭、髮型、活動、優惠及套餐的推廣資訊。我明白可以隨時退出，而不影響領取免費報告。</span>
       </label>
       {error && <p role="alert" className="text-sm text-[#FFB4B4]">{error}</p>}
       <button
@@ -235,7 +254,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-a2o-pink px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
       >
         {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-        {submitting ? '提交中…' : '提交並製作個人檢測報告'}
+        {submitting ? '提交中…' : '提交並領取我的免費報告'}
       </button>
     </form>
   )

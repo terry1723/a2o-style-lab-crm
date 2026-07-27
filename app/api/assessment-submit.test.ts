@@ -6,7 +6,7 @@ const validPayload = {
   sessionId: 'session-1234567890',
   name: '陳先生',
   phone: '9123 4567',
-  consent: true,
+  privacyConsent: true, marketingConsent: false,
   answers: {
     q1: ['q1_6'],
     q2: ['q2_a'],
@@ -76,8 +76,8 @@ describe('assessment-submit endpoint', () => {
       sessionId: validPayload.sessionId,
       phone: '+85291234567',
       q1: '6',
-      q2: '見客、銷售或傾生意',
-      q3: '客戶信任同成交機會',
+      q2: '會見客戶、銷售或商務洽談',
+      q3: '客戶信任與成交機會',
       q4: '整體專業形象定位',
       resultTitle: '專業存在感落差',
       photoSignedUrl: 'https://example.supabase.co/signed/photo',
@@ -102,6 +102,26 @@ describe('assessment-submit endpoint', () => {
     expect(response.body).toEqual({ error: 'invalid_submission' })
     expect(deps.createPhotoReadUrl).not.toHaveBeenCalled()
     expect(deps.appendAssessmentLead).not.toHaveBeenCalled()
+  })
+
+  it('accepts a valid submission without a photo', async () => {
+    const deps = dependencies()
+    const handler = createSubmissionHandler(deps)
+    const response = responseRecorder()
+    const { photoPath: _photoPath, uploadReceipt: _uploadReceipt, ...withoutPhoto } = validPayload
+
+    await handler({ method: 'POST', body: withoutPhoto }, response)
+
+    expect(response.statusCode).toBe(200)
+    expect(deps.verifyUploadReceipt).not.toHaveBeenCalled()
+    expect(deps.assertUploadedPhoto).not.toHaveBeenCalled()
+    expect(deps.createPhotoReadUrl).not.toHaveBeenCalled()
+    expect(deps.appendAssessmentLead).toHaveBeenCalledWith(expect.objectContaining({
+      photoPath: '',
+      photoSignedUrl: '',
+      privacyConsent: true,
+      marketingConsent: false,
+    }))
   })
 
   it('does not sign or append when uploaded object metadata cannot be verified', async () => {
