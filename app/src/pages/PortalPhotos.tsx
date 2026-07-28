@@ -146,7 +146,10 @@ export default function PortalPhotos() {
               <p className="text-xs text-a2o-black/40">逐個客人按需要先載入相片，不會一開始載入全部圖片</p>
             </div>
           </div>
-          <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider bg-green-100 text-green-700">Lazy Load</span>
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/portal/ad-leads')} className="text-sm text-a2o-black/60 hover:text-a2o-pink">廣告新客</button>
+            <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider bg-green-100 text-green-700">Lazy Load</span>
+          </div>
         </div>
       </div>
 

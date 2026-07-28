@@ -401,12 +401,15 @@ ${client.watch ? `手錶：${client.watch}` : ''}
               {dbMode === 'supabase' ? 'Supabase' : '本地'}
             </span>
           </div>
-          <button
-            onClick={() => { localStorage.removeItem('a2o_staff_auth'); navigate('/portal') }}
-            className="text-sm text-a2o-black/50 hover:text-red-500 flex items-center gap-1"
-          >
-            <LogOut className="w-4 h-4" /> 登出
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/portal/ad-leads')} className="text-sm text-a2o-black/60 hover:text-a2o-pink">廣告新客</button>
+            <button
+              onClick={() => { localStorage.removeItem('a2o_staff_auth'); navigate('/portal') }}
+              className="text-sm text-a2o-black/50 hover:text-red-500 flex items-center gap-1"
+            >
+              <LogOut className="w-4 h-4" /> 登出
+            </button>
+          </div>
         </div>
       </div>
 

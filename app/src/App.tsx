@@ -7,6 +7,8 @@ import CrmStylingPool from './pages/CrmStylingPool'
 import CrmDashboard from './pages/CrmDashboard'
 import Portal from './pages/Portal'
 import PortalStaff from './pages/PortalStaff'
+import PortalPhotos from './pages/PortalPhotos'
+import PortalAdLeads from './pages/PortalAdLeads'
 import PublicProducts from './pages/PublicProducts'
 import SupabaseDebug from './pages/SupabaseDebug'
 
@@ -23,6 +25,8 @@ export default function App() {
       <Route path="/crm/dashboard" element={<CrmDashboard />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/portal/staff" element={<PortalStaff />} />
+      <Route path="/portal/photos" element={<PortalPhotos />} />
+      <Route path="/portal/ad-leads" element={<PortalAdLeads />} />
       <Route path="/debug/supabase" element={<SupabaseDebug />} />
     </Routes>
   )
