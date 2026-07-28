@@ -71,7 +71,8 @@ export function createAdLeadsHandler({ readSourceLeads, loadTracking, loadAppoin
         appointments,
         unavailableSources: source.unavailableSources,
       })
-    } catch {
+    } catch (error) {
+      console.error('Unable to load advertising leads', error)
       response.status(503).json({ error: 'lead_inbox_unavailable' })
     }
   }
