@@ -37,7 +37,7 @@ import PortalStaff from './PortalStaff'
 
 describe('Portal staff dashboard privacy', () => {
   beforeEach(() => {
-    localStorage.setItem('a2o_staff_auth', 'true')
+    localStorage.setItem('a2o_staff_auth_v2', 'true')
     navigate.mockReset()
   })
 

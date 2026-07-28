@@ -26,7 +26,7 @@ export default function Portal() {
       })
 
       if (response.ok) {
-        localStorage.setItem('a2o_staff_auth', 'true')
+        localStorage.setItem('a2o_staff_auth_v2', 'true')
         navigate('/portal/staff')
         return
       }

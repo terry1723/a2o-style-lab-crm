@@ -97,7 +97,7 @@ export default function PortalStaff() {
   }, [])
 
   useEffect(() => {
-    if (!localStorage.getItem('a2o_staff_auth')) {
+    if (!localStorage.getItem('a2o_staff_auth_v2')) {
       navigate('/portal')
       return
     }
@@ -399,7 +399,7 @@ ${client.watch ? `手錶：${client.watch}` : ''}
             </span>
           </div>
           <button
-            onClick={() => { localStorage.removeItem('a2o_staff_auth'); navigate('/portal') }}
+            onClick={() => { localStorage.removeItem('a2o_staff_auth_v2'); navigate('/portal') }}
             className="text-sm text-a2o-black/50 hover:text-red-500 flex items-center gap-1"
           >
             <LogOut className="w-4 h-4" /> 登出

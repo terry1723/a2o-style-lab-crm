@@ -63,7 +63,7 @@ export default function SupabaseDebug() {
   const [photos, setPhotos] = useState<Record<string, PhotoResult | null>>({})
 
   useEffect(() => {
-    if (!localStorage.getItem('a2o_staff_auth')) {
+    if (!localStorage.getItem('a2o_staff_auth_v2')) {
       navigate('/portal')
       return
     }
