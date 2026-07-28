@@ -107,4 +107,23 @@ describe('adLeadService', () => {
       }),
     ])
   })
+
+  it('omits malformed timestamps and keeps valid leads in newest-first order', () => {
+    const validRow = {
+      source: 'meta',
+      id: 'older',
+      submittedAt: '2026-07-10T09:00:00+08:00',
+      name: 'Chan Tai Man',
+      phone: '91234567',
+      tag: 'summer',
+    }
+
+    const result = normalizeAdLeads([
+      validRow,
+      { ...validRow, id: 'bad-timestamp', submittedAt: 'not a date' },
+      { ...validRow, id: 'newer', submittedAt: '2026-07-10T10:00:00+08:00' },
+    ])
+
+    expect(result.map((lead) => lead.id)).toEqual(['newer', 'older'])
+  })
 })

@@ -38,7 +38,7 @@ export function normalizeAdLeads(
   tracking: Record<string, AdLeadTracking> = {},
 ): AdLead[] {
   return rows
-    .filter(hasRequiredValues)
+    .filter((row) => hasRequiredValues(row) && Number.isFinite(Date.parse(row.submittedAt)))
     .map((row) => {
       const key = sourceKey(row.source, row.id)
       const overlay = tracking[key]
