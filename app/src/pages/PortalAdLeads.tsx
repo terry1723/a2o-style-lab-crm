@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import {
@@ -14,6 +14,8 @@ type AdLeadsResponse = {
   unavailableSources?: string[]
 }
 
+const LEADS_PER_PAGE = 20
+
 function formatSubmittedAt(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
@@ -28,6 +30,13 @@ export default function PortalAdLeads() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+
+  const pageCount = Math.max(1, Math.ceil(leads.length / LEADS_PER_PAGE))
+  const visibleLeads = useMemo(
+    () => leads.slice((page - 1) * LEADS_PER_PAGE, page * LEADS_PER_PAGE),
+    [leads, page],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -37,6 +46,7 @@ export default function PortalAdLeads() {
       if (!response.ok) throw new Error('load_failed')
       const data = await response.json() as AdLeadsResponse
       setLeads(data.leads || [])
+      setPage(1)
     } catch {
       setError('載入廣告新客失敗，請稍後再試。')
     } finally {
@@ -118,7 +128,7 @@ export default function PortalAdLeads() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-a2o-warm">
-                {leads.map(lead => (
+                {visibleLeads.map(lead => (
                   <tr key={lead.sourceKey}>
                     <td className="px-4 py-3 font-medium">{lead.name}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{lead.phone}</td>
@@ -156,6 +166,15 @@ export default function PortalAdLeads() {
             </table>
           )}
         </div>
+        {!loading && leads.length > LEADS_PER_PAGE && (
+          <nav aria-label="廣告新客分頁" className="mt-4 flex items-center justify-between gap-3 text-sm">
+            <span className="text-a2o-black/50">第 {page} / {pageCount} 頁・共 {leads.length} 位客人</span>
+            <div className="flex gap-2">
+              <button type="button" disabled={page === 1} onClick={() => setPage(current => Math.max(1, current - 1))} className="rounded-lg border border-a2o-warm bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40">上一頁</button>
+              <button type="button" disabled={page === pageCount} onClick={() => setPage(current => Math.min(pageCount, current + 1))} className="rounded-lg border border-a2o-warm bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40">下一頁</button>
+            </div>
+          </nav>
+        )}
       </main>
     </div>
   )
