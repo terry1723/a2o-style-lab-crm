@@ -62,7 +62,10 @@ export async function loadAdLeadAppointments(
   client: AppointmentClient = createSupabaseAdmin() as unknown as AppointmentClient,
 ): Promise<AdLeadAppointment[]> {
   const { data, error } = await client.from('ad_lead_appointments').select('source_key, appointment_date, appointment_time')
-  if (error) throw new Error('ad_lead_appointments_unavailable')
+  if (error) {
+    console.error('Unable to load advertising lead appointments', error)
+    throw new Error('ad_lead_appointments_unavailable')
+  }
   return appointmentsFromRows(data)
 }
 
