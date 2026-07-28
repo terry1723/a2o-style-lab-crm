@@ -67,7 +67,7 @@ describe('adLeadService', () => {
     ])
   })
 
-  it('omits rows with blank required values', () => {
+  it('omits rows with blank id, submission time, name, or phone', () => {
     const validRow = {
       source: 'meta',
       id: 'lead-1',
@@ -79,11 +79,32 @@ describe('adLeadService', () => {
 
     expect(normalizeAdLeads([
       validRow,
-      { ...validRow, id: 'lead-2', source: '  ' },
-      { ...validRow, id: 'lead-3', submittedAt: '' },
-      { ...validRow, id: 'lead-4', name: ' ' },
-      { ...validRow, id: 'lead-5', phone: '' },
-      { ...validRow, id: 'lead-6', tag: '  ' },
-    ])).toHaveLength(1)
+      { ...validRow, id: '  ' },
+      { ...validRow, id: 'lead-2', submittedAt: '' },
+      { ...validRow, id: 'lead-3', name: ' ' },
+      { ...validRow, id: 'lead-4', phone: '' },
+    ])).toEqual([expect.objectContaining({ id: 'lead-1' })])
+  })
+
+  it('retains rows with blank source or tag', () => {
+    const result = normalizeAdLeads([
+      {
+        source: '',
+        id: 'lead-without-source',
+        submittedAt: '2026-07-10T09:00:00+08:00',
+        name: 'Chan Tai Man',
+        phone: '91234567',
+        tag: '',
+      },
+    ])
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        source: '',
+        id: 'lead-without-source',
+        tag: '',
+        sourceKey: ':lead-without-source',
+      }),
+    ])
   })
 })
