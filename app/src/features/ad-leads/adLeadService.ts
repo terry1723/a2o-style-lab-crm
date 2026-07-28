@@ -29,7 +29,7 @@ export function sourceKey(source: string, id: string): string {
 }
 
 function hasRequiredValues(row: AdLeadSourceRow): boolean {
-  return [row.source, row.id, row.submittedAt, row.name, row.phone, row.tag]
+  return [row.id, row.submittedAt, row.name, row.phone]
     .every((value) => value.trim().length > 0)
 }
 
