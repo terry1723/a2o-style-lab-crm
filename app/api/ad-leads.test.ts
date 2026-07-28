@@ -34,7 +34,10 @@ describe('advertising lead endpoints', () => {
     const loadTracking = vi.fn().mockResolvedValue({
       'A2O Website:sheet:8': { status: '已預約', owner: 'Martin' },
     })
-    const handler = createAdLeadsHandler({ readSourceLeads, loadTracking })
+    const loadAppointments = vi.fn().mockResolvedValue([
+      { sourceKey: 'A2O Website:sheet:8', appointmentDate: '2026-08-01', appointmentTime: '12:00' },
+    ])
+    const handler = createAdLeadsHandler({ readSourceLeads, loadTracking, loadAppointments })
     const response = responseRecorder()
 
     await handler({ method: 'GET' }, response)
@@ -43,12 +46,13 @@ describe('advertising lead endpoints', () => {
     expect(response.headers['Cache-Control']).toBe('no-store')
     expect(response.body).toEqual({
       leads: [expect.objectContaining({ sourceKey: 'A2O Website:sheet:8', status: '已預約', owner: 'Martin' })],
+      appointments: [{ sourceKey: 'A2O Website:sheet:8', appointmentDate: '2026-08-01', appointmentTime: '12:00' }],
       unavailableSources: ['Men New Form'],
     })
   })
 
   it('accepts GET only for the source lead inbox', async () => {
-    const handler = createAdLeadsHandler({ readSourceLeads: vi.fn(), loadTracking: vi.fn() })
+    const handler = createAdLeadsHandler({ readSourceLeads: vi.fn(), loadTracking: vi.fn(), loadAppointments: vi.fn() })
     const response = responseRecorder()
 
     await handler({ method: 'POST' }, response)
@@ -78,6 +82,47 @@ describe('advertising lead endpoints', () => {
 
     expect(response.statusCode).toBe(400)
     expect(response.body).toEqual({ error: 'invalid_request' })
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
+  it('books a valid slot and marks the customer as booked in one operation', async () => {
+    const upsert = vi.fn()
+    const book = vi.fn().mockResolvedValue(undefined)
+    const trackingHandler = createAdLeadTrackingHandler({ upsertTracking: upsert, bookAppointment: book })
+    const response = responseRecorder()
+
+    await trackingHandler({
+      method: 'PATCH',
+      body: {
+        sourceKey: 'a2owebsite:s1', status: '未聯絡', owner: 'Martin',
+        appointmentDate: '2026-08-01', appointmentTime: '12:00',
+      },
+    }, response)
+
+    expect(response.statusCode).toBe(200)
+    expect(book).toHaveBeenCalledWith({
+      source_key: 'a2owebsite:s1', owner: 'Martin',
+      appointment_date: '2026-08-01', appointment_time: '12:00',
+    })
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
+  it('returns a conflict without changing tracking when an appointment slot is already taken', async () => {
+    const upsert = vi.fn()
+    const book = vi.fn().mockRejectedValue(new Error('appointment_slot_taken'))
+    const trackingHandler = createAdLeadTrackingHandler({ upsertTracking: upsert, bookAppointment: book })
+    const response = responseRecorder()
+
+    await trackingHandler({
+      method: 'PATCH',
+      body: {
+        sourceKey: 'a2owebsite:s1', status: '已預約', owner: 'Martin',
+        appointmentDate: '2026-08-01', appointmentTime: '12:00',
+      },
+    }, response)
+
+    expect(response.statusCode).toBe(409)
+    expect(response.body).toEqual({ error: 'appointment_slot_taken' })
     expect(upsert).not.toHaveBeenCalled()
   })
 })

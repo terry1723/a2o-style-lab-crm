@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { normalizeAdLeads, type AdLeadSourceRow, type AdLeadTracking } from '../src/features/ad-leads/adLeadService.js'
 import { loadAdLeadTracking } from './_lib/adLeadTracking.js'
+import { loadAdLeadAppointments } from './_lib/adLeadAppointments.js'
+import type { AdLeadAppointment } from '../src/features/ad-leads/adLeadService.js'
 
 type RequestLike = { method?: string }
 type ResponseLike = {
@@ -17,6 +19,7 @@ type SourceLeadResponse = {
 type Dependencies = {
   readSourceLeads: () => Promise<SourceLeadResponse>
   loadTracking: () => Promise<Record<string, AdLeadTracking>>
+  loadAppointments: () => Promise<AdLeadAppointment[]>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -53,7 +56,7 @@ export async function readAppsScriptAdLeads(fetcher: typeof fetch = fetch): Prom
   return payload
 }
 
-export function createAdLeadsHandler({ readSourceLeads, loadTracking }: Dependencies) {
+export function createAdLeadsHandler({ readSourceLeads, loadTracking, loadAppointments }: Dependencies) {
   return async (request: RequestLike, response: ResponseLike) => {
     response.setHeader?.('Cache-Control', 'no-store')
     if (request.method !== 'GET') {
@@ -62,9 +65,10 @@ export function createAdLeadsHandler({ readSourceLeads, loadTracking }: Dependen
     }
 
     try {
-      const [source, tracking] = await Promise.all([readSourceLeads(), loadTracking()])
+      const [source, tracking, appointments] = await Promise.all([readSourceLeads(), loadTracking(), loadAppointments()])
       response.status(200).json({
         leads: normalizeAdLeads(source.leads, tracking),
+        appointments,
         unavailableSources: source.unavailableSources,
       })
     } catch {
@@ -73,7 +77,11 @@ export function createAdLeadsHandler({ readSourceLeads, loadTracking }: Dependen
   }
 }
 
-const handler = createAdLeadsHandler({ readSourceLeads: readAppsScriptAdLeads, loadTracking: loadAdLeadTracking })
+const handler = createAdLeadsHandler({
+  readSourceLeads: readAppsScriptAdLeads,
+  loadTracking: loadAdLeadTracking,
+  loadAppointments: loadAdLeadAppointments,
+})
 
 export default async function adLeads(request: VercelRequest, response: VercelResponse) {
   await handler(request, response)

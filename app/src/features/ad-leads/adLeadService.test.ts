@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AD_LEAD_APPOINTMENT_SLOTS,
   AD_LEAD_OWNERS,
   AD_LEAD_STATUSES,
+  monthHalfDates,
   normalizeAdLeads,
   sourceKey,
 } from './adLeadService'
@@ -10,6 +12,20 @@ describe('adLeadService', () => {
   it('exposes the supported lead statuses and owners', () => {
     expect(AD_LEAD_STATUSES).toEqual(['未聯絡', 'WhatsApp 跟進中', '已預約', '已拒絕'])
     expect(AD_LEAD_OWNERS).toEqual(['Terry', 'Ryan', 'Martin', 'Caren', 'New'])
+  })
+
+  it('exposes seven 90-minute appointment starts through 21:00', () => {
+    expect(AD_LEAD_APPOINTMENT_SLOTS).toEqual(['12:00', '13:30', '15:00', '16:30', '18:00', '19:30', '21:00'])
+  })
+
+  it('splits a month into phone-capture-friendly halves', () => {
+    expect(monthHalfDates(2026, 7, 'first')).toEqual([
+      '2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05',
+      '2026-08-06', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10',
+      '2026-08-11', '2026-08-12', '2026-08-13', '2026-08-14', '2026-08-15',
+    ])
+    const secondHalf = monthHalfDates(2026, 7, 'second')
+    expect(secondHalf[secondHalf.length - 1]).toBe('2026-08-31')
   })
 
   it('builds a stable key from source and id', () => {
