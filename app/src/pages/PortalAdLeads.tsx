@@ -15,7 +15,7 @@ type AdLeadsResponse = {
 }
 
 const LEADS_PER_PAGE = 20
-const AD_LEADS_PASSWORD = 'a2oalphatoomega2027!'
+const AD_LEADS_PASSWORD = '8964'
 
 function formatSubmittedAt(value: string) {
   const date = new Date(value)

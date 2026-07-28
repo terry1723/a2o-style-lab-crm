@@ -48,7 +48,7 @@ describe('PortalAdLeads', () => {
     expect(screen.getByLabelText('廣告新客密碼')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
 
-    fireEvent.change(screen.getByLabelText('廣告新客密碼'), { target: { value: 'a2oalphatoomega2027!' } })
+    fireEvent.change(screen.getByLabelText('廣告新客密碼'), { target: { value: '8964' } })
     fireEvent.click(screen.getByRole('button', { name: '進入廣告新客' }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/ad-leads', expect.objectContaining({ method: 'GET' })))
