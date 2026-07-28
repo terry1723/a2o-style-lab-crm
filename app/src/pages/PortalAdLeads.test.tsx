@@ -36,9 +36,31 @@ describe('PortalAdLeads', () => {
 
     expect(await screen.findByText('陳大文')).toBeInTheDocument()
     expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
-      '姓名', '電話號碼', '填表日期', '來源 Form', 'Tag', '客人狀況', '跟進同事',
+      '姓名', '電話號碼', '填表日期', '來源 Form', 'Tag', '客人狀況', '跟進同事', '預約日期及時間',
     ])
     expect(fetchMock).toHaveBeenCalledWith('/api/ad-leads', expect.objectContaining({ method: 'GET' }))
+  })
+
+  it('shows the privacy-safe appointment calendar above advertising leads', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        leads: [{
+          source: 'Meta', id: 'lead-42', submittedAt: '2026-07-20T09:30:00+08:00',
+          name: '陳大文', phone: '91234567', tag: '夏季形象', sourceKey: 'Meta:lead-42',
+          status: '已預約', owner: 'Ryan',
+        }],
+        appointments: [{ sourceKey: 'Meta:lead-42', appointmentDate: '2026-07-29', appointmentTime: '18:00' }],
+        unavailableSources: [],
+      }),
+    })
+
+    render(<PortalAdLeads />)
+
+    expect(await screen.findByRole('heading', { name: '預約時間表' })).toBeInTheDocument()
+    expect(screen.getByText('可截圖發送予客人・已預約時段不顯示客人姓名')).toBeInTheDocument()
+    expect(screen.getAllByText('已預約').length).toBeGreaterThan(0)
+    expect(screen.queryByText('陳大文・已預約')).not.toBeInTheDocument()
   })
 
   it('requires the advertising-lead password before loading client data', async () => {
@@ -78,6 +100,36 @@ describe('PortalAdLeads', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sourceKey: 'Meta:lead-42', status: '已預約', owner: 'Ryan' }),
     }))
+  })
+
+  it('sends the selected booking slot and changes the lead to booked', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          leads: [{
+            source: 'Meta', id: 'lead-42', submittedAt: '2026-07-20T09:30:00+08:00',
+            name: '陳大文', phone: '91234567', tag: '', sourceKey: 'Meta:lead-42',
+            status: '未聯絡', owner: 'Ryan',
+          }],
+          appointments: [], unavailableSources: [],
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+
+    render(<PortalAdLeads />)
+    await screen.findByText('陳大文')
+    const bookingSelect = screen.getByLabelText('陳大文 的預約時間') as HTMLSelectElement
+    const value = (bookingSelect.options[1] as HTMLOptionElement).value
+
+    fireEvent.change(bookingSelect, { target: { value } })
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    const body = JSON.parse(String(fetchMock.mock.calls[1][1].body))
+    expect(body).toEqual({
+      sourceKey: 'Meta:lead-42', status: '已預約', owner: 'Ryan',
+      appointmentDate: value.split('|')[0], appointmentTime: value.split('|')[1],
+    })
   })
 
   it('shows a save failure when tracking cannot be updated', async () => {

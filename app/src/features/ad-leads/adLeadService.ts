@@ -1,8 +1,16 @@
 export const AD_LEAD_STATUSES = ['未聯絡', 'WhatsApp 跟進中', '已預約', '已拒絕'] as const
 export const AD_LEAD_OWNERS = ['Terry', 'Ryan', 'Martin', 'Caren', 'New'] as const
+export const AD_LEAD_APPOINTMENT_SLOTS = ['12:00', '13:30', '15:00', '16:30', '18:00', '19:30', '21:00'] as const
 
 export type AdLeadStatus = (typeof AD_LEAD_STATUSES)[number]
 export type AdLeadOwner = (typeof AD_LEAD_OWNERS)[number]
+export type AdLeadAppointmentSlot = (typeof AD_LEAD_APPOINTMENT_SLOTS)[number]
+
+export type AdLeadAppointment = {
+  sourceKey: string
+  appointmentDate: string
+  appointmentTime: AdLeadAppointmentSlot
+}
 
 export interface AdLeadSourceRow {
   source: string
@@ -26,6 +34,16 @@ export interface AdLead extends AdLeadSourceRow {
 
 export function sourceKey(source: string, id: string): string {
   return `${source}:${id}`
+}
+
+export function monthHalfDates(year: number, monthIndex: number, half: 'first' | 'second'): string[] {
+  const start = half === 'first' ? 1 : 16
+  const end = half === 'first' ? 15 : new Date(year, monthIndex + 1, 0).getDate()
+
+  return Array.from({ length: end - start + 1 }, (_, index) => {
+    const day = start + index
+    return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  })
 }
 
 export function submittedAtTime(value: string): number | null {
