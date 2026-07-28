@@ -8,6 +8,8 @@ create table public.ad_lead_appointments (
 
 alter table public.ad_lead_appointments enable row level security;
 
+drop trigger if exists ad_lead_appointments_updated_at on public.ad_lead_appointments;
+
 create trigger ad_lead_appointments_updated_at
 before update on public.ad_lead_appointments
 for each row execute function public.set_ad_lead_tracking_updated_at();
@@ -39,4 +41,8 @@ end;
 $$;
 
 revoke all on function public.book_ad_lead_appointment(text, text, date, text) from public;
+grant usage on schema public to service_role;
+grant select, insert, update, delete on table public.ad_lead_appointments to service_role;
 grant execute on function public.book_ad_lead_appointment(text, text, date, text) to service_role;
+
+select pg_notify('pgrst', 'reload schema');
