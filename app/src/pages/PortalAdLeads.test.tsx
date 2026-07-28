@@ -103,4 +103,25 @@ describe('PortalAdLeads', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
   })
+
+  it('shows 20 newest leads per page and lets staff move to the next page', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        leads: Array.from({ length: 21 }, (_, index) => ({
+          source: 'Meta', id: `lead-${index + 1}`, submittedAt: `2026-07-${String(21 - index).padStart(2, '0')}T09:00:00+08:00`,
+          name: `客人 ${index + 1}`, phone: `900000${String(index + 1).padStart(2, '0')}`, tag: 'Meta',
+          sourceKey: `Meta:lead-${index + 1}`, status: '未聯絡', owner: 'Ryan',
+        })),
+        unavailableSources: [],
+      }),
+    })
+
+    render(<PortalAdLeads />)
+
+    expect(await screen.findByText('客人 20')).toBeInTheDocument()
+    expect(screen.queryByText('客人 21')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '下一頁' }))
+    expect(await screen.findByText('客人 21')).toBeInTheDocument()
+  })
 })

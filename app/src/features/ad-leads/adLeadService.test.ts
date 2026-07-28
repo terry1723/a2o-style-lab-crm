@@ -126,4 +126,19 @@ describe('adLeadService', () => {
 
     expect(result.map((lead) => lead.id)).toEqual(['newer', 'older'])
   })
+
+  it('keeps Hong Kong Google Sheets date strings and sorts them by the actual submission time', () => {
+    const result = normalizeAdLeads([
+      {
+        source: 'Style Lab New Form', id: 'older', submittedAt: '2026/6/26 下午 12:03:28',
+        name: 'Example One', phone: '90000001', tag: 'style-lab',
+      },
+      {
+        source: 'Style Lab New Form', id: 'newer', submittedAt: '2026/7/1 上午 9:15:00',
+        name: 'Example Two', phone: '90000002', tag: 'style-lab',
+      },
+    ])
+
+    expect(result.map((lead) => lead.id)).toEqual(['newer', 'older'])
+  })
 })

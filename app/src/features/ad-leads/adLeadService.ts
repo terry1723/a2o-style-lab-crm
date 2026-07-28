@@ -28,6 +28,21 @@ export function sourceKey(source: string, id: string): string {
   return `${source}:${id}`
 }
 
+export function submittedAtTime(value: string): number | null {
+  const parsed = Date.parse(value)
+  if (Number.isFinite(parsed)) return parsed
+
+  const match = value.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(上午|下午)\s+(\d{1,2}):(\d{2}):(\d{2})$/)
+  if (!match) return null
+
+  const [, year, month, day, period, hourText, minute, second] = match
+  let hour = Number(hourText)
+  if (period === '下午' && hour < 12) hour += 12
+  if (period === '上午' && hour === 12) hour = 0
+
+  return new Date(Number(year), Number(month) - 1, Number(day), hour, Number(minute), Number(second)).getTime()
+}
+
 function hasRequiredValues(row: AdLeadSourceRow): boolean {
   return [row.id, row.submittedAt, row.name, row.phone]
     .every((value) => value.trim().length > 0)
@@ -38,7 +53,7 @@ export function normalizeAdLeads(
   tracking: Record<string, AdLeadTracking> = {},
 ): AdLead[] {
   return rows
-    .filter((row) => hasRequiredValues(row) && Number.isFinite(Date.parse(row.submittedAt)))
+    .filter((row) => hasRequiredValues(row) && submittedAtTime(row.submittedAt) !== null)
     .map((row) => {
       const key = sourceKey(row.source, row.id)
       const overlay = tracking[key]
@@ -50,5 +65,5 @@ export function normalizeAdLeads(
         owner: overlay?.owner ?? 'Ryan',
       }
     })
-    .sort((a, b) => Date.parse(b.submittedAt) - Date.parse(a.submittedAt))
+    .sort((a, b) => submittedAtTime(b.submittedAt)! - submittedAtTime(a.submittedAt)!)
 }
