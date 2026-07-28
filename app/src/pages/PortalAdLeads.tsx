@@ -15,6 +15,7 @@ type AdLeadsResponse = {
 }
 
 const LEADS_PER_PAGE = 20
+const AD_LEADS_PASSWORD = 'a2oalphatoomega2027!'
 
 function formatSubmittedAt(value: string) {
   const date = new Date(value)
@@ -31,6 +32,9 @@ export default function PortalAdLeads() {
   const [error, setError] = useState('')
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [password, setPassword] = useState('')
+  const [hasAccess, setHasAccess] = useState(() => sessionStorage.getItem('a2o_ad_leads_access') === 'true')
+  const [passwordError, setPasswordError] = useState('')
 
   const pageCount = Math.max(1, Math.ceil(leads.length / LEADS_PER_PAGE))
   const visibleLeads = useMemo(
@@ -60,8 +64,19 @@ export default function PortalAdLeads() {
       return
     }
 
-    load()
-  }, [load, navigate])
+    if (hasAccess) load()
+    else setLoading(false)
+  }, [hasAccess, load, navigate])
+
+  const unlock = () => {
+    if (password !== AD_LEADS_PASSWORD) {
+      setPasswordError('密碼不正確，請再試。')
+      return
+    }
+    sessionStorage.setItem('a2o_ad_leads_access', 'true')
+    setPasswordError('')
+    setHasAccess(true)
+  }
 
   const updateTracking = async (lead: AdLead, changes: Partial<Pick<AdLead, 'status' | 'owner'>>) => {
     const nextLead = { ...lead, ...changes }
@@ -102,6 +117,16 @@ export default function PortalAdLeads() {
       </div>
 
       <main className="max-w-7xl mx-auto p-4 pb-20">
+        {!hasAccess ? (
+          <section className="mx-auto mt-10 max-w-md rounded-2xl bg-white p-6 shadow-sm">
+            <h1 className="font-serif text-xl font-bold">廣告新客保護頁面</h1>
+            <p className="mt-2 text-sm text-a2o-black/50">請輸入密碼以查看廣告表單提交資料。</p>
+            <label className="mt-5 block text-sm font-medium" htmlFor="ad-leads-password">廣告新客密碼</label>
+            <input id="ad-leads-password" type="password" value={password} onChange={event => setPassword(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') unlock() }} className="mt-2 w-full rounded-lg border border-a2o-warm px-3 py-2" />
+            {passwordError && <p role="alert" className="mt-2 text-sm text-red-600">{passwordError}</p>}
+            <button type="button" onClick={unlock} className="mt-4 w-full rounded-lg bg-a2o-black px-4 py-2 text-sm font-medium text-white">進入廣告新客</button>
+          </section>
+        ) : <>
         {error && (
           <div role="alert" className="mb-4 bg-red-50 border border-red-100 text-red-700 rounded-xl p-3 text-sm flex items-center justify-between gap-3">
             <span>{error}</span>
@@ -175,6 +200,7 @@ export default function PortalAdLeads() {
             </div>
           </nav>
         )}
+        </>}
       </main>
     </div>
   )

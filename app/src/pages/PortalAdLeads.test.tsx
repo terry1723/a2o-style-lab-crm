@@ -13,6 +13,7 @@ import PortalAdLeads from './PortalAdLeads'
 describe('PortalAdLeads', () => {
   beforeEach(() => {
     localStorage.setItem('a2o_staff_auth_v2', 'true')
+    sessionStorage.setItem('a2o_ad_leads_access', 'true')
     navigate.mockReset()
     fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)
@@ -38,6 +39,19 @@ describe('PortalAdLeads', () => {
       '姓名', '電話號碼', '填表日期', '來源 Form', 'Tag', '客人狀況', '跟進同事',
     ])
     expect(fetchMock).toHaveBeenCalledWith('/api/ad-leads', expect.objectContaining({ method: 'GET' }))
+  })
+
+  it('requires the advertising-lead password before loading client data', async () => {
+    sessionStorage.removeItem('a2o_ad_leads_access')
+    render(<PortalAdLeads />)
+
+    expect(screen.getByLabelText('廣告新客密碼')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('廣告新客密碼'), { target: { value: 'a2oalphatoomega2027!' } })
+    fireEvent.click(screen.getByRole('button', { name: '進入廣告新客' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/ad-leads', expect.objectContaining({ method: 'GET' })))
   })
 
   it('saves a changed status through the tracking PATCH endpoint', async () => {
