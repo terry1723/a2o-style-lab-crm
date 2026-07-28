@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import {
@@ -29,29 +29,29 @@ export default function PortalAdLeads() {
   const [error, setError] = useState('')
   const [savingKey, setSavingKey] = useState<string | null>(null)
 
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch('/api/ad-leads', { method: 'GET' })
+      if (!response.ok) throw new Error('load_failed')
+      const data = await response.json() as AdLeadsResponse
+      setLeads(data.leads || [])
+    } catch {
+      setError('載入廣告新客失敗，請稍後再試。')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!localStorage.getItem('a2o_staff_auth_v2')) {
       navigate('/portal')
       return
     }
 
-    const load = async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const response = await fetch('/api/ad-leads', { method: 'GET' })
-        if (!response.ok) throw new Error('load_failed')
-        const data = await response.json() as AdLeadsResponse
-        setLeads(data.leads || [])
-      } catch {
-        setError('載入廣告新客失敗，請稍後再試。')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     load()
-  }, [navigate])
+  }, [load, navigate])
 
   const updateTracking = async (lead: AdLead, changes: Partial<Pick<AdLead, 'status' | 'owner'>>) => {
     const nextLead = { ...lead, ...changes }
@@ -92,7 +92,14 @@ export default function PortalAdLeads() {
       </div>
 
       <main className="max-w-7xl mx-auto p-4 pb-20">
-        {error && <div role="alert" className="mb-4 bg-red-50 border border-red-100 text-red-700 rounded-xl p-3 text-sm">{error}</div>}
+        {error && (
+          <div role="alert" className="mb-4 bg-red-50 border border-red-100 text-red-700 rounded-xl p-3 text-sm flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <button type="button" onClick={load} className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
+              重新載入
+            </button>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
           {loading ? (

@@ -87,4 +87,20 @@ describe('PortalAdLeads', () => {
 
     expect(await screen.findByText('儲存跟進資料失敗，請稍後再試。')).toBeInTheDocument()
   })
+
+  it('lets staff retry loading after a lead inbox request fails', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, json: async () => ({ error: 'lead_inbox_unavailable' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ leads: [], unavailableSources: [] }),
+      })
+
+    render(<PortalAdLeads />)
+
+    expect(await screen.findByText('載入廣告新客失敗，請稍後再試。')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '重新載入' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+  })
 })
