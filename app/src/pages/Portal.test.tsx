@@ -40,4 +40,31 @@ describe('Portal staff login', () => {
     expect(await screen.findByText('Portal staff destination')).toBeInTheDocument()
     expect(localStorage.getItem('a2o_staff_auth')).toBe('true')
   })
+
+  it('does not create a portal session when the server rejects a legacy PIN', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      authenticated: false,
+      error: 'invalid_credentials',
+    }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter initialEntries={['/portal']}>
+        <Routes>
+          <Route path="/portal" element={<Portal />} />
+          <Route path="/portal/staff" element={<div>Portal staff destination</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByPlaceholderText('輸入員工密碼'), 'legacy-pin')
+    await user.click(screen.getByRole('button', { name: '登入' }))
+
+    expect(await screen.findByText('密碼錯誤')).toBeInTheDocument()
+    expect(screen.queryByText('Portal staff destination')).not.toBeInTheDocument()
+    expect(localStorage.getItem('a2o_staff_auth')).toBeNull()
+  })
 })

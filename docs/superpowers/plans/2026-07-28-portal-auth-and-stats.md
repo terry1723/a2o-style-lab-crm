@@ -16,7 +16,7 @@
 - Modify: `app/src/pages/Portal.test.tsx`
 - Modify: `app/src/pages/Portal.tsx`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add a test that mocks a `401` response for `A2O2026`, clicks `登入`, and asserts:
 
@@ -28,13 +28,13 @@ expect(await screen.findByText('密碼錯誤')).toBeInTheDocument()
 
 Add a second test that makes `fetch` reject and asserts `暫時未能登入，請稍後再試。`.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `npx vitest run src/pages/Portal.test.tsx`
 
 Expected: FAIL because the Portal currently calls `verifyStaff()` and locally accepts `A2O2026`.
 
-- [ ] **Step 3: Implement minimal server-only login**
+- [x] **Step 3: Implement minimal server-only login**
 
 Replace the `verifyStaff` import and synchronous handler with this request path:
 
@@ -55,13 +55,13 @@ navigate('/portal/staff')
 
 Add `loading` state. Disable the button while the request is pending and show `登入中…`. A thrown request error must show `暫時未能登入，請稍後再試。`. Do not add any browser fallback PIN check.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `npx vitest run src/pages/Portal.test.tsx`
 
 Expected: PASS for the existing rotated-PIN test plus both new regressions.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/pages/Portal.tsx app/src/pages/Portal.test.tsx
@@ -74,7 +74,7 @@ git commit -m "fix: verify portal PIN on server"
 - Modify: `app/src/pages/PortalStaff.tsx`
 - Create: `app/src/pages/PortalStaff.test.tsx`
 
-- [ ] **Step 1: Write a failing privacy-render test**
+- [x] **Step 1: Write a failing privacy-render test**
 
 Mock `getAllClients`, `getClientServices`, and `getServiceSessions` before importing `PortalStaff`; set `a2o_staff_auth`; render it with a router. Assert the search box remains visible and each label below is absent:
 
@@ -85,17 +85,17 @@ for (const label of ['總客戶', '進行中', '已完成', '總銷售額', '已
 expect(await screen.findByPlaceholderText('搜索姓名或電話...')).toBeInTheDocument()
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `npx vitest run src/pages/PortalStaff.test.tsx`
 
 Expected: FAIL because the current stats grid renders all five labels.
 
-- [ ] **Step 3: Remove only aggregate presentation**
+- [x] **Step 3: Remove only aggregate presentation**
 
 Delete the `totalSales` and `totalCollected` reductions and the adjacent `/* Stats */` grid in `PortalStaff.tsx`. Do not alter `refresh`, `filtered`, `UpcomingAppointments`, search/filter controls, client saving, service saving, images, or logout.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `npx vitest run src/pages/PortalStaff.test.tsx`
 

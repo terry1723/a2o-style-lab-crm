@@ -117,9 +117,6 @@ export default function PortalStaff() {
     return matchSearch
   })
 
-  const totalSales = clients.reduce((sum, c) => sum + Number(c.plan_price || 0), 0)
-  const totalCollected = clients.reduce((sum, c) => sum + Number(c.amount_paid || 0), 0)
-
   const formatClientDate = (value?: string) => {
     if (!value) return '-'
     const date = new Date(value)
@@ -411,22 +408,6 @@ ${client.watch ? `手錶：${client.watch}` : ''}
       </div>
 
       <div className="max-w-6xl mx-auto p-4 pb-20">
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-          {[
-            { label: '總客戶', value: clients.length },
-            { label: '進行中', value: clients.filter(c => c.status === 'active').length },
-            { label: '已完成', value: clients.filter(c => c.status === 'completed').length },
-            { label: '總銷售額', value: `HK${totalSales.toLocaleString()}` },
-            { label: '已收款', value: `HK${totalCollected.toLocaleString()}` },
-          ].map(s => (
-            <div key={s.label} className="bg-white rounded-xl p-4 shadow-sm">
-              <p className="text-xs text-a2o-black/50 uppercase tracking-wider">{s.label}</p>
-              <p className="text-xl sm:text-2xl font-bold text-a2o-black mt-1">{s.value}</p>
-            </div>
-          ))}
-        </div>
-
         <UpcomingAppointments />
 
         {/* Search & Filter */}

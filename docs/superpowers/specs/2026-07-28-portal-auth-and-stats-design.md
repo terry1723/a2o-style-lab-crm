@@ -6,7 +6,7 @@ Make the staff portal accept only the current PIN stored in Supabase and remove 
 
 ## Root Cause
 
-`Portal.tsx` currently calls the synchronous `verifyStaff()` helper. That helper compares the supplied PIN with a hard-coded legacy value, so a Supabase update cannot invalidate the old PIN. A server endpoint already exists at `/api/staff-login`; it reads `staff_profiles` using the server-side Supabase admin client and has rate limiting.
+The production deployment is still built from `main`, which uses the browser-side `verifyStaffDb()` flow. If the public Supabase configuration is unavailable, that helper falls back to a hard-coded legacy PIN, so a Supabase update cannot invalidate it. The isolated release branch already contains `/api/staff-login`, which reads `staff_profiles` using the server-side Supabase admin client and has rate limiting; releasing that branch removes the fallback.
 
 ## Approved Design
 
