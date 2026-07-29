@@ -116,4 +116,23 @@ describe.runIf(existsSync(scriptPath))('advertising lead inbox Apps Script contr
     const config = contract.SOURCE_CONFIG[0]
     expect(contract.normalizeLeadRow(config, 8, ['時間戳記', '姓名', '聯絡電話', 'form_name'], ['2026-07-28', '', '91234567', 'Meta'])).toBeNull()
   })
+
+  it('keeps website leads when the optional UTM tag is blank', () => {
+    const { contract } = loadInboxContract()
+    const config = contract.SOURCE_CONFIG[3]
+
+    expect(contract.normalizeLeadRow(
+      config,
+      3,
+      ['提交時間', '稱呼／姓名', 'WhatsApp', 'UTM來源'],
+      ['2026-07-29 20:07:21', 'Website Lead', '90000000', ''],
+    )).toEqual({
+      source: 'A2O Website',
+      id: '1Xi_u4DYkkMtpl7ClpaxwOyGjU7VAud6d8_uQGmQRHcY:a2owebsite:3',
+      submittedAt: '2026-07-29 20:07:21',
+      name: 'Website Lead',
+      phone: '90000000',
+      tag: '',
+    })
+  })
 })

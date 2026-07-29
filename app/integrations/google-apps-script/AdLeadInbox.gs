@@ -3,7 +3,7 @@ const SOURCE_CONFIG = [
     source: 'Men New Form',
     spreadsheetId: '1BGJtbAbJekS_94c6KCVpMTsob8zcZQT0qTO9vPuPUOI',
     sheetName: 'men-new form',
-    submittedAt: ['created_time', '時間戳記'],
+    submittedAt: ['時間戳記', 'created_time'],
     name: ['姓名', 'full_name'],
     phone: ['聯絡電話', 'whatsapp_電話號碼'],
     tag: ['form_name', 'ad_name'],
@@ -66,7 +66,7 @@ function normalizeLeadRow(source, rowNumber, headers, row) {
   const name = text(row[nameIndex])
   const phone = text(row[phoneIndex])
   const tag = text(row[tagIndex])
-  if (!submittedAt || !name || !phone || !tag) return null
+  if (!submittedAt || !name || !phone) return null
 
   return {
     source: source.source,
