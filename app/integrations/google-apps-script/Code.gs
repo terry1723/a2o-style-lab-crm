@@ -1,5 +1,5 @@
 const SPREADSHEET_ID = '1Xi_u4DYkkMtpl7ClpaxwOyGjU7VAud6d8_uQGmQRHcY'
-const SHEET_NAME = '工作表1'
+const SHEET_NAME = 'a2owebsite'
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{16,80}$/
 
 function jsonResponse(value) {

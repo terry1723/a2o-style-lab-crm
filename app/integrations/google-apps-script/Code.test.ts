@@ -3,6 +3,12 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 describe('assessment Apps Script row contract', () => {
+  it('writes to the live a2owebsite sheet tab', () => {
+    const source = readFileSync(join(process.cwd(), 'integrations/google-apps-script/Code.gs'), 'utf8')
+
+    expect(source).toContain("const SHEET_NAME = 'a2owebsite'")
+  })
+
   it('preserves the exact 15-column A:O append order', () => {
     const source = readFileSync(join(process.cwd(), 'integrations/google-apps-script/Code.gs'), 'utf8')
     const rowBlock = source.match(/const row = \[\n([\s\S]*?)\n\s*\]/)?.[1]
