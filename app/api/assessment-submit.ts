@@ -75,18 +75,23 @@ export function createSubmissionHandler(dependencies: Dependencies) {
 
     try {
       const payload = dependencies.validateAssessmentSubmission(parseBody(request.body))
-      const receipt = dependencies.verifyUploadReceipt(payload.uploadReceipt)
-      const bucket = typeof dependencies.bucket === 'function' ? dependencies.bucket() : dependencies.bucket
-      if (
-        receipt.sessionId !== payload.sessionId
-        || receipt.path !== payload.photoPath
-        || receipt.bucket !== bucket
-      ) throw new Error('invalid_upload_receipt')
+      let photoPath = ''
+      let photoSignedUrl = ''
+      if (payload.photoPath && payload.uploadReceipt) {
+        const receipt = dependencies.verifyUploadReceipt(payload.uploadReceipt)
+        const bucket = typeof dependencies.bucket === 'function' ? dependencies.bucket() : dependencies.bucket
+        if (
+          receipt.sessionId !== payload.sessionId
+          || receipt.path !== payload.photoPath
+          || receipt.bucket !== bucket
+        ) throw new Error('invalid_upload_receipt')
 
-      await dependencies.assertUploadedPhoto(payload.photoPath, receipt.mimeType, receipt.fileSize)
+        await dependencies.assertUploadedPhoto(payload.photoPath, receipt.mimeType, receipt.fileSize)
+        photoPath = payload.photoPath
+        photoSignedUrl = await dependencies.createPhotoReadUrl(payload.photoPath, 7 * 24 * 60 * 60)
+      }
       const labels = getSelectedLabels(assessmentConfig, payload.answers)
       const result = calculateAssessmentResult(assessmentConfig, payload.answers)
-      const photoSignedUrl = await dependencies.createPhotoReadUrl(payload.photoPath, 7 * 24 * 60 * 60)
       const appendResult = await dependencies.appendAssessmentLead({
         submittedAt: dependencies.now().toISOString(),
         sessionId: payload.sessionId,
@@ -99,7 +104,7 @@ export function createSubmissionHandler(dependencies: Dependencies) {
         q3: labels.q3?.[0] ?? '',
         q4: labels.q4?.[0] ?? '',
         resultTitle: result.title,
-        photoPath: payload.photoPath,
+        photoPath,
         photoSignedUrl,
         utmSource: payload.attribution.utmSource ?? '',
       })

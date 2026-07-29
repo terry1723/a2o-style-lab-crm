@@ -69,6 +69,44 @@ describe('submitAssessmentLeadToPipeline', () => {
     }))
   })
 
+  it('submits a lead without a photo without requesting private Storage upload credentials', async () => {
+    const answers: AssessmentAnswerMap = {
+      q1: ['q1_6'],
+      q2: ['q2_a'],
+      q3: ['q3_a'],
+      q4: ['q4_e'],
+    }
+    const attribution: Attribution = { sourceUrl: '', referrer: '' }
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true, duplicate: false }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    const uploadToSignedUrl = vi.fn().mockResolvedValue(undefined)
+
+    await expect(submitAssessmentLeadToPipeline({
+      input: { name: '陳先生', phone: '91234567', heightCm: 175, weightKg: 68.5, consent: true, photo: undefined },
+      sessionId: 'assessment_session_1234',
+      answers,
+      attribution,
+    }, { fetchImpl, uploadToSignedUrl })).resolves.toEqual({ ok: true, duplicate: false })
+
+    expect(uploadToSignedUrl).not.toHaveBeenCalled()
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(fetchImpl).toHaveBeenCalledWith('/api/assessment-submit', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: 'assessment_session_1234',
+        name: '陳先生',
+        phone: '91234567',
+        heightCm: 175,
+        weightKg: 68.5,
+        consent: true,
+        answers,
+        attribution,
+      }),
+    }))
+  })
+
   it('does not submit lead data when the private photo upload fails', async () => {
     const photo = new File(['portrait'], 'full-body.webp', { type: 'image/webp' })
     const fetchImpl = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({

@@ -12,8 +12,8 @@ export type AssessmentSubmissionPayload = {
   weightKg: number
   consent: true
   answers: AssessmentAnswerMap
-  photoPath: string
-  uploadReceipt: string
+  photoPath?: string
+  uploadReceipt?: string
   attribution: Attribution
 }
 
@@ -95,12 +95,20 @@ export function validateAssessmentSubmission(value: unknown): AssessmentSubmissi
   if (!name || name.length > 80) throw new Error('invalid_name')
   if (input.consent !== true) throw new Error('consent_required')
 
-  const photoPath = typeof input.photoPath === 'string' ? input.photoPath : ''
-  const photoMatch = PHOTO_PATH_PATTERN.exec(photoPath)
-  if (!photoMatch || photoMatch[3] !== sessionId) throw new Error('invalid_photo_path')
+  const hasPhotoPath = input.photoPath !== undefined
+  const hasUploadReceipt = input.uploadReceipt !== undefined
+  if (hasPhotoPath !== hasUploadReceipt) throw new Error('invalid_photo_payload')
 
-  const uploadReceipt = typeof input.uploadReceipt === 'string' ? input.uploadReceipt : ''
-  if (!uploadReceipt || uploadReceipt.length > 4096) throw new Error('invalid_upload_receipt')
+  let photoPath: string | undefined
+  let uploadReceipt: string | undefined
+  if (hasPhotoPath && hasUploadReceipt) {
+    photoPath = typeof input.photoPath === 'string' ? input.photoPath : ''
+    const photoMatch = PHOTO_PATH_PATTERN.exec(photoPath)
+    if (!photoMatch || photoMatch[3] !== sessionId) throw new Error('invalid_photo_path')
+
+    uploadReceipt = typeof input.uploadReceipt === 'string' ? input.uploadReceipt : ''
+    if (!uploadReceipt || uploadReceipt.length > 4096) throw new Error('invalid_upload_receipt')
+  }
 
   return {
     sessionId,
@@ -110,8 +118,7 @@ export function validateAssessmentSubmission(value: unknown): AssessmentSubmissi
     weightKg: parseWeight(input.weightKg),
     consent: true,
     answers: parseAnswers(input.answers),
-    photoPath,
-    uploadReceipt,
+    ...(photoPath && uploadReceipt ? { photoPath, uploadReceipt } : {}),
     attribution: parseAttribution(input.attribution),
   }
 }

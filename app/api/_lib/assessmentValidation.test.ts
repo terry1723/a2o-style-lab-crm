@@ -30,6 +30,19 @@ describe('validateAssessmentSubmission', () => {
     expect(parsed.answers.q4).toEqual(['q4_e'])
   })
 
+  it('allows an approved submission without a photo', () => {
+    const { photoPath: _photoPath, uploadReceipt: _uploadReceipt, ...withoutPhoto } = validPayload
+    const parsed = validateAssessmentSubmission(withoutPhoto)
+
+    expect(parsed).toEqual(expect.objectContaining({
+      sessionId: validPayload.sessionId,
+      name: '陳先生',
+      phone: '+85291234567',
+    }))
+    expect(parsed.photoPath).toBeUndefined()
+    expect(parsed.uploadReceipt).toBeUndefined()
+  })
+
   it.each([
     ['missing height', { heightCm: undefined }, 'invalid_height'],
     ['decimal height', { heightCm: 175.5 }, 'invalid_height'],
@@ -69,5 +82,10 @@ describe('validateAssessmentSubmission', () => {
   it('requires the server-issued upload receipt', () => {
     expect(() => validateAssessmentSubmission({ ...validPayload, uploadReceipt: '' }))
       .toThrow('invalid_upload_receipt')
+  })
+
+  it('rejects a partial photo payload', () => {
+    expect(() => validateAssessmentSubmission({ ...validPayload, uploadReceipt: undefined }))
+      .toThrow('invalid_photo_payload')
   })
 })

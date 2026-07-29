@@ -80,12 +80,31 @@ describe('assessment-submit endpoint', () => {
       heightCm: 175,
       weightKg: 68.5,
       q1: '6',
-      q2: '見客、銷售或傾生意',
-      q3: '客戶信任同成交機會',
+      q2: '見客、銷售或洽談業務',
+      q3: '客戶信任與成交機會',
       q4: '整體專業形象定位',
       resultTitle: '專業存在感落差',
       photoSignedUrl: 'https://example.supabase.co/signed/photo',
       utmSource: 'instagram',
+    }))
+  })
+
+  it('writes an approved no-photo lead without accessing private Storage', async () => {
+    const deps = dependencies()
+    const handler = createSubmissionHandler(deps)
+    const response = responseRecorder()
+    const { photoPath: _photoPath, uploadReceipt: _uploadReceipt, ...withoutPhoto } = validPayload
+
+    await handler({ method: 'POST', body: withoutPhoto }, response)
+
+    expect(response.statusCode).toBe(200)
+    expect(response.body).toEqual({ ok: true, duplicate: false })
+    expect(deps.verifyUploadReceipt).not.toHaveBeenCalled()
+    expect(deps.assertUploadedPhoto).not.toHaveBeenCalled()
+    expect(deps.createPhotoReadUrl).not.toHaveBeenCalled()
+    expect(deps.appendAssessmentLead).toHaveBeenCalledWith(expect.objectContaining({
+      photoPath: '',
+      photoSignedUrl: '',
     }))
   })
 

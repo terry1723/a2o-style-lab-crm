@@ -55,6 +55,28 @@ describe('AssessmentLeadForm', () => {
     }))
   })
 
+  it('submits the required profile details without a photo', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<AssessmentLeadForm {...defaultProps} onSubmit={onSubmit} />)
+
+    await user.type(screen.getByLabelText('稱呼／姓名'), '陳先生')
+    await user.type(screen.getByLabelText('WhatsApp 電話號碼'), '9123 4567')
+    await user.type(screen.getByLabelText('身高（cm）'), '175')
+    await user.type(screen.getByLabelText('體重（kg）'), '68.5')
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({
+      name: '陳先生',
+      phone: '91234567',
+      heightCm: 175,
+      weightKg: 68.5,
+      consent: true,
+      photo: undefined,
+    }))
+  })
+
   it.each([
     ['119', '68.5', '請輸入 120 至 230 cm 的身高。'],
     ['231', '68.5', '請輸入 120 至 230 cm 的身高。'],

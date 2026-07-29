@@ -97,5 +97,5 @@ export type AssessmentLeadInput = {
   heightCm: number
   weightKg: number
   consent: true
-  photo: File
+  photo?: File
 }

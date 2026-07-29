@@ -96,12 +96,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
       setError('請輸入 35 至 200 kg 的體重，最多一位小數。')
       return
     }
-    if (!photoFile) {
-      setError('請上傳正面全身相。')
-      return
-    }
     if (!consent) {
-      setError('請確認同意資料及相片用途。')
+      setError('請確認同意資料用途。')
       return
     }
 
@@ -113,7 +109,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         heightCm: parsedHeight,
         weightKg: parsedWeight,
         consent: true,
-        photo: photoFile,
+        photo: photoFile ?? undefined,
       })
     } catch {
       setError('暫時未能提交，請稍後再試。你已填寫的資料會保留。')
@@ -126,7 +122,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         <CheckCircle2 className="mx-auto h-10 w-10 text-[#8FD3A8]" />
         <h2 className="mt-3 font-serif text-2xl font-medium">已收到你的形象檢測資料</h2>
         <p className="mt-3 text-sm leading-relaxed text-white/70">
-          A2O 團隊會根據你的答案及正面全身相，準備個人形象檢測報告。
+          A2O 團隊會根據你的答案準備個人形象檢測報告；如你已上傳正面全身相，我們會一併作為分析參考。
           我們會在 1–2 個工作天內透過 WhatsApp 聯絡你，請留意訊息。
         </p>
       </div>
@@ -197,8 +193,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
             <Camera className="h-5 w-5" />
           </span>
           <div>
-            <h3 id="assessment-photo-title" className="text-sm font-semibold">上傳正面全身相</h3>
-            <p className="mt-1 text-xs leading-relaxed text-white/60">請正面站立面向鏡頭，確保相片拍攝到全身；在自然光下拍攝並避免使用濾鏡，會更適合分析。</p>
+            <h3 id="assessment-photo-title" className="text-sm font-semibold">上傳正面全身相（選填）</h3>
+            <p className="mt-1 text-xs leading-relaxed text-white/60">如方便，請正面站立面向鏡頭，確保相片拍攝到全身；在自然光下拍攝並避免使用濾鏡。上傳相片有助我們提供更完整的分析。</p>
           </div>
         </div>
 
@@ -247,7 +243,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
           onChange={(event) => setConsent(event.target.checked)}
           className="mt-0.5 h-4 w-4 accent-[#D4849A]"
         />
-        <span>我同意 A2O Style Lab 使用以上資料及相片，用於個人形象檢測及 WhatsApp 跟進。</span>
+        <span>我同意 A2O Style Lab 使用以上資料，以及我選擇上傳的相片，用於個人形象檢測及 WhatsApp 跟進。</span>
       </label>
       {error && <p role="alert" className="text-sm text-[#FFB4B4]">{error}</p>}
       <button

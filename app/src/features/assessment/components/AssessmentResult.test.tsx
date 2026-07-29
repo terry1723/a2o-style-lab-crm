@@ -9,7 +9,7 @@ import {
 import { AssessmentResult } from './AssessmentResult'
 
 describe('AssessmentResult capture shell', () => {
-  it('collects the required photo without revealing an instant report result', () => {
+  it('offers an optional photo without revealing an instant report result', () => {
     render(
       <AssessmentResult
         submitted={false}
@@ -20,9 +20,9 @@ describe('AssessmentResult capture shell', () => {
     )
 
     expect(screen.queryByText('未被發揮的形象潛力')).not.toBeInTheDocument()
-    expect(screen.getByText('請先填寫基本資料，再上傳一張正面全身相。')).toBeInTheDocument()
+    expect(screen.getByText('請先填寫基本資料；如方便，可上傳一張正面全身相。')).toBeInTheDocument()
     expect(screen.queryByText('上傳一張正面全身相，再留下接收報告嘅資料。')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '上傳正面全身相' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '上傳正面全身相（選填）' })).toBeInTheDocument()
   })
 
   it('replaces restart with the approved WhatsApp CTA', async () => {
