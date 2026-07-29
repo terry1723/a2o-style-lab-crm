@@ -20,7 +20,7 @@ describe('AssessmentResult capture shell', () => {
     )
 
     expect(screen.queryByText('未被發揮的形象潛力')).not.toBeInTheDocument()
-    expect(screen.getByText('先填寫基本資料，再上傳一張正面全身相。')).toBeInTheDocument()
+    expect(screen.getByText('請先填寫基本資料，再上傳一張正面全身相。')).toBeInTheDocument()
     expect(screen.queryByText('上傳一張正面全身相，再留下接收報告嘅資料。')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '上傳正面全身相' })).toBeInTheDocument()
   })

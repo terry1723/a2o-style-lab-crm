@@ -56,12 +56,12 @@ describe('AssessmentLeadForm', () => {
   })
 
   it.each([
-    ['119', '68.5', '請輸入 120 至 230 cm 嘅身高。'],
-    ['231', '68.5', '請輸入 120 至 230 cm 嘅身高。'],
-    ['175.5', '68.5', '請輸入 120 至 230 cm 嘅身高。'],
-    ['175', '34', '請輸入 35 至 200 kg 嘅體重，最多一位小數。'],
-    ['175', '201', '請輸入 35 至 200 kg 嘅體重，最多一位小數。'],
-    ['175', '68.55', '請輸入 35 至 200 kg 嘅體重，最多一位小數。'],
+    ['119', '68.5', '請輸入 120 至 230 cm 的身高。'],
+    ['231', '68.5', '請輸入 120 至 230 cm 的身高。'],
+    ['175.5', '68.5', '請輸入 120 至 230 cm 的身高。'],
+    ['175', '34', '請輸入 35 至 200 kg 的體重，最多一位小數。'],
+    ['175', '201', '請輸入 35 至 200 kg 的體重，最多一位小數。'],
+    ['175', '68.55', '請輸入 35 至 200 kg 的體重，最多一位小數。'],
   ])('rejects invalid measurements height=%s weight=%s', async (height, weight, message) => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)
@@ -101,9 +101,15 @@ describe('AssessmentLeadForm', () => {
   it('shows the promised WhatsApp delivery window after successful submission', () => {
     render(<AssessmentLeadForm {...defaultProps} submitted />)
 
-    expect(screen.getByRole('heading', { name: '已收到你嘅形象檢測資料' })).toBeInTheDocument()
-    expect(screen.getByText(/1–2個工作天內透過 WhatsApp 聯絡你/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '已收到你的形象檢測資料' })).toBeInTheDocument()
+    expect(screen.getByText(/我們會在 1–2 個工作天內透過 WhatsApp 聯絡你/)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /WhatsApp 預約/ })).not.toBeInTheDocument()
+  })
+
+  it('uses written Chinese in the profile collection introduction', () => {
+    render(<AssessmentLeadForm {...defaultProps} />)
+
+    expect(screen.getByText('請填寫以下資料，讓我們更準確地了解你的形象需要。')).toBeInTheDocument()
   })
 
   it('keeps the selected photo and all profile fields when submission fails', async () => {
@@ -121,7 +127,7 @@ describe('AssessmentLeadForm', () => {
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: '提交並製作個人檢測報告' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('你已填嘅資料會保留')
+    expect(await screen.findByRole('alert')).toHaveTextContent('你已填寫的資料會保留')
     expect(screen.getByLabelText('稱呼／姓名')).toHaveValue('陳先生')
     expect(screen.getByLabelText('WhatsApp 電話號碼')).toHaveValue('9123 4567')
     expect(screen.getByLabelText('身高（cm）')).toHaveValue('175')

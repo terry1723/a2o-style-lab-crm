@@ -36,7 +36,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     if (!file) return
 
     if (!ACCEPTED_PHOTO_TYPES.has(file.type)) {
-      setError('請上傳 JPEG、PNG 或 WebP 格式嘅相片。')
+      setError('請上傳 JPEG、PNG 或 WebP 格式的相片。')
       event.target.value = ''
       return
     }
@@ -85,15 +85,15 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
       return
     }
     if (!validPhone) {
-      setError('請填寫有效嘅香港 WhatsApp 電話號碼。')
+      setError('請填寫有效的香港 WhatsApp 電話號碼。')
       return
     }
     if (!/^\d+$/.test(heightCm) || parsedHeight < 120 || parsedHeight > 230) {
-      setError('請輸入 120 至 230 cm 嘅身高。')
+      setError('請輸入 120 至 230 cm 的身高。')
       return
     }
     if (!/^\d+(?:\.\d)?$/.test(weightKg) || parsedWeight < 35 || parsedWeight > 200) {
-      setError('請輸入 35 至 200 kg 嘅體重，最多一位小數。')
+      setError('請輸入 35 至 200 kg 的體重，最多一位小數。')
       return
     }
     if (!photoFile) {
@@ -116,7 +116,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         photo: photoFile,
       })
     } catch {
-      setError('暫時未能提交，請稍後再試。你已填嘅資料會保留。')
+      setError('暫時未能提交，請稍後再試。你已填寫的資料會保留。')
     }
   }
 
@@ -124,10 +124,10 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     return (
       <div className="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-[#8FD3A8]" />
-        <h2 className="mt-3 font-serif text-2xl font-medium">已收到你嘅形象檢測資料</h2>
+        <h2 className="mt-3 font-serif text-2xl font-medium">已收到你的形象檢測資料</h2>
         <p className="mt-3 text-sm leading-relaxed text-white/70">
-          A2O 團隊會根據你嘅答案及正面全身相，準備個人形象檢測報告。
-          我哋會喺1–2個工作天內透過 WhatsApp 聯絡你，請留意訊息。
+          A2O 團隊會根據你的答案及正面全身相，準備個人形象檢測報告。
+          我們會在 1–2 個工作天內透過 WhatsApp 聯絡你，請留意訊息。
         </p>
       </div>
     )
@@ -137,8 +137,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     <form className="mt-6 space-y-3" onSubmit={submit} noValidate>
       <div className="mb-4">
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-white/45">最後一步</p>
-        <h2 className="mt-1 text-lg font-semibold">準備你嘅個人檢測報告</h2>
-        <p className="mt-1 text-xs leading-relaxed text-white/55">請填寫以下資料，等我哋可以更準確咁了解你嘅形象需要。</p>
+        <h2 className="mt-1 text-lg font-semibold">準備你的個人檢測報告</h2>
+        <p className="mt-1 text-xs leading-relaxed text-white/55">請填寫以下資料，讓我們更準確地了解你的形象需要。</p>
       </div>
 
       <div>
@@ -198,7 +198,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
           </span>
           <div>
             <h3 id="assessment-photo-title" className="text-sm font-semibold">上傳正面全身相</h3>
-            <p className="mt-1 text-xs leading-relaxed text-white/60">企直面向鏡頭，請影到由頭到腳；自然光、冇濾鏡會更適合分析。</p>
+            <p className="mt-1 text-xs leading-relaxed text-white/60">請正面站立面向鏡頭，確保相片拍攝到全身；在自然光下拍攝並避免使用濾鏡，會更適合分析。</p>
           </div>
         </div>
 
@@ -247,7 +247,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
           onChange={(event) => setConsent(event.target.checked)}
           className="mt-0.5 h-4 w-4 accent-[#D4849A]"
         />
-        <span>我同意 A2O Style Lab 使用以上資料及相片，作個人形象檢測及 WhatsApp 跟進之用。</span>
+        <span>我同意 A2O Style Lab 使用以上資料及相片，用於個人形象檢測及 WhatsApp 跟進。</span>
       </label>
       {error && <p role="alert" className="text-sm text-[#FFB4B4]">{error}</p>}
       <button

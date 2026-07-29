@@ -9,7 +9,7 @@ describe('QuestionOverlay', () => {
       id: 'q1',
       type: 'single',
       layout: 'scale',
-      title: '從1到10分，你會畀自己形象幾多分？',
+      title: '從 1 至 10 分，你會給自己的形象多少分？',
       options: Array.from({ length: 10 }, (_, index) => ({
         id: `q1_${index + 1}`,
         label: String(index + 1),
