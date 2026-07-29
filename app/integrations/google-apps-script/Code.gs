@@ -18,6 +18,10 @@ function requireText(payload, key, maximumLength) {
   return value
 }
 
+function optionalText(payload, key, maximumLength) {
+  return safeText(payload[key], maximumLength)
+}
+
 function requireNumber(payload, key, minimum, maximum, decimalPlaces) {
   const value = Number(payload[key])
   const multiplier = Math.pow(10, decimalPlaces)
@@ -52,8 +56,8 @@ function doPost(event) {
       requireText(payload, 'q3', 200),
       requireText(payload, 'q4', 200),
       requireText(payload, 'resultTitle', 120),
-      requireText(payload, 'photoPath', 500),
-      requireText(payload, 'photoSignedUrl', 2000),
+      optionalText(payload, 'photoPath', 500),
+      optionalText(payload, 'photoSignedUrl', 2000),
       safeText(payload.utmSource, 200),
       '新提交',
       requireNumber(payload, 'heightCm', 120, 230, 0),
