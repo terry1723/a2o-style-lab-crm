@@ -12,6 +12,7 @@ from PIL import Image
 from pypdf import PdfReader
 
 try:
+    from tools import generate_a2o_complete_work_report
     from tools.generate_a2o_complete_work_report import (
         build_report,
         main,
@@ -19,6 +20,7 @@ try:
         resolve_cjk_font_path,
     )
 except ModuleNotFoundError:
+    import generate_a2o_complete_work_report
     from generate_a2o_complete_work_report import (
         build_report,
         main,
@@ -28,6 +30,18 @@ except ModuleNotFoundError:
 
 
 class CompleteWorkReportTests(unittest.TestCase):
+    def test_fit_image_contain_keeps_landscape_and_portrait_assets_inside_the_frame(self) -> None:
+        fit_image_contain = getattr(generate_a2o_complete_work_report, "fit_image_contain", None)
+        self.assertIsNotNone(fit_image_contain)
+
+        landscape_width, landscape_height = fit_image_contain(1600, 900, 176, 196)
+        self.assertEqual(landscape_width, 176)
+        self.assertLessEqual(landscape_height, 196)
+
+        portrait_width, portrait_height = fit_image_contain(900, 1600, 176, 196)
+        self.assertEqual(portrait_height, 196)
+        self.assertLessEqual(portrait_width, 176)
+
     def test_first_page_embeds_the_approved_work_image_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary_path = Path(temporary_directory)

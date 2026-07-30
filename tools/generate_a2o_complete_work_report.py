@@ -162,6 +162,14 @@ def draw_footer(pdf: canvas.Canvas, page_number: int) -> None:
     draw_cta_button(pdf, PAGE_WIDTH - 196, 42)
 
 
+def fit_image_contain(
+    source_width: float, source_height: float, frame_width: float, frame_height: float
+) -> tuple[float, float]:
+    """Return dimensions that show an entire source image inside a frame."""
+    scale = min(frame_width / source_width, frame_height / source_height)
+    return source_width * scale, source_height * scale
+
+
 def draw_image_cover(
     pdf: canvas.Canvas,
     assets_dir: Path,
@@ -171,7 +179,7 @@ def draw_image_cover(
     width: float,
     height: float,
 ) -> None:
-    """Draw an asset as a safe centre crop, or a neutral placeholder panel."""
+    """Draw an entire asset on a warm neutral panel, or a placeholder panel."""
     image_path = assets_dir / image_name
     if not image_path.is_file():
         pdf.setFillColor(HexColor("#E5DBCE"))
@@ -188,12 +196,9 @@ def draw_image_cover(
     except (OSError, ValueError):
         return draw_image_cover(pdf, Path("/nonexistent"), image_name, x, y, width, height)
 
-    scale = max(width / source_width, height / source_height)
-    draw_width, draw_height = source_width * scale, source_height * scale
-    pdf.saveState()
-    clip = pdf.beginPath()
-    clip.rect(x, y, width, height)
-    pdf.clipPath(clip, stroke=0, fill=0)
+    pdf.setFillColor(HexColor("#E5DBCE"))
+    pdf.rect(x, y, width, height, fill=1, stroke=0)
+    draw_width, draw_height = fit_image_contain(source_width, source_height, width, height)
     pdf.drawImage(
         image,
         x - (draw_width - width) / 2,
@@ -202,7 +207,6 @@ def draw_image_cover(
         draw_height,
         mask="auto",
     )
-    pdf.restoreState()
 
 
 def draw_table(
