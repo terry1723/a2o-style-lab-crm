@@ -45,9 +45,18 @@ MUTED = HexColor("#756B62")
 BURGUNDY = HexColor("#7A1F2B")
 CREAM = HexColor("#FFF9EF")
 LINE = HexColor("#A99D90")
-FRONT_MATTER = (
-    ("你的工作形象檢測報告", "建立清晰、可信而容易重複的專業形象。"),
-    ("工作形象的第一個訊號", "衣著應先支持你的角色、場合與溝通方式。"),
+WORK_LOOKS = (
+    ("見客 Smart Casual", "海軍藍針織 Polo + 米白直筒褲 + 黑色樂福鞋", "UNIQLO、G.H.BASS", "HK$1,900"),
+    ("日常專業造型", "炭灰 Overshirt + 白色 T-shirt + 深灰直筒褲", "COS、UNIQLO", "HK$2,800"),
+    ("正式會議造型", "深色輕量西裝外套 + 淺藍襯衫 + 深色修身直筒褲", "Massimo Dutti、UNIQLO", "HK$3,600"),
+)
+PROGRAMME_SERVICES = (
+    ("個人身形比例及形象定位", "按工作角色、鏡頭場合與個人目標，找出最值得優先調整的方向。"),
+    ("三個實際可穿的搭配方向", "建立見客、日常與正式會議可重複使用的完整搭配邏輯。"),
+    ("髮型及儀容整理方向", "整理髮型、鬍鬚、眼鏡與日常打理細節，令形象更一致。"),
+    ("購物清單與衣櫃優先次序", "先補足最有影響力的單品，避免再次購入難以配搭的衣服。"),
+    ("WhatsApp 跟進建議", "就實際穿搭照片提供重點回饋，協助在日常中作出微調。"),
+    ("諮詢後的實用執行支援", "把建議落地，確認剪裁、比例與場合感是否一致。"),
 )
 
 
@@ -136,10 +145,12 @@ def draw_title(pdf: canvas.Canvas, title: str, subtitle: str, y: float = 770) ->
     _wrapped_text(pdf, subtitle, MARGIN, y - 33, PAGE_WIDTH - 2 * MARGIN, 10, 14, MUTED)
 
 
-def draw_cta_button(pdf: canvas.Canvas, x: float, y: float) -> None:
+def draw_cta_button(
+    pdf: canvas.Canvas, x: float, y: float, label: str = "WhatsApp 免費了解形象問題"
+) -> None:
     pdf.setFillColor(BURGUNDY)
     pdf.roundRect(x, y, 154, 24, 4, fill=1, stroke=0)
-    _text(pdf, "WhatsApp 免費了解形象問題", x + 13, y + 7.5, 7.5, colors.white)
+    _text(pdf, label, x + 13, y + 7.5, 7.5, colors.white)
 
 
 def draw_footer(pdf: canvas.Canvas, page_number: int) -> None:
@@ -250,24 +261,102 @@ def _guide_page(
     draw_footer(pdf, page_number)
 
 
-def _draw_existing_front_matter(
-    pdf: canvas.Canvas, page_number: int, heading: str, detail: str
-) -> None:
-    """Retain pages 1–2 until their separately planned rebuild."""
-    dark_ink = HexColor("#11161D")
-    pdf.setFillColor(dark_ink)
-    pdf.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, fill=1, stroke=0)
-    pdf.setFillColor(HexColor("#1C3148"))
-    pdf.circle(PAGE_WIDTH - 20, PAGE_HEIGHT - 25, 110, fill=1, stroke=0)
-    pdf.setFillColor(HexColor("#C8A26A"))
-    pdf.roundRect(46, PAGE_HEIGHT - 78, 172, 22, 11, fill=1, stroke=0)
-    _text(pdf, "A2O STYLE LAB · 示範報告", 78, PAGE_HEIGHT - 70, 8, dark_ink)
-    _text(pdf, heading, 46, PAGE_HEIGHT - 150, 27, colors.white)
-    _text(pdf, detail, 46, PAGE_HEIGHT - 185, 12, HexColor("#B8C0C7"))
-    pdf.setStrokeColor(HexColor("#3D4852"))
-    pdf.line(46, 62, PAGE_WIDTH - 46, 62)
-    _text(pdf, "本報告為教育及服務方向示範，並非產品清單、報價或結果保證。", 46, 42, 8.5, HexColor("#B8C0C7"))
-    _text(pdf, f"{page_number:02d} / 14", PAGE_WIDTH - 84, 42, 8.5, HexColor("#B8C0C7"))
+def draw_work_report_page(pdf: canvas.Canvas, assets_dir: Path) -> None:
+    """Draw the assessment opener with the educational guide's table rhythm."""
+    draw_page_background(pdf)
+    draw_title(
+        pdf,
+        "你的工作形象檢測報告",
+        "工作形象先建立信任",
+    )
+    _wrapped_text(
+        pdf,
+        "先把輪廓、質感與角色感整理好，讓專業感自然出現。",
+        MARGIN,
+        714,
+        PAGE_WIDTH - 2 * MARGIN,
+        8.4,
+        11,
+        MUTED,
+    )
+    draw_image_cover(
+        pdf,
+        assets_dir,
+        "page03_real_before_after.jpg",
+        MARGIN,
+        620,
+        PAGE_WIDTH - 2 * MARGIN,
+        70,
+    )
+    _text(pdf, "三個可按需要調整的工作穿搭方向", MARGIN, 602, 11, BURGUNDY)
+    table_bottom = draw_table(
+        pdf,
+        MARGIN,
+        583,
+        [84, 205, 128, 94],
+        [["方向", "搭配", "示範品牌", "示範預算"]]
+        + [list(look) for look in WORK_LOOKS],
+    )
+    _text(pdf, "示範品牌／示範預算：以上三套僅用作工作形象方向參考。", MARGIN, table_bottom - 21, 8.2, MUTED)
+    _draw_callout(
+        pdf,
+        "以下為示範搭配方向；所有示範品牌、單品與預算均可替換，並非現時產品、庫存或價格。",
+        table_bottom - 40,
+    )
+    _wrapped_text(
+        pdf,
+        "可按個人預算、更換頻率與現有衣櫃替換；重點是讓見客、會議與日常都維持一致的比例與可信度。",
+        MARGIN,
+        max(130, table_bottom - 101),
+        PAGE_WIDTH - 2 * MARGIN,
+        8.4,
+        11,
+        MUTED,
+    )
+    draw_footer(pdf, 1)
+
+
+def draw_programme_page(pdf: canvas.Canvas, assets_dir: Path) -> None:
+    """Draw the service next-step page with an approved guide image and service table."""
+    draw_page_background(pdf)
+    draw_title(
+        pdf,
+        "A2O 男士形象提升計劃",
+        "從工作角色出發，建立可重複使用、自然可信的專業形象系統。",
+    )
+    pdf.setFillColor(HexColor("#E9D8D0"))
+    pdf.roundRect(MARGIN, 678, PAGE_WIDTH - 2 * MARGIN, 39, 4, fill=1, stroke=0)
+    _text(pdf, "示範內容及價格，並非目前報價", MARGIN + 12, 698, 9.2, BURGUNDY)
+    _text(pdf, "HK$5,980", MARGIN + 12, 683, 14, INK)
+    _text(pdf, "實際服務範圍與費用以確認前報價為準。", MARGIN + 107, 685, 8.2, MUTED)
+    draw_image_cover(
+        pdf,
+        assets_dir,
+        "page02_concept.jpg",
+        MARGIN,
+        526,
+        PAGE_WIDTH - 2 * MARGIN,
+        132,
+    )
+    table_bottom = draw_table(
+        pdf,
+        MARGIN,
+        508,
+        [175, 336],
+        [["服務", "內容"]] + [list(service) for service in PROGRAMME_SERVICES],
+    )
+    _wrapped_text(
+        pdf,
+        "本頁服務內容及價格均為示範，可按個人需要調整；不代表現時報價或第三方商品。",
+        MARGIN,
+        max(128, table_bottom - 22),
+        PAGE_WIDTH - 2 * MARGIN,
+        8.1,
+        10.5,
+        MUTED,
+    )
+    draw_cta_button(pdf, MARGIN, 77, "WhatsApp 免費了解我的形象問題")
+    draw_footer(pdf, 2)
 
 
 def draw_occasions_page(pdf: canvas.Canvas, assets_dir: Path) -> None:
@@ -387,9 +476,10 @@ def build_report(output_path: str | Path, assets_dir: str | Path | None = None) 
     pdf = canvas.Canvas(str(destination), pagesize=A4, pageCompression=1)
     pdf.setTitle("A2O 完整工作形象檢測報告")
     pdf.setAuthor("A2O Style Lab")
-    for page_number, (heading, detail) in enumerate(FRONT_MATTER, start=1):
-        _draw_existing_front_matter(pdf, page_number, heading, detail)
-        pdf.showPage()
+    draw_work_report_page(pdf, source_assets)
+    pdf.showPage()
+    draw_programme_page(pdf, source_assets)
+    pdf.showPage()
     page_renderers = (
         draw_occasions_page,
         draw_cleanfit_page, draw_similar_colours_page, draw_materials_page,

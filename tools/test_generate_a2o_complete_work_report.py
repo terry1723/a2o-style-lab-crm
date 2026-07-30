@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from PIL import Image
 from pypdf import PdfReader
 
 try:
@@ -27,6 +28,22 @@ except ModuleNotFoundError:
 
 
 class CompleteWorkReportTests(unittest.TestCase):
+    def test_first_page_embeds_the_approved_work_image_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            output_path = temporary_path / "report.pdf"
+            assets_directory = temporary_path / "assets"
+            assets_directory.mkdir()
+            Image.new("RGB", (12, 12), color=(122, 31, 43)).save(
+                assets_directory / "page03_real_before_after.jpg"
+            )
+
+            build_report(output_path, assets_dir=assets_directory)
+
+            reader = PdfReader(str(output_path))
+            x_objects = reader.pages[0]["/Resources"].get("/XObject", {})
+            self.assertTrue(x_objects)
+
     def test_build_report_creates_fourteen_pages_with_required_written_chinese(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary_path = Path(temporary_directory)
@@ -59,6 +76,38 @@ class CompleteWorkReportTests(unittest.TestCase):
 
             for oral_phrase in ("唔同場合", "啱身", "唔係", "著得", "褲腳唔"):
                 self.assertNotIn(oral_phrase, text)
+
+    def test_first_two_pages_describe_the_sample_assessment_and_service_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            output_path = temporary_path / "report.pdf"
+            assets_directory = temporary_path / "assets"
+            assets_directory.mkdir()
+
+            build_report(output_path, assets_dir=assets_directory)
+
+            reader = PdfReader(str(output_path))
+            first_page = reader.pages[0].extract_text() or ""
+            second_page = reader.pages[1].extract_text() or ""
+            self.assertIn("你的工作形象檢測報告", first_page)
+            self.assertIn("工作形象先建立信任", first_page)
+            self.assertIn("示範品牌／示範預算", first_page)
+            self.assertIn("HK$1,900", first_page)
+            self.assertIn("三套", first_page)
+            self.assertIn("可按個人預算、更換頻率與現有衣櫃替換", first_page)
+            self.assertIn("A2O 男士形象提升計劃", second_page)
+            self.assertIn("示範內容及價格，並非目前報價", second_page)
+            self.assertIn("HK$5,980", second_page)
+            self.assertIn("WhatsApp 免費了解我的形象問題", second_page)
+            for service in (
+                "個人身形比例及形象定位",
+                "三個實際可穿的搭配方向",
+                "髮型及儀容整理方向",
+                "購物清單與衣櫃優先次序",
+                "WhatsApp 跟進",
+                "諮詢後的實用執行支援",
+            ):
+                self.assertIn(service, second_page)
 
     def test_invalid_environment_asset_path_names_its_configuration_variable(self) -> None:
         missing_path = "/tmp/a2o-complete-work-report-assets-missing"
