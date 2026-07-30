@@ -148,6 +148,7 @@ def _outfit_card(
     title: str,
     outfit: str,
     note: str,
+    sample_brand_budget: str,
     top_colour,
     trouser_colour,
 ) -> None:
@@ -158,6 +159,7 @@ def _outfit_card(
     _text(pdf, title, x + 106, y + 95, 12.2, white)
     _wrapped_text(pdf, outfit, x + 106, y + 71, 356, 9.7, 14, PAPER)
     _wrapped_text(pdf, note, x + 106, y + 34, 356, 8.5, 11.5, MUTED)
+    _wrapped_text(pdf, sample_brand_budget, x + 106, y + 14, 356, 7.7, 9, GOLD)
 
 
 def _page_one(pdf: canvas.Canvas) -> None:
@@ -187,6 +189,7 @@ def _page_one(pdf: canvas.Canvas) -> None:
             "01 · CLIENT-FACING SMART CASUAL",
             "海軍藍針織 Polo + 米白直筒褲 + 黑色樂福鞋",
             "柔和對比令上半身更聚焦；適合見客、簡報及商務午餐。",
+            "示範品牌／示範預算：UNIQLO、G.H.BASS · HK$1,900（可替換）",
             NAVY,
             CREAM,
         ),
@@ -194,6 +197,7 @@ def _page_one(pdf: canvas.Canvas) -> None:
             "02 · MODERN LAYERING",
             "炭灰 Overshirt + 白 T-shirt + 深灰直筒褲",
             "以乾淨層次取代貼身剪裁，保留成熟感，同時不顯拘束。",
+            "示範品牌／示範預算：COS、UNIQLO · HK$2,800（可替換）",
             CHARCOAL,
             SLATE,
         ),
@@ -201,6 +205,7 @@ def _page_one(pdf: canvas.Canvas) -> None:
             "03 · POLISHED PROFESSIONAL",
             "深色輕量西裝外套 + 淺藍襯衫 + 深色修身直筒褲",
             "需要更正式時，重點是俐落肩線與順直褲線，而不是過度收窄。",
+            "示範品牌／示範預算：Massimo Dutti、UNIQLO · HK$3,600（可替換）",
             BLUE,
             INK,
         ),
@@ -208,14 +213,20 @@ def _page_one(pdf: canvas.Canvas) -> None:
     for index, card in enumerate(cards):
         _outfit_card(pdf, MARGIN, 466 - index * 141, *card)
 
-    _wrapped_text(
+    _text(
         pdf,
-        "以上為示範穿搭方向；品牌、單品與預算只作說明用途，可按你的職業、身型、現有衣櫥及可用預算調整，並非現時產品、庫存或價格。",
+        "以上為示範穿搭方向；所有示範品牌、單品與預算均可替換，只作說明用途。",
         MARGIN,
         76,
-        511,
         8.2,
-        11.5,
+        MUTED,
+    )
+    _text(
+        pdf,
+        "可按你的職業、身型、現有衣櫥及可用預算調整，並非現時產品、庫存或價格。",
+        MARGIN,
+        63,
+        8.2,
         MUTED,
     )
     _footer(pdf)

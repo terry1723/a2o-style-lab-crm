@@ -32,6 +32,10 @@ class A2OWorkReportSampleTests(unittest.TestCase):
                 "你的工作形象穿搭方向",
                 "A2O 男士形象提升計劃",
                 "示範內容",
+                "示範品牌／示範預算",
+                "HK$1,900",
+                "HK$2,800",
+                "HK$3,600",
             ):
                 self.assertIn(expected_text, combined_text)
 
