@@ -30,6 +30,20 @@ except ModuleNotFoundError:
 
 
 class CompleteWorkReportTests(unittest.TestCase):
+    def test_guide_image_layout_places_a_large_full_width_banner_below_the_table(self) -> None:
+        layout = generate_a2o_complete_work_report.guide_image_layout(
+            table_bottom=520,
+            source_width=1600,
+            source_height=900,
+        )
+
+        self.assertEqual(layout.x, generate_a2o_complete_work_report.MARGIN)
+        self.assertGreaterEqual(layout.width, 470)
+        self.assertLess(layout.y + layout.height, 520)
+        self.assertGreaterEqual(layout.height, 200)
+        self.assertGreaterEqual(layout.draw_height, 200)
+        self.assertGreaterEqual(layout.y, layout.callout_y + 14)
+
     def test_fit_image_contain_keeps_landscape_and_portrait_assets_inside_the_frame(self) -> None:
         fit_image_contain = getattr(generate_a2o_complete_work_report, "fit_image_contain", None)
         self.assertIsNotNone(fit_image_contain)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
@@ -45,6 +46,10 @@ MUTED = HexColor("#756B62")
 BURGUNDY = HexColor("#7A1F2B")
 CREAM = HexColor("#FFF9EF")
 LINE = HexColor("#A99D90")
+GUIDE_IMAGE_TABLE_GAP = 16
+GUIDE_IMAGE_CALLOUT_GAP = 14
+GUIDE_CALLOUT_Y = 106
+GUIDE_IMAGE_MIN_HEIGHT = 140
 WORK_LOOKS = (
     ("見客 Smart Casual", "海軍藍針織 Polo + 米白直筒褲 + 黑色樂福鞋", "UNIQLO、G.H.BASS", "HK$1,900"),
     ("日常專業造型", "炭灰 Overshirt + 白色 T-shirt + 深灰直筒褲", "COS、UNIQLO", "HK$2,800"),
@@ -170,6 +175,57 @@ def fit_image_contain(
     return source_width * scale, source_height * scale
 
 
+@dataclass(frozen=True)
+class GuideImageLayout:
+    """A full-width image frame and its contained image dimensions."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+    draw_width: float
+    draw_height: float
+    callout_y: float
+
+
+def guide_image_layout(
+    table_bottom: float, source_width: float, source_height: float
+) -> GuideImageLayout:
+    """Fit a guide image beneath its table without colliding with the callout."""
+    if source_width <= 0 or source_height <= 0:
+        raise ValueError("Guide image dimensions must be positive.")
+
+    width = PAGE_WIDTH - 2 * MARGIN
+    image_top = table_bottom - GUIDE_IMAGE_TABLE_GAP
+    image_bottom = GUIDE_CALLOUT_Y + GUIDE_IMAGE_CALLOUT_GAP
+    available_height = image_top - image_bottom
+    ideal_height = width * source_height / source_width
+    height = min(available_height, max(GUIDE_IMAGE_MIN_HEIGHT, ideal_height))
+    if height <= 0:
+        raise ValueError("Guide table leaves no room for an image banner.")
+    draw_width, draw_height = fit_image_contain(source_width, source_height, width, height)
+    return GuideImageLayout(
+        x=MARGIN,
+        y=image_top - height,
+        width=width,
+        height=height,
+        draw_width=draw_width,
+        draw_height=draw_height,
+        callout_y=GUIDE_CALLOUT_Y,
+    )
+
+
+def _image_size(assets_dir: Path, image_name: str) -> tuple[float, float]:
+    """Return an asset's dimensions, with a neutral landscape fallback."""
+    image_path = assets_dir / image_name
+    if not image_path.is_file():
+        return 3, 2
+    try:
+        return ImageReader(str(image_path)).getSize()
+    except (OSError, ValueError):
+        return 3, 2
+
+
 def draw_image_cover(
     pdf: canvas.Canvas,
     assets_dir: Path,
@@ -257,11 +313,19 @@ def _guide_page(
 ) -> None:
     draw_page_background(pdf)
     draw_title(pdf, title, subtitle)
-    image_width = 176
-    image_x = PAGE_WIDTH - MARGIN - image_width
-    draw_image_cover(pdf, assets_dir, image_name, image_x, 414, image_width, 196)
     table_bottom = draw_table(pdf, MARGIN, 675, widths, rows)
-    _draw_callout(pdf, note, max(92, min(365, table_bottom - 22)))
+    source_width, source_height = _image_size(assets_dir, image_name)
+    image_layout = guide_image_layout(table_bottom, source_width, source_height)
+    draw_image_cover(
+        pdf,
+        assets_dir,
+        image_name,
+        image_layout.x,
+        image_layout.y,
+        image_layout.width,
+        image_layout.height,
+    )
+    _draw_callout(pdf, note, image_layout.callout_y)
     draw_footer(pdf, page_number)
 
 
@@ -288,15 +352,15 @@ def draw_work_report_page(pdf: canvas.Canvas, assets_dir: Path) -> None:
         assets_dir,
         "page03_real_before_after.jpg",
         MARGIN,
-        620,
+        412,
         PAGE_WIDTH - 2 * MARGIN,
-        70,
+        284,
     )
-    _text(pdf, "三個可按需要調整的工作穿搭方向", MARGIN, 602, 11, BURGUNDY)
+    _text(pdf, "三個可按需要調整的工作穿搭方向", MARGIN, 394, 11, BURGUNDY)
     table_bottom = draw_table(
         pdf,
         MARGIN,
-        583,
+        375,
         [84, 205, 128, 94],
         [["方向", "搭配", "示範品牌", "示範預算"]]
         + [list(look) for look in WORK_LOOKS],
@@ -338,14 +402,14 @@ def draw_programme_page(pdf: canvas.Canvas, assets_dir: Path) -> None:
         assets_dir,
         "page02_concept.jpg",
         MARGIN,
-        526,
+        106,
         PAGE_WIDTH - 2 * MARGIN,
-        132,
+        334,
     )
     table_bottom = draw_table(
         pdf,
         MARGIN,
-        508,
+        660,
         [175, 336],
         [["服務", "內容"]] + [list(service) for service in PROGRAMME_SERVICES],
     )
