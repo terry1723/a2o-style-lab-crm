@@ -25,6 +25,7 @@ DEFAULT_ASSETS_DIR = Path(
     "/Users/terrylee/Documents/ig-content-research-system/output/pdf/"
     "a2o_menswear_fundamentals_assets_optimized"
 )
+DEFAULT_OUTPUT_PATH = Path("output/pdf/a2o-complete-work-image-report-sample.pdf")
 FONT_FALLBACK_PATHS = (
     Path("/System/Library/Fonts/STHeiti Medium.ttc"),
     Path("/System/Library/Fonts/PingFang.ttc"),
@@ -148,7 +149,12 @@ def build_report(output_path: str | Path, assets_dir: str | Path | None = None) 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate the A2O complete work-image report.")
-    parser.add_argument("--output", required=True, type=Path, help="Output PDF path.")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT_PATH,
+        help=f"Output PDF path (default: {DEFAULT_OUTPUT_PATH}).",
+    )
     parser.add_argument("--assets-dir", type=Path, help="Directory containing approved guide assets.")
     return parser.parse_args(argv)
 

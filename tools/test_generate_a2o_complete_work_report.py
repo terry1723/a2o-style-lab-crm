@@ -10,7 +10,20 @@ from unittest.mock import patch
 
 from pypdf import PdfReader
 
-from tools.generate_a2o_complete_work_report import build_report, main, resolve_assets_dir
+try:
+    from tools.generate_a2o_complete_work_report import (
+        build_report,
+        main,
+        resolve_assets_dir,
+        resolve_cjk_font_path,
+    )
+except ModuleNotFoundError:
+    from generate_a2o_complete_work_report import (
+        build_report,
+        main,
+        resolve_assets_dir,
+        resolve_cjk_font_path,
+    )
 
 
 class CompleteWorkReportTests(unittest.TestCase):
@@ -48,6 +61,39 @@ class CompleteWorkReportTests(unittest.TestCase):
             build_report(output_path, assets_dir=assets_directory)
 
             self.assertTrue(output_path.is_file())
+
+    def test_zero_argument_cli_creates_the_standard_output_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            assets_directory = temporary_path / "assets"
+            assets_directory.mkdir()
+            previous_directory = Path.cwd()
+            try:
+                os.chdir(temporary_path)
+                with patch.dict(os.environ, {"A2O_GUIDE_ASSETS_DIR": str(assets_directory)}):
+                    main([])
+            finally:
+                os.chdir(previous_directory)
+
+            self.assertTrue(
+                (
+                    temporary_path
+                    / "output"
+                    / "pdf"
+                    / "a2o-complete-work-image-report-sample.pdf"
+                ).is_file()
+            )
+
+    def test_invalid_configured_font_path_has_an_actionable_error(self) -> None:
+        with patch.dict(os.environ, {"A2O_REPORT_FONT_PATH": "/tmp/missing-a2o-font.ttf"}):
+            with self.assertRaisesRegex(RuntimeError, "A2O_REPORT_FONT_PATH"):
+                resolve_cjk_font_path()
+
+    def test_missing_fallback_fonts_has_an_actionable_error(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(f"{resolve_cjk_font_path.__module__}.FONT_FALLBACK_PATHS", ()):
+                with self.assertRaisesRegex(RuntimeError, "No CJK font was found"):
+                    resolve_cjk_font_path()
 
 
 if __name__ == "__main__":
