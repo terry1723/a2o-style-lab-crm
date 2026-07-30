@@ -40,10 +40,25 @@ class CompleteWorkReportTests(unittest.TestCase):
             text = "\n".join(page.extract_text() or "" for page in reader.pages)
             self.assertEqual(len(reader.pages), 14)
             self.assertIn("你的工作形象檢測報告", text)
-            self.assertIn("先看場合，再選擇搭配", text)
-            self.assertIn("簡單但實用的衣櫃系統", text)
-            self.assertNotIn("唔同場合", text)
-            self.assertNotIn("啱身", text)
+            expected_headings = [
+                "先看場合，再選擇搭配",
+                "一週 Clean Fit 配色",
+                "近似色系夏日配色",
+                "不同材質的上下裝搭配",
+                "男士衣長基本功",
+                "男士褲長基本功",
+                "鞋褲連貫",
+                "T-shirt／襯衫合身原則",
+                "褲型基本功",
+                "香港夏季穿搭",
+                "香港男士常見的扣分位",
+                "簡單但實用的衣櫃系統",
+            ]
+            for heading in expected_headings:
+                self.assertIn(heading, text)
+
+            for oral_phrase in ("唔同場合", "啱身", "唔係", "著得", "褲腳唔"):
+                self.assertNotIn(oral_phrase, text)
 
     def test_invalid_environment_asset_path_names_its_configuration_variable(self) -> None:
         missing_path = "/tmp/a2o-complete-work-report-assets-missing"
