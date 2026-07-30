@@ -50,8 +50,8 @@ class CompleteWorkReportTests(unittest.TestCase):
                 "鞋褲連貫",
                 "T-shirt／襯衫合身原則",
                 "褲型基本功",
-                "香港夏季穿搭",
-                "香港男士常見的扣分位",
+                "香港夏天穿搭",
+                "香港男士常見扣分位",
                 "簡單但實用的衣櫃系統",
             ]
             for heading in expected_headings:
