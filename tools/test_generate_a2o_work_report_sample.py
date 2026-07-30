@@ -10,7 +10,10 @@ from unittest.mock import patch
 
 from pypdf import PdfReader
 
-from tools import generate_a2o_work_report_sample as report_generator
+if __package__:
+    from tools import generate_a2o_work_report_sample as report_generator
+else:
+    import generate_a2o_work_report_sample as report_generator
 
 
 build_report = report_generator.build_report
