@@ -17,16 +17,30 @@ else:
 
 
 build_report = report_generator.build_report
+REQUESTED_PDF_PATH: Path | None = None
+
+
+def parse_direct_pdf_path(arguments: list[str]) -> Path | None:
+    """Return the optional existing PDF path accepted by direct execution."""
+    if not arguments:
+        return None
+    if len(arguments) == 1:
+        return Path(arguments[0])
+    raise SystemExit("Usage: test_generate_a2o_work_report_sample.py [existing-report.pdf]")
 
 
 class A2OWorkReportSampleTests(unittest.TestCase):
     def test_build_report_creates_two_readable_pages(self) -> None:
-        with TemporaryDirectory() as temporary_directory:
-            output_path = Path(temporary_directory) / "nested" / "a2o-report.pdf"
-
+        if REQUESTED_PDF_PATH is None:
+            temporary_directory = TemporaryDirectory()
+            self.addCleanup(temporary_directory.cleanup)
+            output_path = Path(temporary_directory.name) / "nested" / "a2o-report.pdf"
             result = build_report(output_path)
-
             self.assertEqual(result, output_path)
+        else:
+            output_path = REQUESTED_PDF_PATH
+
+        with self.subTest(output_path=output_path):
             self.assertTrue(output_path.is_file())
             reader = PdfReader(str(output_path))
             self.assertEqual(len(reader.pages), 2)
@@ -41,6 +55,11 @@ class A2OWorkReportSampleTests(unittest.TestCase):
                 "HK$3,600",
             ):
                 self.assertIn(expected_text, combined_text)
+
+    def test_parse_direct_pdf_path_accepts_one_existing_pdf_argument(self) -> None:
+        report_path = Path("output/pdf/a2o-work-image-report-sample.pdf")
+        self.assertEqual(parse_direct_pdf_path([str(report_path)]), report_path)
+        self.assertIsNone(parse_direct_pdf_path([]))
 
     def test_cli_accepts_an_explicit_output_path(self) -> None:
         with TemporaryDirectory() as temporary_directory:
@@ -71,4 +90,6 @@ class A2OWorkReportSampleTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    REQUESTED_PDF_PATH = parse_direct_pdf_path(sys.argv[1:])
+    sys.argv = [sys.argv[0]]
     unittest.main()
