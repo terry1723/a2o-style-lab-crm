@@ -21,7 +21,7 @@
 | 上衣 | Polo Ralph Lauren 米白色經典棉質麻花針織衫 | HK$1,990 |
 | 襯衫 | Polo Ralph Lauren 淺藍色細條紋牛津布襯衫 | HK$1,290 |
 | 長褲 | Massimo Dutti 卡其色棉麻混紡褶襇休閒褲 | HK$1,190 |
-| 鞋履 | Massimo Dutti 深棕色流蘇麂皮樂福鞋 | HK$1,490 |
+| 鞋履 | Massimo Dutti 深棕色麂皮便士樂福鞋 | HK$1,490 |
 | 皮帶 | Polo Ralph Lauren 編織皮革飾邊腰帶 | HK$790 |
 | 配件 | Polo Ralph Lauren 深棕色皮革卡夾 | HK$550 |
 

@@ -88,7 +88,7 @@ WORK_LOOK_PRODUCTS: tuple[WorkLookProduct, ...] = (
     ),
     WorkLookProduct(
         "鞋履",
-        "Massimo Dutti 深棕色流蘇麂皮樂福鞋",
+        "Massimo Dutti 深棕色麂皮便士樂福鞋",
         1490,
         "loafers.png",
     ),

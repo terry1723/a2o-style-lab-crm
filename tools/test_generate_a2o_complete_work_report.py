@@ -41,6 +41,18 @@ class CompleteWorkReportTests(unittest.TestCase):
             ["外套", "上衣", "襯衫", "長褲", "鞋履", "皮帶", "配件"],
         )
         self.assertEqual(
+            [product.name for product in products],
+            [
+                "Massimo Dutti 棕色羊毛混紡修身西裝外套",
+                "Polo Ralph Lauren 米白色經典棉質麻花針織衫",
+                "Polo Ralph Lauren 淺藍色細條紋牛津布襯衫",
+                "Massimo Dutti 卡其色棉麻混紡褶襇休閒褲",
+                "Massimo Dutti 深棕色麂皮便士樂福鞋",
+                "Polo Ralph Lauren 編織皮革飾邊腰帶",
+                "Polo Ralph Lauren 深棕色皮革卡夾",
+            ],
+        )
+        self.assertEqual(
             [product.asset_name for product in products],
             [
                 "blazer.png",
