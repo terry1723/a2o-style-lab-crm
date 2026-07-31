@@ -24,3 +24,14 @@ export type CustomerContext = {
   phone?: string
   tags?: string[]
 }
+
+export type CartItem = {
+  key: string
+  productId: string
+  title: string
+  imageUrl?: string | null
+  price: string
+  color?: string
+  size?: string
+  quantity: number
+}
