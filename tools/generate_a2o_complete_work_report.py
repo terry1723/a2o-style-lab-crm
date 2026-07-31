@@ -106,11 +106,6 @@ WORK_LOOK_PRODUCTS: tuple[WorkLookProduct, ...] = (
     ),
 )
 
-WORK_LOOKS = (
-    ("見客 Smart Casual", "海軍藍針織 Polo + 米白直筒褲 + 黑色樂福鞋", "UNIQLO、G.H.BASS", "HK$1,900"),
-    ("日常專業造型", "炭灰 Overshirt + 白色 T-shirt + 深灰直筒褲", "COS、UNIQLO", "HK$2,800"),
-    ("正式會議造型", "深色輕量西裝外套 + 淺藍襯衫 + 深色修身直筒褲", "Massimo Dutti、UNIQLO", "HK$3,600"),
-)
 PROGRAMME_SERVICES = (
     ("個人身形比例及形象定位", "按工作角色、鏡頭場合與個人目標，找出最值得優先調整的方向。"),
     ("三個實際可穿的搭配方向", "建立見客、日常與正式會議可重複使用的完整搭配邏輯。"),
@@ -321,6 +316,129 @@ def draw_image_cover(
     )
 
 
+def draw_product_image_contain(
+    pdf: canvas.Canvas,
+    product: WorkLookProduct,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+) -> None:
+    """Draw one supplied product on a cream panel without cropping it."""
+    pdf.setFillColor(HexColor("#EDE2D2"))
+    pdf.rect(x, y, width, height, fill=1, stroke=0)
+    pdf.setStrokeColor(HexColor("#D3C3B0"))
+    pdf.setLineWidth(0.35)
+    pdf.rect(x, y, width, height, fill=0, stroke=1)
+
+    image_path = WORK_LOOK_PRODUCT_DIR / product.asset_name
+    if not image_path.is_file():
+        _text(pdf, product.category, x + 8, y + 8, 7, MUTED)
+        return
+    image = ImageReader(str(image_path))
+    source_width, source_height = image.getSize()
+    inset = 6
+    draw_width, draw_height = fit_image_contain(
+        source_width, source_height, width - 2 * inset, height - 2 * inset
+    )
+    pdf.drawImage(
+        image,
+        x + (width - draw_width) / 2,
+        y + (height - draw_height) / 2,
+        draw_width,
+        draw_height,
+        mask="auto",
+    )
+
+
+def draw_product_collage(
+    pdf: canvas.Canvas,
+    products: Sequence[WorkLookProduct],
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+) -> None:
+    """Draw the seven-product work look, prioritising the blazer and trousers."""
+    products_by_asset = {product.asset_name: product for product in products}
+    panels = (
+        ("blazer.png", x, y + 106, 153, height - 106),
+        ("trousers.png", x + 158, y + 106, width - 158, height - 106),
+        ("cable-knit.png", x, y, 70, 101),
+        ("striped-oxford.png", x + 75, y, 70, 101),
+        ("loafers.png", x + 150, y, 82, 101),
+        ("belt.png", x + 237, y + 51, width - 237, 50),
+        ("card-holder.png", x + 237, y, width - 237, 46),
+    )
+    for asset_name, panel_x, panel_y, panel_width, panel_height in panels:
+        draw_product_image_contain(
+            pdf,
+            products_by_asset[asset_name],
+            panel_x,
+            panel_y,
+            panel_width,
+            panel_height,
+        )
+
+
+def draw_work_look_summary(
+    pdf: canvas.Canvas, x: float, y: float, width: float, height: float, total: int
+) -> None:
+    """Draw the burgundy context panel for the recommended work look."""
+    pdf.setFillColor(BURGUNDY)
+    pdf.rect(x, y, width, height, fill=1, stroke=0)
+    _text(pdf, "一套完整工作造型", x + 15, y + height - 28, 14, colors.white)
+    summary_y = y + height - 76
+    _text(pdf, "適合見客、商務午餐，", x + 15, y + height - 52, 8.5, CREAM)
+    _text(pdf, "及需建立專業感的場合。", x + 15, y + height - 64, 8.5, CREAM)
+    pdf.setFillColor(HexColor("#B96D75"))
+    pdf.rect(x + 15, summary_y - 6, width - 30, 0.8, fill=1, stroke=0)
+    _text(pdf, f"HK${total:,}", x + 15, summary_y - 30, 20, colors.white)
+    analysis_y = summary_y - 55
+    for line in (
+        "深棕外套定下成熟基調。",
+        "米白針織與淺藍襯衫提亮面色。",
+        "卡其褲承接柔和層次。",
+        "深棕鞋履與配件收束全身。",
+    ):
+        _text(pdf, line, x + 15, analysis_y, 7.8, CREAM)
+        analysis_y -= 13
+
+
+def draw_work_look_budget_list(
+    pdf: canvas.Canvas, products: Sequence[WorkLookProduct], top_y: float
+) -> None:
+    """Draw seven distinct product-and-price rows for the work-look budget."""
+    _text(pdf, "造型單品與預算分配", MARGIN, top_y, 11.5, BURGUNDY)
+    row_top = top_y - 11
+    total_width = PAGE_WIDTH - 2 * MARGIN
+    category_width = 48
+    price_width = 72
+    name_width = total_width - category_width - price_width
+    for index, product in enumerate(products):
+        row_height = 31
+        row_y = row_top - row_height
+        pdf.setFillColor(CREAM if index % 2 == 0 else HexColor("#F0E7DB"))
+        pdf.rect(MARGIN, row_y, total_width, row_height, fill=1, stroke=0)
+        pdf.setStrokeColor(HexColor("#D3C3B0"))
+        pdf.setLineWidth(0.3)
+        pdf.rect(MARGIN, row_y, total_width, row_height, fill=0, stroke=1)
+        pdf.line(MARGIN + category_width, row_y, MARGIN + category_width, row_y + row_height)
+        pdf.line(
+            MARGIN + category_width + name_width,
+            row_y,
+            MARGIN + category_width + name_width,
+            row_y + row_height,
+        )
+        _text(pdf, product.category, MARGIN + 7, row_y + 11, 7.7, BURGUNDY)
+        _text(pdf, product.name, MARGIN + category_width + 8, row_y + 11, 8.1, INK)
+        price = f"HK${product.price_hkd:,}"
+        pdf.setFont(FONT_NAME, 8.1)
+        pdf.setFillColor(BURGUNDY)
+        pdf.drawRightString(MARGIN + total_width - 7, row_y + 11, price)
+        row_top = row_y
+
+
 def draw_table(
     pdf: canvas.Canvas, x: float, top_y: float, widths: list[float], rows: list[list[str]]
 ) -> float:
@@ -386,57 +504,30 @@ def _guide_page(
 
 
 def draw_work_report_page(pdf: canvas.Canvas, assets_dir: Path) -> None:
-    """Draw the assessment opener with the educational guide's table rhythm."""
+    """Draw an A2O work-look recommendation using the seven supplied products."""
     draw_page_background(pdf)
     draw_title(
         pdf,
-        "你的工作形象檢測報告",
-        "工作形象先建立信任",
+        "你的工作造型建議",
+        "以深棕、米白與淺藍建立成熟而可信的工作形象。",
     )
-    _wrapped_text(
+    draw_product_collage(
         pdf,
-        "先把輪廓、質感與角色感整理好，讓專業感自然出現。",
-        MARGIN,
-        714,
-        PAGE_WIDTH - 2 * MARGIN,
-        8.4,
-        11,
-        MUTED,
+        WORK_LOOK_PRODUCTS,
+        x=MARGIN,
+        y=470,
+        width=330,
+        height=260,
     )
-    draw_image_cover(
+    draw_work_look_summary(
         pdf,
-        assets_dir,
-        "page03_real_before_after.jpg",
-        MARGIN,
-        412,
-        PAGE_WIDTH - 2 * MARGIN,
-        284,
+        x=390,
+        y=470,
+        width=163,
+        height=260,
+        total=sum(product.price_hkd for product in WORK_LOOK_PRODUCTS),
     )
-    _text(pdf, "三個可按需要調整的工作穿搭方向", MARGIN, 394, 11, BURGUNDY)
-    table_bottom = draw_table(
-        pdf,
-        MARGIN,
-        375,
-        [84, 205, 128, 94],
-        [["方向", "搭配", "示範品牌", "示範預算"]]
-        + [list(look) for look in WORK_LOOKS],
-    )
-    _text(pdf, "示範品牌／示範預算：以上三套僅用作工作形象方向參考。", MARGIN, table_bottom - 21, 8.2, MUTED)
-    _draw_callout(
-        pdf,
-        "以下為示範搭配方向；所有示範品牌、單品與預算均可替換，並非現時產品、庫存或價格。",
-        table_bottom - 40,
-    )
-    _wrapped_text(
-        pdf,
-        "可按個人預算、更換頻率與現有衣櫃替換；重點是讓見客、會議與日常都維持一致的比例與可信度。",
-        MARGIN,
-        max(130, table_bottom - 101),
-        PAGE_WIDTH - 2 * MARGIN,
-        8.4,
-        11,
-        MUTED,
-    )
+    draw_work_look_budget_list(pdf, WORK_LOOK_PRODUCTS, top_y=445)
     draw_footer(pdf, 1)
 
 
