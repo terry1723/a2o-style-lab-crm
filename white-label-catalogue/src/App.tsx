@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ExternalLink, MessageCircle, Search, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  ExternalLink,
+  MessageCircle,
+  Minus,
+  Plus,
+  Search,
+  ShoppingBag,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { companyConfig } from './company.config'
 import { isSupabaseConfigured, supabase } from './supabase'
-import type { CatalogueProduct, CustomerContext } from './types'
+import type { CartItem, CatalogueProduct, CustomerContext } from './types'
 
 const demoProducts: CatalogueProduct[] = [
   {
@@ -33,15 +43,37 @@ function productLink(id: string) {
   return `${window.location.origin}${window.location.pathname}#/products/${encodeURIComponent(id)}`
 }
 
+function priceNumber(value?: string | null) {
+  const parsed = Number(String(value || '0').replace(/[^0-9.-]/g, ''))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function money(value: number) {
+  return `${companyConfig.currencyLabel}${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+}
+
+function loadCart(): CartItem[] {
+  try {
+    const saved = localStorage.getItem(companyConfig.cart.storageKey)
+    return saved ? JSON.parse(saved) as CartItem[] : []
+  } catch {
+    return []
+  }
+}
+
 export default function App() {
   const [products, setProducts] = useState<CatalogueProduct[]>(demoProducts)
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<CatalogueProduct | null>(null)
   const [activeImage, setActiveImage] = useState(0)
+  const [selectedColor, setSelectedColor] = useState('')
+  const [selectedSize, setSelectedSize] = useState('')
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
   const [style, setStyle] = useState('all')
   const [profile, setProfile] = useState('all')
+  const [cart, setCart] = useState<CartItem[]>(loadCart)
+  const [cartOpen, setCartOpen] = useState(false)
   const customer: CustomerContext = {}
 
   useEffect(() => {
@@ -68,7 +100,15 @@ export default function App() {
     if (match) setSelected(match)
   }, [products])
 
-  useEffect(() => setActiveImage(0), [selected?.id])
+  useEffect(() => {
+    setActiveImage(0)
+    setSelectedColor(selected?.available_colors?.length === 1 ? selected.available_colors[0] : '')
+    setSelectedSize(selected?.available_sizes?.length === 1 ? selected.available_sizes[0] : '')
+  }, [selected?.id])
+
+  useEffect(() => {
+    localStorage.setItem(companyConfig.cart.storageKey, JSON.stringify(cart))
+  }, [cart])
 
   const categories = useMemo(() => [...new Set(products.map(p => p.category).filter(Boolean))] as string[], [products])
   const styles = useMemo(() => [...new Set(products.map(p => p.style).filter(Boolean))] as string[], [products])
@@ -85,7 +125,13 @@ export default function App() {
     })
   }, [products, search, category, style, profile])
 
-  const buildWhatsAppLink = (product: CatalogueProduct) => {
+  const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart])
+  const cartSubtotal = useMemo(
+    () => cart.reduce((sum, item) => sum + priceNumber(item.price) * item.quantity, 0),
+    [cart],
+  )
+
+  const buildProductWhatsAppLink = (product: CatalogueProduct) => {
     const lines = [
       `Hello ${companyConfig.companyName}, I would like to enquire about:`,
       `Product: ${product.title}`,
@@ -97,6 +143,76 @@ export default function App() {
     ].filter(Boolean)
 
     return `https://wa.me/${companyConfig.whatsappNumber}?text=${encodeURIComponent(lines.join('\n'))}`
+  }
+
+  const buildCartWhatsAppLink = () => {
+    const itemLines = cart.flatMap((item, index) => {
+      const unitPrice = priceNumber(item.price)
+      const variants = [item.color ? `Colour: ${item.color}` : '', item.size ? `Size: ${item.size}` : '']
+        .filter(Boolean)
+        .join(' · ')
+
+      return [
+        `${index + 1}. ${item.title}`,
+        variants,
+        `Qty: ${item.quantity} · Unit: ${money(unitPrice)} · Total: ${money(unitPrice * item.quantity)}`,
+        `Link: ${productLink(item.productId)}`,
+        '',
+      ]
+    })
+
+    const lines = [
+      companyConfig.cart.orderIntro,
+      '',
+      ...itemLines,
+      `Order subtotal: ${money(cartSubtotal)}`,
+      companyConfig.showCustomerNameInWhatsApp && customer.name ? `Customer: ${customer.name}` : '',
+    ].filter(line => line !== undefined)
+
+    return `https://wa.me/${companyConfig.whatsappNumber}?text=${encodeURIComponent(lines.join('\n'))}`
+  }
+
+  const addSelectedToCart = () => {
+    if (!selected) return
+
+    if ((selected.available_colors?.length || 0) > 0 && !selectedColor) {
+      alert('Please select a colour.')
+      return
+    }
+    if ((selected.available_sizes?.length || 0) > 0 && !selectedSize) {
+      alert('Please select a size.')
+      return
+    }
+
+    const key = [selected.id, selectedColor, selectedSize].join('::')
+    const nextItem: CartItem = {
+      key,
+      productId: selected.id,
+      title: selected.title,
+      imageUrl: selected.image_url,
+      price: selected.price || '0',
+      color: selectedColor || undefined,
+      size: selectedSize || undefined,
+      quantity: 1,
+    }
+
+    setCart(current => {
+      const existing = current.find(item => item.key === key)
+      if (!existing) return [...current, nextItem]
+      return current.map(item => item.key === key ? { ...item, quantity: item.quantity + 1 } : item)
+    })
+    setSelected(null)
+    setCartOpen(true)
+  }
+
+  const updateQuantity = (key: string, change: number) => {
+    setCart(current => current
+      .map(item => item.key === key ? { ...item, quantity: item.quantity + change } : item)
+      .filter(item => item.quantity > 0))
+  }
+
+  const removeItem = (key: string) => {
+    setCart(current => current.filter(item => item.key !== key))
   }
 
   const images = selected
@@ -113,13 +229,23 @@ export default function App() {
       } as React.CSSProperties}
     >
       <header className="site-header">
-        <div className="brand-block">
-          {companyConfig.logoUrl ? <img src={companyConfig.logoUrl} alt={companyConfig.companyName} /> : null}
-          <div>
-            <p className="eyebrow">{companyConfig.companyName}</p>
-            <h1>{companyConfig.catalogueTitle}</h1>
-            <p>{companyConfig.catalogueSubtitle}</p>
+        <div className="header-inner">
+          <div className="brand-block">
+            {companyConfig.logoUrl ? <img src={companyConfig.logoUrl} alt={companyConfig.companyName} /> : null}
+            <div>
+              <p className="eyebrow">{companyConfig.companyName}</p>
+              <h1>{companyConfig.catalogueTitle}</h1>
+              <p>{companyConfig.catalogueSubtitle}</p>
+            </div>
           </div>
+
+          {companyConfig.cart.enabled ? (
+            <button className="cart-trigger" type="button" onClick={() => setCartOpen(true)}>
+              <ShoppingBag size={20} />
+              <span>Cart</span>
+              {cartCount > 0 ? <em>{cartCount}</em> : null}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -195,10 +321,33 @@ export default function App() {
                 {selected.style ? <Info label="Style" value={selected.style} /> : null}
                 {selected.material ? <Info label="Material" value={selected.material} /> : null}
                 {selected.fit_notes ? <Info label="Notes" value={selected.fit_notes} /> : null}
-                {selected.available_colors?.length ? <Info label="Colours" value={selected.available_colors.join(', ')} /> : null}
-                {selected.available_sizes?.length ? <Info label="Sizes" value={selected.available_sizes.join(', ')} /> : null}
 
-                <a className="primary-cta" href={buildWhatsAppLink(selected)} target="_blank" rel="noreferrer">
+                {selected.available_colors?.length ? (
+                  <div className="variant-field">
+                    <label htmlFor="product-colour">Colour</label>
+                    <select id="product-colour" value={selectedColor} onChange={event => setSelectedColor(event.target.value)}>
+                      <option value="">Select colour</option>
+                      {selected.available_colors.map(item => <option key={item} value={item}>{item}</option>)}
+                    </select>
+                  </div>
+                ) : null}
+
+                {selected.available_sizes?.length ? (
+                  <div className="variant-field">
+                    <label htmlFor="product-size">Size</label>
+                    <select id="product-size" value={selectedSize} onChange={event => setSelectedSize(event.target.value)}>
+                      <option value="">Select size</option>
+                      {selected.available_sizes.map(item => <option key={item} value={item}>{item}</option>)}
+                    </select>
+                  </div>
+                ) : null}
+
+                {companyConfig.cart.enabled ? (
+                  <button className="primary-cta" type="button" onClick={addSelectedToCart}>
+                    <ShoppingBag size={18} /> Add to cart
+                  </button>
+                ) : null}
+                <a className="secondary-cta" href={buildProductWhatsAppLink(selected)} target="_blank" rel="noreferrer">
                   <MessageCircle size={18} /> WhatsApp enquiry
                 </a>
                 <button className="secondary-cta" onClick={() => navigator.clipboard.writeText(productLink(selected.id))}>
@@ -207,6 +356,66 @@ export default function App() {
               </div>
             </div>
           </section>
+        </div>
+      ) : null}
+
+      {cartOpen ? (
+        <div className="cart-backdrop" onClick={() => setCartOpen(false)}>
+          <aside className="cart-drawer" onClick={event => event.stopPropagation()}>
+            <div className="cart-header">
+              <div>
+                <p className="eyebrow">{companyConfig.companyName}</p>
+                <h2>Your cart</h2>
+              </div>
+              <button type="button" onClick={() => setCartOpen(false)} aria-label="Close cart"><X size={20} /></button>
+            </div>
+
+            <div className="cart-body">
+              {cart.length === 0 ? (
+                <div className="empty-cart">
+                  <ShoppingBag size={34} />
+                  <p>Your cart is empty.</p>
+                  <button type="button" onClick={() => setCartOpen(false)}>Continue shopping</button>
+                </div>
+              ) : (
+                cart.map(item => (
+                  <article className="cart-item" key={item.key}>
+                    <div className="cart-item-image">
+                      {item.imageUrl ? <img src={item.imageUrl} alt={item.title} /> : <span>{companyConfig.companyName}</span>}
+                    </div>
+                    <div className="cart-item-copy">
+                      <div className="cart-item-title-row">
+                        <div>
+                          <h3>{item.title}</h3>
+                          {(item.color || item.size) ? <p>{[item.color, item.size].filter(Boolean).join(' · ')}</p> : null}
+                        </div>
+                        <button type="button" onClick={() => removeItem(item.key)} aria-label="Remove item"><Trash2 size={16} /></button>
+                      </div>
+                      <div className="cart-item-bottom">
+                        <div className="quantity-control">
+                          <button type="button" onClick={() => updateQuantity(item.key, -1)}><Minus size={14} /></button>
+                          <span>{item.quantity}</span>
+                          <button type="button" onClick={() => updateQuantity(item.key, 1)}><Plus size={14} /></button>
+                        </div>
+                        <strong>{money(priceNumber(item.price) * item.quantity)}</strong>
+                      </div>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+
+            {cart.length > 0 ? (
+              <div className="cart-footer">
+                <div className="cart-subtotal"><span>Subtotal</span><strong>{money(cartSubtotal)}</strong></div>
+                <p>Final stock, delivery and payment details will be confirmed by the company.</p>
+                <a className="cart-checkout" href={buildCartWhatsAppLink()} target="_blank" rel="noreferrer">
+                  <MessageCircle size={18} /> {companyConfig.cart.checkoutLabel}
+                </a>
+                <button className="clear-cart" type="button" onClick={() => setCart([])}>Clear cart</button>
+              </div>
+            ) : null}
+          </aside>
         </div>
       ) : null}
     </div>
