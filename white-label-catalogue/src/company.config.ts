@@ -10,6 +10,12 @@ export const companyConfig = {
   backgroundColor: '#f5f1eb',
   showMemberPrice: true,
   showCustomerNameInWhatsApp: true,
+  cart: {
+    enabled: true,
+    storageKey: 'white-label-catalogue-cart-v1',
+    checkoutLabel: 'Send order via WhatsApp',
+    orderIntro: 'Hello, I would like to place the following order:',
+  },
   filters: {
     categoryLabel: 'Category',
     styleLabel: 'Style',
