@@ -30,6 +30,33 @@ except ModuleNotFoundError:
 
 
 class CompleteWorkReportTests(unittest.TestCase):
+    def test_work_look_product_data_is_complete(self) -> None:
+        products = getattr(generate_a2o_complete_work_report, "WORK_LOOK_PRODUCTS", ())
+        product_directory = getattr(
+            generate_a2o_complete_work_report, "WORK_LOOK_PRODUCT_DIR", None
+        )
+
+        self.assertEqual(
+            [product.category for product in products],
+            ["外套", "上衣", "襯衫", "長褲", "鞋履", "皮帶", "配件"],
+        )
+        self.assertEqual(
+            [product.asset_name for product in products],
+            [
+                "blazer.png",
+                "cable-knit.png",
+                "striped-oxford.png",
+                "trousers.png",
+                "loafers.png",
+                "belt.png",
+                "card-holder.png",
+            ],
+        )
+        self.assertEqual(sum(product.price_hkd for product in products), 9890)
+        self.assertIsNotNone(product_directory)
+        for product in products:
+            self.assertTrue((product_directory / product.asset_name).is_file())
+
     def test_guide_image_layout_places_a_large_full_width_banner_below_the_table(self) -> None:
         layout = generate_a2o_complete_work_report.guide_image_layout(
             table_bottom=520,

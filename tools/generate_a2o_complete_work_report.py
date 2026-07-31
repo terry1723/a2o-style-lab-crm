@@ -50,6 +50,62 @@ GUIDE_IMAGE_TABLE_GAP = 16
 GUIDE_IMAGE_CALLOUT_GAP = 14
 GUIDE_CALLOUT_Y = 106
 GUIDE_IMAGE_MIN_HEIGHT = 140
+WORK_LOOK_PRODUCT_DIR = Path(__file__).resolve().parents[1] / "assets" / "work-look-products"
+
+
+@dataclass(frozen=True)
+class WorkLookProduct:
+    category: str
+    name: str
+    price_hkd: int
+    asset_name: str
+
+
+WORK_LOOK_PRODUCTS: tuple[WorkLookProduct, ...] = (
+    WorkLookProduct(
+        "外套",
+        "Massimo Dutti 棕色羊毛混紡修身西裝外套",
+        2590,
+        "blazer.png",
+    ),
+    WorkLookProduct(
+        "上衣",
+        "Polo Ralph Lauren 米白色經典棉質麻花針織衫",
+        1990,
+        "cable-knit.png",
+    ),
+    WorkLookProduct(
+        "襯衫",
+        "Polo Ralph Lauren 淺藍色細條紋牛津布襯衫",
+        1290,
+        "striped-oxford.png",
+    ),
+    WorkLookProduct(
+        "長褲",
+        "Massimo Dutti 卡其色棉麻混紡褶襇休閒褲",
+        1190,
+        "trousers.png",
+    ),
+    WorkLookProduct(
+        "鞋履",
+        "Massimo Dutti 深棕色流蘇麂皮樂福鞋",
+        1490,
+        "loafers.png",
+    ),
+    WorkLookProduct(
+        "皮帶",
+        "Polo Ralph Lauren 編織皮革飾邊腰帶",
+        790,
+        "belt.png",
+    ),
+    WorkLookProduct(
+        "配件",
+        "Polo Ralph Lauren 深棕色皮革卡夾",
+        550,
+        "card-holder.png",
+    ),
+)
+
 WORK_LOOKS = (
     ("見客 Smart Casual", "海軍藍針織 Polo + 米白直筒褲 + 黑色樂福鞋", "UNIQLO、G.H.BASS", "HK$1,900"),
     ("日常專業造型", "炭灰 Overshirt + 白色 T-shirt + 深灰直筒褲", "COS、UNIQLO", "HK$2,800"),
