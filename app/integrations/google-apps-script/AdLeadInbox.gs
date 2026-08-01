@@ -54,11 +54,39 @@ function findHeaderIndex(headers, candidates) {
   return -1
 }
 
+function isMetaLeadRow(row) {
+  return /^l:/.test(text(row[0]))
+    && /^\d{4}-\d{2}-\d{2}T/.test(text(row[1]))
+    && Boolean(text(row[15]))
+    && Boolean(text(row[16]))
+}
+
+function normalizeMetaLeadRow(source, rowNumber, row) {
+  if (!isMetaLeadRow(row)) return null
+
+  const submittedAt = text(row[1])
+  const name = text(row[15])
+  const phone = text(row[16])
+  const tag = text(row[9]) || text(row[3])
+
+  return {
+    source: source.source,
+    id: `${source.spreadsheetId}:${source.sheetName}:${rowNumber}`,
+    submittedAt: submittedAt,
+    name: name,
+    phone: phone,
+    tag: tag,
+  }
+}
+
 function normalizeLeadRow(source, rowNumber, headers, row) {
   const submittedAtIndex = findHeaderIndex(headers, source.submittedAt)
   const nameIndex = findHeaderIndex(headers, source.name)
   const phoneIndex = findHeaderIndex(headers, source.phone)
   const tagIndex = findHeaderIndex(headers, source.tag)
+
+  const metaLead = normalizeMetaLeadRow(source, rowNumber, row)
+  if (metaLead) return metaLead
 
   if (submittedAtIndex < 0 || nameIndex < 0 || phoneIndex < 0 || tagIndex < 0) return null
 

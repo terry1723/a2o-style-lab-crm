@@ -257,27 +257,27 @@ export default function PortalAdLeads() {
           {loading ? (
             <div className="p-8 text-center text-a2o-black/40 flex justify-center items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> 載入中...</div>
           ) : (
-            <table className="w-full min-w-[1040px] text-sm">
+            <table className="w-full min-w-[1100px] table-fixed text-sm">
               <thead className="bg-a2o-beige text-left text-xs text-a2o-black/60">
                 <tr>
-                  <th className="px-4 py-3 font-medium">姓名</th>
-                  <th className="px-4 py-3 font-medium">電話號碼</th>
-                  <th className="px-4 py-3 font-medium">填表日期</th>
-                  <th className="px-4 py-3 font-medium">來源 Form</th>
-                  <th className="px-4 py-3 font-medium">Tag</th>
-                  <th className="px-4 py-3 font-medium">客人狀況</th>
-                  <th className="px-4 py-3 font-medium">跟進同事</th>
-                  <th className="px-4 py-3 font-medium">預約日期及時間</th>
+                  <th className="w-36 px-4 py-3 font-medium">姓名</th>
+                  <th className="w-40 px-4 py-3 font-medium">電話號碼</th>
+                  <th className="w-56 px-4 py-3 font-medium">填表日期</th>
+                  <th className="w-36 px-4 py-3 font-medium">來源 Form</th>
+                  <th className="w-44 px-4 py-3 font-medium">Tag</th>
+                  <th className="w-40 px-4 py-3 font-medium">客人狀況</th>
+                  <th className="w-32 px-4 py-3 font-medium">跟進同事</th>
+                  <th className="w-52 px-4 py-3 font-medium">預約日期及時間</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-a2o-warm">
                 {visibleLeads.map(lead => (
                   <tr key={lead.sourceKey}>
-                    <td className="px-4 py-3 font-medium">{lead.name}</td>
+                    <td className="px-4 py-3 font-medium"><div className="truncate whitespace-nowrap" title={lead.name}>{lead.name}</div></td>
                     <td className="px-4 py-3 whitespace-nowrap">{lead.phone}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{formatSubmittedAt(lead.submittedAt)}</td>
-                    <td className="px-4 py-3">{lead.source || '-'}</td>
-                    <td className="px-4 py-3">{lead.tag || '-'}</td>
+                    <td className="px-4 py-3"><div className="truncate whitespace-nowrap" title={lead.source || '-'}>{lead.source || '-'}</div></td>
+                    <td className="px-4 py-3"><div className="truncate whitespace-nowrap" title={lead.tag || '-'}>{lead.tag || '-'}</div></td>
                     <td className="px-4 py-3">
                       <select
                         aria-label={`${lead.name} 的客人狀況`}

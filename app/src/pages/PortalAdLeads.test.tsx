@@ -41,6 +41,29 @@ describe('PortalAdLeads', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/ad-leads', expect.objectContaining({ method: 'GET' }))
   })
 
+  it('keeps long source and tag values on one line without stretching a lead row', async () => {
+    const longSource = 'A2O MENS｜男士形象管理初步諮詢表-copy'
+    const longTag = 'A2O MENS｜男士形象管理初步諮詢表-copy'
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        leads: [{
+          source: longSource, id: 'lead-long', submittedAt: '2026-08-01T03:53:17-05:00',
+          name: 'Wing', phone: '97091020', tag: longTag, sourceKey: 'Men New Form:lead-long',
+          status: '未聯絡', owner: 'Ryan',
+        }],
+        unavailableSources: [],
+      }),
+    })
+
+    render(<PortalAdLeads />)
+
+    const source = await screen.findByTitle(longSource)
+    const tag = screen.getByTitle(longTag)
+    expect(source).toHaveClass('truncate', 'whitespace-nowrap')
+    expect(tag).toHaveClass('truncate', 'whitespace-nowrap')
+  })
+
   it('shows the privacy-safe appointment calendar above advertising leads', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

@@ -135,4 +135,32 @@ describe.runIf(existsSync(scriptPath))('advertising lead inbox Apps Script contr
       tag: '',
     })
   })
+
+  it('normalizes Meta lead rows appended with their own column layout', () => {
+    const { contract } = loadInboxContract()
+    const config = contract.SOURCE_CONFIG[0]
+    const headers = [
+      '時間戳記', '姓名', '聯絡電話', '您的職業', '動機', '目前最需優化的盲點',
+      '願景', '同意', 'id', 'created_time', 'ad_id', 'ad_name', 'adset_id',
+      'adset_name', 'campaign_id', 'campaign_name', 'form_id', 'form_name',
+      'is_organic', 'platform', '改善方向', '目標', '開始時間', 'full_name',
+      'whatsapp_電話號碼', 'lead_status',
+    ]
+    const row = [
+      'l:1437781044863568', '2026-07-30T08:06:32-05:00', 'ag:52547019454721',
+      'martin post 3', 'as:52547019454521', 'martin post 3', 'c:52547019454321',
+      'martin post 3', 'f:1321249740153661', 'A2O MENS｜男士形象管理初步諮詢表-copy',
+      'false', 'ig', '身型比例', '提升自信與氣場', '暫時希望先了解服務內容',
+      'Oi Yat Leung', '+85256051618', '', '', '', '', '', '', '', '', 'CREATED',
+    ]
+
+    expect(contract.normalizeLeadRow(config, 19, headers, row)).toEqual({
+      source: config.source,
+      id: `${config.spreadsheetId}:${config.sheetName}:19`,
+      submittedAt: '2026-07-30T08:06:32-05:00',
+      name: 'Oi Yat Leung',
+      phone: '+85256051618',
+      tag: 'A2O MENS｜男士形象管理初步諮詢表-copy',
+    })
+  })
 })
