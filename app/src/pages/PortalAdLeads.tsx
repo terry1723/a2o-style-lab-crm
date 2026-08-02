@@ -274,7 +274,7 @@ export default function PortalAdLeads() {
                 {visibleLeads.map(lead => (
                   <tr key={lead.sourceKey}>
                     <td className="px-4 py-3 font-medium"><div className="truncate whitespace-nowrap" title={lead.name}>{lead.name}</div></td>
-                    <td className="px-4 py-3 whitespace-nowrap">{lead.phone}</td>
+                    <td className="px-4 py-3"><div className="truncate whitespace-nowrap" title={lead.phone}>{lead.phone}</div></td>
                     <td className="px-4 py-3 whitespace-nowrap">{formatSubmittedAt(lead.submittedAt)}</td>
                     <td className="px-4 py-3"><div className="truncate whitespace-nowrap" title={lead.source || '-'}>{lead.source || '-'}</div></td>
                     <td className="px-4 py-3"><div className="truncate whitespace-nowrap" title={lead.tag || '-'}>{lead.tag || '-'}</div></td>

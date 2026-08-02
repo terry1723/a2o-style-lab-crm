@@ -43,13 +43,14 @@ describe('PortalAdLeads', () => {
 
   it('keeps long source and tag values on one line without stretching a lead row', async () => {
     const longSource = 'A2O MENS｜男士形象管理初步諮詢表-copy'
-    const longTag = 'A2O MENS｜男士形象管理初步諮詢表-copy'
+    const longTag = 'A2O MENS｜男士形象管理初步諮詢表-copy-tag'
+    const longPhone = 'https://business.facebook.com/ads/lead/12345678901234567890'
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         leads: [{
           source: longSource, id: 'lead-long', submittedAt: '2026-08-01T03:53:17-05:00',
-          name: 'Wing', phone: '97091020', tag: longTag, sourceKey: 'Men New Form:lead-long',
+          name: 'Wing', phone: longPhone, tag: longTag, sourceKey: 'Men New Form:lead-long',
           status: '未聯絡', owner: 'Ryan',
         }],
         unavailableSources: [],
@@ -62,6 +63,8 @@ describe('PortalAdLeads', () => {
     const tag = screen.getByTitle(longTag)
     expect(source).toHaveClass('truncate', 'whitespace-nowrap')
     expect(tag).toHaveClass('truncate', 'whitespace-nowrap')
+    const phone = screen.getByTitle(longPhone)
+    expect(phone).toHaveClass('truncate', 'whitespace-nowrap')
   })
 
   it('shows the privacy-safe appointment calendar above advertising leads', async () => {
