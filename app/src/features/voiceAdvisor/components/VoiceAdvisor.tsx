@@ -9,7 +9,8 @@ type GeminiMessage = {
 }
 
 const GEMINI_MODEL = 'gemini-3.1-flash-live-preview'
-const GEMINI_WEBSOCKET = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained'
+// Gemini ephemeral tokens currently use the constrained v1alpha Live endpoint.
+const GEMINI_WEBSOCKET = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained'
 
 const A2O_VOICE_INSTRUCTIONS = `You are the A2O AI image consultant for a Hong Kong men's image-improvement and styling business.
 Speak in natural Cantonese by default. Switch to Mandarin or English only when the visitor asks. Be warm, concise, practical and never judgmental.
@@ -207,9 +208,10 @@ export function VoiceAdvisor() {
       }
       socket.onmessage = event => { void handleMessage(event) }
       socket.onerror = () => { setNotice('語音服務暫時未能回應，請稍後再試或改用預約表格。'); setStatus('error') }
-      socket.onclose = () => {
+      socket.onclose = closeEvent => {
         if (socketRef.current === socket) {
-          setNotice('語音連線已中斷，請重新開始。')
+          const detail = closeEvent.reason ? `（${closeEvent.reason}）` : ''
+          setNotice(`語音連線已中斷，請重新開始。${detail}`)
           setStatus('error')
         }
       }
