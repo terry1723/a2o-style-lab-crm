@@ -187,7 +187,7 @@ export function VoiceAdvisor() {
       socket.onopen = () => {
         send({ setup: {
           model: `models/${GEMINI_MODEL}`,
-          responseModalities: ['AUDIO'],
+          generationConfig: { responseModalities: ['AUDIO'] },
           systemInstruction: { parts: [{ text: A2O_VOICE_INSTRUCTIONS }] },
           tools: [BOOKING_TOOL],
         } })
