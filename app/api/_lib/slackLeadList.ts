@@ -357,8 +357,24 @@ export async function syncA2OLeadList(leads: AdLead[]) {
   let items = await listAllItems(listId)
   const listFile = await loadListFile(listId, items)
   const schema = listFile.list_metadata?.schema || []
-  const columns = Object.fromEntries(
+  const namedColumns = Object.fromEntries(
     Object.entries(COLUMN_ALIASES).map(([key, aliases]) => [key, findColumn(schema, aliases)]),
+  ) as Record<keyof typeof COLUMN_ALIASES, SlackListColumn | undefined>
+  const fallbackIndexes: Record<keyof typeof COLUMN_ALIASES, number> = {
+    primary: 0,
+    amount: 1,
+    priority: 2,
+    stage: 3,
+    channel: 4,
+    nextStep: 5,
+    contact: 6,
+    phone: 7,
+    email: 8,
+    owner: 9,
+  }
+  const columns = Object.fromEntries(
+    (Object.keys(COLUMN_ALIASES) as Array<keyof typeof COLUMN_ALIASES>)
+      .map((key) => [key, namedColumns[key] || schema[fallbackIndexes[key]]]),
   ) as Record<keyof typeof COLUMN_ALIASES, SlackListColumn | undefined>
 
   if (!columns.primary?.id || !columns.stage?.id || !columns.phone?.id) {
