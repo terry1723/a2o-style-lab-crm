@@ -41,8 +41,16 @@ jobs:
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
-          curl -fsS --retry 2 --max-time 60 \
+          set -euo pipefail
+          HTTP_STATUS="$(curl -sS --retry 2 --max-time 60 \
             -X POST \
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
-            https://a2o-style-lab.vercel.app/api/slack-sync
+            -o response.json \
+            -w '%{http_code}' \
+            https://a2o-style-lab.vercel.app/api/slack-sync)"
+          cat response.json
+          echo
+          echo "HTTP ${HTTP_STATUS}"
+          test "${HTTP_STATUS}" -ge 200
+          test "${HTTP_STATUS}" -lt 300
