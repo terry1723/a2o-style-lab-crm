@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AssessmentAnswerMap, Attribution } from '../types/assessment'
 import { submitAssessmentLeadToPipeline } from './assessmentLeadApi'
 
+const measurements = { heightCm: 175, weightKg: 68.5 }
+
 describe('submitAssessmentLeadToPipeline', () => {
   it('uploads the original File with a signed token before submitting its private path', async () => {
     const photo = new File(['portrait'], 'full-body.jpg', { type: 'image/jpeg' })
@@ -30,7 +32,7 @@ describe('submitAssessmentLeadToPipeline', () => {
       }))
 
     await submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '9123 4567', privacyConsent: true, marketingConsent: false, photo },
+      input: { name: '陳先生', phone: '9123 4567', ...measurements, privacyConsent: true, marketingConsent: false, photo },
       sessionId: 'assessment_session_1234',
       answers,
       attribution,
@@ -58,7 +60,10 @@ describe('submitAssessmentLeadToPipeline', () => {
         sessionId: 'assessment_session_1234',
         name: '陳先生',
         phone: '9123 4567',
-        privacyConsent: true, marketingConsent: false,
+        heightCm: 175,
+        weightKg: 68.5,
+        privacyConsent: true,
+        marketingConsent: false,
         answers,
         photoPath: '2026/07/assessment_session_1234/photo-id.jpg',
         uploadReceipt: 'signed-upload-receipt',
@@ -75,7 +80,7 @@ describe('submitAssessmentLeadToPipeline', () => {
     const uploadToSignedUrl = vi.fn()
 
     await submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '91234567', privacyConsent: true, marketingConsent: false },
+      input: { name: '陳先生', phone: '91234567', ...measurements, privacyConsent: true, marketingConsent: false },
       sessionId: 'assessment_session_1234',
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
@@ -84,6 +89,8 @@ describe('submitAssessmentLeadToPipeline', () => {
     expect(uploadToSignedUrl).not.toHaveBeenCalled()
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toEqual(expect.objectContaining({
+      heightCm: 175,
+      weightKg: 68.5,
       privacyConsent: true,
       marketingConsent: false,
     }))
@@ -100,7 +107,7 @@ describe('submitAssessmentLeadToPipeline', () => {
     const uploadToSignedUrl = vi.fn().mockRejectedValue(new Error('photo_upload_failed'))
 
     await expect(submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '91234567', privacyConsent: true, marketingConsent: false, photo },
+      input: { name: '陳先生', phone: '91234567', ...measurements, privacyConsent: true, marketingConsent: false, photo },
       sessionId: 'assessment_session_1234',
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
@@ -128,7 +135,7 @@ describe('submitAssessmentLeadToPipeline', () => {
       }))
     const uploadToSignedUrl = vi.fn().mockResolvedValue(undefined)
     const pipelineInput = {
-      input: { name: '陳先生', phone: '91234567', privacyConsent: true as const, marketingConsent: false, photo },
+      input: { name: '陳先生', phone: '91234567', ...measurements, privacyConsent: true as const, marketingConsent: false, photo },
       sessionId: 'retry_session_12345',
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
@@ -173,7 +180,7 @@ describe('submitAssessmentLeadToPipeline', () => {
     }
 
     await expect(submitAssessmentLeadToPipeline({
-      input: { name: '陳先生', phone: '91234567', privacyConsent: true, marketingConsent: false, photo },
+      input: { name: '陳先生', phone: '91234567', ...measurements, privacyConsent: true, marketingConsent: false, photo },
       sessionId: `malformed_session_${isUploadCase ? '1' : '2'}`,
       answers: { q1: ['q1_6'], q2: ['q2_a'], q3: ['q3_a'], q4: ['q4_e'] },
       attribution: { sourceUrl: '', referrer: '' },
