@@ -74,3 +74,4 @@ jobs:
 # Create simplified four-column Objectives Dashboard and add channel tab.
 # Deploy 2026 August weekly Objective Dashboard and monthly KPI.
 # Sync the approved new Lead follow-up copy and WhatsApp prefill.
+# Retry after GitHub OIDC returned a temporary HTTP 503.
