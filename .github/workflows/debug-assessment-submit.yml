@@ -22,6 +22,8 @@ jobs:
             "sessionId": "${SESSION_ID}",
             "name": "SLACK TEST 0814 FIXED",
             "phone": "94838383",
+            "heightCm": 175,
+            "weightKg": 68.5,
             "privacyConsent": true,
             "marketingConsent": true,
             "answers": {
