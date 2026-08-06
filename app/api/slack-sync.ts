@@ -64,7 +64,7 @@ const GITHUB_REPOSITORY = 'terry1723/a2o-style-lab-crm'
 const GITHUB_MAIN_REF = 'refs/heads/main'
 const BOOTSTRAP_KEY = 'slack:bootstrap:v2'
 const INITIAL_STOCK_BATCH_KEY = 'slack:stock-batch:2026-08-06-01'
-const OBJECTIVES_LIST_SETUP_KEY = 'slack:objectives-list:2026-08-07-01'
+const OBJECTIVES_LIST_SETUP_KEY = 'slack:objectives-list:simple-dashboard-2026-08-07-01'
 const STATE_STATUS = '已拒絕'
 const STATE_OWNER = 'New'
 
