@@ -1,0 +1,34 @@
+name: Apply simple objectives dashboard
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/apply-simple-objectives-dashboard.yml'
+      - '.github/scripts/bump_simple_objectives_key.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch objectives setup key
+        run: python .github/scripts/bump_simple_objectives_key.py
+      - name: Commit key change
+        run: |
+          git config user.name "A2O Automation"
+          git config user.email "a2ogrouphk@gmail.com"
+          if git diff --quiet; then
+            echo "No changes required"
+          else
+            git add app/api/slack-sync.ts
+            git commit -m "feat: create simple A2O objectives dashboard"
+            git push origin main
+          fi
