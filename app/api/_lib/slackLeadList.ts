@@ -143,6 +143,13 @@ function normalizePhone(value: unknown): string {
   return digits
 }
 
+function formatPhoneForSlack(value: unknown): string {
+  const digits = normalizePhone(value)
+  if (!digits) return ''
+  if (digits.length === 8) return `+852${digits}`
+  return `+${digits}`
+}
+
 function richText(value: string) {
   return [
     {
@@ -234,8 +241,9 @@ function textPayload(column: SlackListColumn | undefined, value: string): FieldP
 }
 
 function phonePayload(column: SlackListColumn | undefined, value: string): FieldPayload | null {
-  if (!column?.id || !value) return null
-  return { column_id: column.id, phone: [value] }
+  const formatted = formatPhoneForSlack(value)
+  if (!column?.id || !formatted) return null
+  return { column_id: column.id, phone: [formatted] }
 }
 
 function selectPayload(column: SlackListColumn | undefined, choice: SlackListChoice | undefined): FieldPayload | null {
@@ -381,10 +389,11 @@ export async function syncA2OLeadList(leads: AdLead[]) {
     throw new Error('slack_list_required_columns_missing')
   }
 
-  const sampleRows = items.filter((item) => {
-    const title = fieldValues(currentField(item, columns.primary))[0] || ''
-    return SAMPLE_TITLES.has(title)
-  })
+  const sampleRows = items.filter((item) =>
+    (item.fields || []).some((field) =>
+      fieldValues(field).some((value) => SAMPLE_TITLES.has(value.trim())),
+    ),
+  )
   for (const item of sampleRows) {
     if (item.id) await slackApi('slackLists.items.delete', { list_id: listId, id: item.id })
   }
@@ -408,18 +417,24 @@ export async function syncA2OLeadList(leads: AdLead[]) {
   const maxUpdates = Math.max(1, Number(process.env.SLACK_LIST_MAX_UPDATES_PER_RUN || 40))
   let created = 0
   let updated = 0
+  let createFailures = 0
+  let updateFailures = 0
 
   for (const lead of orderedLeads) {
     const phone = normalizePhone(lead.phone)
     const existing = existingByPhone.get(phone)
     if (!existing) {
       if (created >= maxCreates) continue
-      const result = await slackApi('slackLists.items.create', {
-        list_id: listId,
-        initial_fields: buildFields(lead, columns, leadsChannelId),
-      })
-      if (result.item) existingByPhone.set(phone, result.item)
-      created += 1
+      try {
+        const result = await slackApi('slackLists.items.create', {
+          list_id: listId,
+          initial_fields: buildFields(lead, columns, leadsChannelId),
+        })
+        if (result.item) existingByPhone.set(phone, result.item)
+        created += 1
+      } catch {
+        createFailures += 1
+      }
       continue
     }
 
@@ -428,8 +443,12 @@ export async function syncA2OLeadList(leads: AdLead[]) {
       ...field,
       row_id: existing.id,
     }))
-    await slackApi('slackLists.items.update', { list_id: listId, cells })
-    updated += 1
+    try {
+      await slackApi('slackLists.items.update', { list_id: listId, cells })
+      updated += 1
+    } catch {
+      updateFailures += 1
+    }
   }
 
   return {
@@ -439,5 +458,7 @@ export async function syncA2OLeadList(leads: AdLead[]) {
     sampleRowsRemoved: sampleRows.length,
     created,
     updated,
+    createFailures,
+    updateFailures,
   }
 }
