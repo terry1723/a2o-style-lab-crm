@@ -1,3 +1,4 @@
+# A2O Lead List sync uses the existing #a2o-leads List tab.
 display_information:
   name: A2O CRM Bot
   description: A2O lead, client and follow-up notifications
