@@ -68,3 +68,4 @@ jobs:
 # Apply confirmed initial A2O inventory batch.
 # Retry initial stock batch after empty-list schema fix.
 # Populate the stock tab without Slack file attachments.
+# Rerun after production deployment completed.
