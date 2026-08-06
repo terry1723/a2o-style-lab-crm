@@ -1,0 +1,52 @@
+name: Debug assessment submit
+
+on:
+  push:
+    branches:
+      - debug/assessment-submit-20260806
+    paths:
+      - '.github/workflows/debug-assessment-submit.yml'
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call production assessment submit
+        shell: bash
+        run: |
+          set -u
+          SESSION_ID="debugassessment$(date +%s)"
+          PAYLOAD=$(cat <<JSON
+          {
+            "sessionId": "${SESSION_ID}",
+            "name": "SLACK TEST 0814 DEBUG",
+            "phone": "94838383",
+            "privacyConsent": true,
+            "marketingConsent": true,
+            "answers": {
+              "q1": ["q1_5"],
+              "q2": ["q2_f"],
+              "q3": ["q3_f"],
+              "q4": ["q4_d"]
+            },
+            "attribution": {
+              "sourceUrl": "https://a2o-style-lab.vercel.app/",
+              "referrer": "",
+              "utmSource": "github_debug"
+            }
+          }
+          JSON
+          )
+          HTTP_STATUS=$(curl -sS --max-time 90 \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -o response.json \
+            -w '%{http_code}' \
+            --data "${PAYLOAD}" \
+            https://a2o-style-lab.vercel.app/api/assessment-submit)
+          echo "HTTP ${HTTP_STATUS}"
+          cat response.json
+          echo
+          test "${HTTP_STATUS}" -ge 200
+          test "${HTTP_STATUS}" -lt 600
