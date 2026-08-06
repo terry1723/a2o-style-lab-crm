@@ -21,3 +21,5 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci
       - run: npm run build
+
+# Triggered to verify the interactive assessment production merge.
