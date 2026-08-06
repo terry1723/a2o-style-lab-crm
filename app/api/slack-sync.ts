@@ -3,18 +3,6 @@ import { normalizeAdLeads, submittedAtTime, type AdLeadSourceRow } from '../src/
 import { createSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { formatHkd, maskPhone, portalUrl, postSlackMessage } from './_lib/slack.js'
 
-type SyncState = {
-  entity_type: string
-  entity_key: string
-  fingerprint: string
-  first_seen_at?: string
-  last_seen_at?: string
-  last_notified_at?: string | null
-  last_reminded_at?: string | null
-  reminder_count?: number
-  metadata?: Record<string, unknown> | null
-}
-
 type ClientRow = {
   id: string
   name?: string | null
@@ -28,9 +16,37 @@ type ClientRow = {
   updated_at?: string | null
 }
 
+type TrackingRow = {
+  source_key: string
+  status: string
+  owner: string
+  updated_at?: string | null
+}
+
 type SourceResponse = {
   leads: AdLeadSourceRow[]
   unavailableSources: string[]
+}
+
+type GithubOidcPayload = {
+  iss?: string
+  aud?: string | string[]
+  exp?: number
+  nbf?: number
+  repository?: string
+  ref?: string
+  workflow_ref?: string
+  sub?: string
+}
+
+type GithubOpenIdConfiguration = {
+  jwks_uri?: string
+}
+
+type GithubJwk = JsonWebKey & { kid?: string }
+
+type GithubJwks = {
+  keys?: GithubJwk[]
 }
 
 const DEFAULT_CHANNELS = {
@@ -38,6 +54,15 @@ const DEFAULT_CHANNELS = {
   clients: 'C0BNF428XQR',
   dashboard: 'C0BN9NM39BP',
 }
+
+const GITHUB_OIDC_AUDIENCE = 'a2o-slack-sync'
+const GITHUB_REPOSITORY = 'terry1723/a2o-style-lab-crm'
+const GITHUB_MAIN_REF = 'refs/heads/main'
+const BOOTSTRAP_KEY = 'slack:bootstrap:v2'
+const STATE_STATUS = '已拒絕'
+const STATE_OWNER = 'New'
+
+let cachedGithubKeys: { expiresAt: number; keys: GithubJwk[] } | null = null
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -50,10 +75,6 @@ function parseNumber(value: unknown): number {
 
 function channel(name: keyof typeof DEFAULT_CHANNELS): string {
   return process.env[`SLACK_${name.toUpperCase()}_CHANNEL_ID`] || DEFAULT_CHANNELS[name]
-}
-
-function stateId(entityType: string, entityKey: string): string {
-  return `${entityType}:${entityKey}`
 }
 
 function leadFingerprint(status: string, owner: string): string {
@@ -76,16 +97,118 @@ function clientFingerprint(client: ClientRow): string {
   return JSON.stringify(clientSnapshot(client))
 }
 
-function requestSecret(request: VercelRequest): string {
+function hashText(value: string): string {
+  let h1 = 0xdeadbeef
+  let h2 = 0x41c6ce57
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    h1 = Math.imul(h1 ^ code, 2654435761)
+    h2 = Math.imul(h2 ^ code, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return `${(h2 >>> 0).toString(16).padStart(8, '0')}${(h1 >>> 0).toString(16).padStart(8, '0')}`
+}
+
+function eventKey(type: string, ...parts: unknown[]): string {
+  return `slack:${type}:${hashText(parts.map((part) => String(part ?? '')).join('|'))}`
+}
+
+function requestToken(request: VercelRequest): string {
   const authorization = String(request.headers.authorization || '')
   if (authorization.startsWith('Bearer ')) return authorization.slice(7)
   return String(request.headers['x-a2o-sync-secret'] || '')
 }
 
-function isAuthorized(request: VercelRequest): boolean {
+function decodeBase64Url(value: string): Uint8Array {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+  const decoded = atob(padded)
+  return Uint8Array.from(decoded, (character) => character.charCodeAt(0))
+}
+
+function decodeJsonPart(value: string): unknown {
+  return JSON.parse(new TextDecoder().decode(decodeBase64Url(value)))
+}
+
+async function loadGithubKeys(fetcher: typeof fetch = fetch): Promise<GithubJwk[]> {
+  if (cachedGithubKeys && cachedGithubKeys.expiresAt > Date.now()) return cachedGithubKeys.keys
+
+  const configurationResponse = await fetcher(
+    'https://token.actions.githubusercontent.com/.well-known/openid-configuration',
+    { headers: { Accept: 'application/json' } },
+  )
+  if (!configurationResponse.ok) throw new Error('github_oidc_configuration_unavailable')
+
+  const configuration = await configurationResponse.json() as GithubOpenIdConfiguration
+  if (!configuration.jwks_uri) throw new Error('github_oidc_configuration_invalid')
+
+  const keysResponse = await fetcher(configuration.jwks_uri, { headers: { Accept: 'application/json' } })
+  if (!keysResponse.ok) throw new Error('github_oidc_keys_unavailable')
+
+  const payload = await keysResponse.json() as GithubJwks
+  const keys = Array.isArray(payload.keys) ? payload.keys : []
+  if (!keys.length) throw new Error('github_oidc_keys_invalid')
+
+  cachedGithubKeys = { expiresAt: Date.now() + 60 * 60 * 1000, keys }
+  return keys
+}
+
+async function verifyGithubOidc(token: string, fetcher: typeof fetch = fetch): Promise<boolean> {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return false
+
+    const header = decodeJsonPart(parts[0]) as Record<string, unknown>
+    const payload = decodeJsonPart(parts[1]) as GithubOidcPayload
+    if (header.alg !== 'RS256' || typeof header.kid !== 'string') return false
+
+    const keys = await loadGithubKeys(fetcher)
+    const jwk = keys.find((key) => key.kid === header.kid)
+    if (!jwk) return false
+
+    const key = await globalThis.crypto.subtle.importKey(
+      'jwk',
+      jwk,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    )
+
+    const verified = await globalThis.crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5',
+      key,
+      decodeBase64Url(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+    )
+    if (!verified) return false
+
+    const now = Math.floor(Date.now() / 1000)
+    const audience = Array.isArray(payload.aud) ? payload.aud : [payload.aud]
+    const workflowMatches = typeof payload.workflow_ref === 'string'
+      && payload.workflow_ref.includes('.github/workflows/slack-sync.yml@refs/heads/main')
+
+    return payload.iss === 'https://token.actions.githubusercontent.com'
+      && audience.includes(GITHUB_OIDC_AUDIENCE)
+      && typeof payload.exp === 'number'
+      && payload.exp > now
+      && (typeof payload.nbf !== 'number' || payload.nbf <= now + 30)
+      && payload.repository === GITHUB_REPOSITORY
+      && payload.ref === GITHUB_MAIN_REF
+      && workflowMatches
+  } catch {
+    return false
+  }
+}
+
+async function isAuthorized(request: VercelRequest): Promise<boolean> {
+  const token = requestToken(request)
+  if (!token) return false
+
   const configured = process.env.CRON_SECRET || process.env.SLACK_SYNC_SECRET
-  if (!configured) throw new Error('slack_sync_secret_not_configured')
-  return requestSecret(request) === configured
+  if (configured && token === configured) return true
+
+  return verifyGithubOidc(token)
 }
 
 async function readSourceLeads(fetcher: typeof fetch = fetch): Promise<SourceResponse> {
@@ -111,19 +234,14 @@ async function readSourceLeads(fetcher: typeof fetch = fetch): Promise<SourceRes
   }
 }
 
-function nowIso(): string {
-  return new Date().toISOString()
-}
-
 function minutesSince(value: string): number | null {
   const time = submittedAtTime(value)
   return time === null ? null : (Date.now() - time) / 60000
 }
 
-function hoursSince(value?: string | null): number {
-  if (!value) return Number.POSITIVE_INFINITY
-  const time = Date.parse(value)
-  return Number.isFinite(time) ? (Date.now() - time) / 3600000 : Number.POSITIVE_INFINITY
+function reminderEventKey(sourceKey: string, ageMinutes: number, firstReminder: number, repeatMinutes: number): string {
+  const bucket = Math.max(0, Math.floor((ageMinutes - firstReminder) / repeatMinutes))
+  return eventKey('lead-reminder', sourceKey, bucket)
 }
 
 function leadMessage(lead: ReturnType<typeof normalizeAdLeads>[number]): string {
@@ -191,6 +309,24 @@ async function pause(milliseconds: number) {
   await new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+async function markEvents(
+  supabase: ReturnType<typeof createSupabaseAdmin>,
+  keys: string[],
+): Promise<void> {
+  const uniqueKeys = [...new Set(keys)]
+  if (!uniqueKeys.length) return
+
+  const { error } = await supabase.from('ad_lead_tracking').upsert(
+    uniqueKeys.map((sourceKey) => ({
+      source_key: sourceKey,
+      status: STATE_STATUS,
+      owner: STATE_OWNER,
+    })),
+    { onConflict: 'source_key' },
+  )
+  if (error) throw error
+}
+
 export default async function slackSync(request: VercelRequest, response: VercelResponse) {
   response.setHeader('Cache-Control', 'no-store')
   if (!['GET', 'POST'].includes(request.method || '')) {
@@ -199,65 +335,62 @@ export default async function slackSync(request: VercelRequest, response: Vercel
   }
 
   try {
-    if (!isAuthorized(request)) {
+    if (!await isAuthorized(request)) {
       response.status(401).json({ error: 'unauthorized' })
       return
     }
 
     const supabase = createSupabaseAdmin()
-    const [source, trackingResult, clientsResult, statesResult] = await Promise.all([
+    const [source, trackingResult, clientsResult] = await Promise.all([
       readSourceLeads(),
       supabase.from('ad_lead_tracking').select('source_key,status,owner,updated_at'),
       supabase.from('clients').select('*').order('created_at', { ascending: false }),
-      supabase.from('slack_sync_state').select('*'),
     ])
 
     if (trackingResult.error) throw trackingResult.error
     if (clientsResult.error) throw clientsResult.error
-    if (statesResult.error) throw statesResult.error
 
-    const tracking = Object.fromEntries((trackingResult.data || []).map((row) => [row.source_key, row]))
+    const trackingRows = (trackingResult.data || []) as TrackingRow[]
+    const seenEvents = new Set(
+      trackingRows
+        .map((row) => row.source_key)
+        .filter((sourceKey) => sourceKey.startsWith('slack:')),
+    )
+    const tracking = Object.fromEntries(
+      trackingRows
+        .filter((row) => !row.source_key.startsWith('slack:'))
+        .map((row) => [row.source_key, row]),
+    )
     const leads = normalizeAdLeads(source.leads, tracking)
     const clients = (clientsResult.data || []) as ClientRow[]
-    const states = (statesResult.data || []) as SyncState[]
-    const stateMap = new Map(states.map((row) => [stateId(row.entity_type, row.entity_key), row]))
-    const bootstrapped = stateMap.has(stateId('system', 'bootstrap'))
 
-    if (!bootstrapped) {
-      const timestamp = nowIso()
-      const initialStates: SyncState[] = [
-        {
-          entity_type: 'system',
-          entity_key: 'bootstrap',
-          fingerprint: timestamp,
-          first_seen_at: timestamp,
-          last_seen_at: timestamp,
-          last_notified_at: timestamp,
-          metadata: { lead_count: leads.length, client_count: clients.length },
-        },
-        ...leads.map((lead) => ({
-          entity_type: 'lead',
-          entity_key: lead.sourceKey,
-          fingerprint: leadFingerprint(lead.status, lead.owner),
-          first_seen_at: timestamp,
-          last_seen_at: timestamp,
-          last_reminded_at: lead.status === '未聯絡' ? timestamp : null,
-          metadata: { status: lead.status, owner: lead.owner, submittedAt: lead.submittedAt },
-        })),
-        ...clients.map((client) => ({
-          entity_type: 'client',
-          entity_key: String(client.id),
-          fingerprint: clientFingerprint(client),
-          first_seen_at: timestamp,
-          last_seen_at: timestamp,
-          metadata: clientSnapshot(client),
-        })),
-      ]
+    const reminderMinutes = Math.max(5, Number(process.env.SLACK_FOLLOWUP_MINUTES || 15))
+    const reminderRepeatMinutes = Math.max(60, Number(process.env.SLACK_REMINDER_REPEAT_HOURS || 2) * 60)
+    const reminderMaxMinutes = Math.max(reminderMinutes, Number(process.env.SLACK_FOLLOWUP_MAX_HOURS || 72) * 60)
 
-      const { error } = await supabase.from('slack_sync_state').upsert(initialStates, {
-        onConflict: 'entity_type,entity_key',
-      })
-      if (error) throw error
+    if (!seenEvents.has(BOOTSTRAP_KEY)) {
+      const initialKeys = [BOOTSTRAP_KEY]
+
+      for (const lead of leads) {
+        initialKeys.push(eventKey('lead-new', lead.sourceKey))
+        initialKeys.push(eventKey('lead-state', lead.sourceKey, leadFingerprint(lead.status, lead.owner)))
+
+        const ageMinutes = minutesSince(lead.submittedAt)
+        if (lead.status === '未聯絡'
+          && ageMinutes !== null
+          && ageMinutes >= reminderMinutes
+          && ageMinutes <= reminderMaxMinutes) {
+          initialKeys.push(reminderEventKey(lead.sourceKey, ageMinutes, reminderMinutes, reminderRepeatMinutes))
+        }
+      }
+
+      for (const client of clients) {
+        const clientId = String(client.id || '')
+        if (!clientId) continue
+        initialKeys.push(eventKey('client-new', clientId))
+        initialKeys.push(eventKey('client-state', clientId, clientFingerprint(client)))
+        if (parseNumber(client.amount_paid) > 0) initialKeys.push(eventKey('client-paid', clientId))
+      }
 
       await postSlackMessage({
         channel: channel('dashboard'),
@@ -268,22 +401,22 @@ export default async function slackSync(request: VercelRequest, response: Vercel
           '之後會自動通知：新 Lead、未跟進、成交及客戶狀態更新。',
         ].join('\n'),
       })
+      await markEvents(supabase, initialKeys)
 
       response.status(200).json({ ok: true, bootstrapped: true, leads: leads.length, clients: clients.length })
       return
     }
 
     const maxEvents = Math.max(1, Number(process.env.SLACK_MAX_EVENTS_PER_RUN || 8))
-    const reminderMinutes = Math.max(5, Number(process.env.SLACK_FOLLOWUP_MINUTES || 15))
-    const reminderRepeatHours = Math.max(1, Number(process.env.SLACK_REMINDER_REPEAT_HOURS || 2))
-    const maxReminders = Math.max(1, Number(process.env.SLACK_MAX_REMINDERS || 3))
     let sent = 0
     const errors: string[] = []
 
-    const send = async (targetChannel: string, text: string) => {
+    const send = async (targetChannel: string, text: string, stateKeys: string[]) => {
       if (sent >= maxEvents) return false
       try {
         await postSlackMessage({ channel: targetChannel, text })
+        await markEvents(supabase, stateKeys)
+        stateKeys.forEach((key) => seenEvents.add(key))
         sent += 1
         if (sent < maxEvents) await pause(1050)
         return true
@@ -294,104 +427,61 @@ export default async function slackSync(request: VercelRequest, response: Vercel
     }
 
     for (const lead of leads) {
-      const key = stateId('lead', lead.sourceKey)
-      const existing = stateMap.get(key)
-      const fingerprint = leadFingerprint(lead.status, lead.owner)
-      const timestamp = nowIso()
-      let nextState: SyncState = existing || {
-        entity_type: 'lead',
-        entity_key: lead.sourceKey,
-        fingerprint,
-        first_seen_at: timestamp,
-        reminder_count: 0,
-        metadata: {},
+      if (sent >= maxEvents) break
+
+      const createdKey = eventKey('lead-new', lead.sourceKey)
+      const stateKey = eventKey('lead-state', lead.sourceKey, leadFingerprint(lead.status, lead.owner))
+
+      if (!seenEvents.has(createdKey)) {
+        await send(channel('leads'), leadMessage(lead), [createdKey, stateKey])
+      } else if (!seenEvents.has(stateKey)) {
+        await send(channel('leads'), leadUpdateMessage(lead), [stateKey])
       }
 
-      if (!existing) {
-        const delivered = await send(channel('leads'), leadMessage(lead))
-        if (!delivered) continue
-        nextState = { ...nextState, last_notified_at: timestamp }
-      } else if (existing.fingerprint !== fingerprint) {
-        const delivered = await send(channel('leads'), leadUpdateMessage(lead))
-        if (!delivered) continue
-        nextState = { ...nextState, last_notified_at: timestamp }
-      }
+      if (sent >= maxEvents) break
 
       const ageMinutes = minutesSince(lead.submittedAt)
-      const reminderCount = Number(nextState.reminder_count || 0)
-      const reminderDue = lead.status === '未聯絡'
+      if (lead.status === '未聯絡'
         && ageMinutes !== null
         && ageMinutes >= reminderMinutes
-        && reminderCount < maxReminders
-        && hoursSince(nextState.last_reminded_at) >= reminderRepeatHours
-        && Boolean(existing)
-
-      if (reminderDue && sent < maxEvents) {
-        const delivered = await send(channel('leads'), overdueMessage(lead, ageMinutes!))
-        if (delivered) {
-          nextState = {
-            ...nextState,
-            last_reminded_at: timestamp,
-            reminder_count: reminderCount + 1,
-          }
+        && ageMinutes <= reminderMaxMinutes) {
+        const reminderKey = reminderEventKey(lead.sourceKey, ageMinutes, reminderMinutes, reminderRepeatMinutes)
+        if (!seenEvents.has(reminderKey)) {
+          await send(channel('leads'), overdueMessage(lead, ageMinutes), [reminderKey])
         }
       }
-
-      const { error } = await supabase.from('slack_sync_state').upsert({
-        ...nextState,
-        fingerprint,
-        last_seen_at: timestamp,
-        metadata: { status: lead.status, owner: lead.owner, submittedAt: lead.submittedAt },
-      }, { onConflict: 'entity_type,entity_key' })
-      if (error) errors.push(`lead_state:${error.message}`)
     }
 
     for (const client of clients) {
+      if (sent >= maxEvents) break
+
       const clientId = String(client.id || '')
       if (!clientId) continue
 
-      const key = stateId('client', clientId)
-      const existing = stateMap.get(key)
-      const fingerprint = clientFingerprint(client)
-      const snapshot = clientSnapshot(client)
-      const timestamp = nowIso()
+      const createdKey = eventKey('client-new', clientId)
+      const stateKey = eventKey('client-state', clientId, clientFingerprint(client))
+      const paidKey = eventKey('client-paid', clientId)
       const paid = parseNumber(client.amount_paid)
       const planPrice = parseNumber(client.plan_price)
+      const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)
 
-      let shouldNotify = false
-      let conversion = false
-      let message = clientUpdateMessage(client)
-
-      if (!existing) {
-        shouldNotify = paid > 0 || planPrice > 0 || Boolean(client.plan)
-        conversion = paid > 0
-        message = clientMessage(client, conversion)
-      } else if (existing.fingerprint !== fingerprint) {
-        const previousPaid = parseNumber(existing.metadata?.amount_paid)
-        conversion = previousPaid <= 0 && paid > 0
-        shouldNotify = true
-        message = conversion ? clientMessage(client, true) : clientUpdateMessage(client)
+      if (!seenEvents.has(createdKey)) {
+        if (relevant) {
+          await send(
+            channel('clients'),
+            clientMessage(client, paid > 0),
+            [createdKey, stateKey, ...(paid > 0 ? [paidKey] : [])],
+          )
+        } else {
+          await markEvents(supabase, [createdKey, stateKey])
+          seenEvents.add(createdKey)
+          seenEvents.add(stateKey)
+        }
+      } else if (paid > 0 && !seenEvents.has(paidKey)) {
+        await send(channel('clients'), clientMessage(client, true), [paidKey, stateKey])
+      } else if (!seenEvents.has(stateKey)) {
+        await send(channel('clients'), clientUpdateMessage(client), [stateKey])
       }
-
-      let lastNotifiedAt = existing?.last_notified_at || null
-      if (shouldNotify) {
-        const delivered = await send(channel('clients'), message)
-        if (!delivered) continue
-        lastNotifiedAt = timestamp
-      }
-
-      const { error } = await supabase.from('slack_sync_state').upsert({
-        entity_type: 'client',
-        entity_key: clientId,
-        fingerprint,
-        first_seen_at: existing?.first_seen_at || timestamp,
-        last_seen_at: timestamp,
-        last_notified_at: lastNotifiedAt,
-        last_reminded_at: existing?.last_reminded_at || null,
-        reminder_count: Number(existing?.reminder_count || 0),
-        metadata: snapshot,
-      }, { onConflict: 'entity_type,entity_key' })
-      if (error) errors.push(`client_state:${error.message}`)
     }
 
     response.status(errors.length ? 207 : 200).json({

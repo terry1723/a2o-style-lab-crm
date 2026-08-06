@@ -35,30 +35,24 @@ Invite the bot into each channel, especially the private client channel:
 /invite @A2O CRM Bot
 ```
 
-## 2. Apply the Supabase migration
+## 2. Vercel environment variables
 
-Run this migration in the Supabase SQL Editor:
-
-```text
-supabase/migrations/20260806_create_slack_sync_state.sql
-```
-
-The table stores deduplication and reminder state only. It is protected by RLS and accessible only through the service role.
-
-## 3. Add Vercel environment variables
-
-Required:
+Only one new secret is required:
 
 ```text
 SLACK_BOT_TOKEN=xoxb-...
-CRON_SECRET=<long-random-secret>
+```
+
+The integration reuses the existing variables already used by the A2O CRM:
+
+```text
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
 AD_LEAD_APPS_SCRIPT_URL=...
 AD_LEAD_READ_SECRET=...
 ```
 
-Recommended:
+Recommended settings:
 
 ```text
 A2O_PORTAL_URL=https://a2o-style-lab.vercel.app/#/portal/staff
@@ -67,26 +61,36 @@ SLACK_CLIENTS_CHANNEL_ID=C0BNF428XQR
 SLACK_DASHBOARD_CHANNEL_ID=C0BN9NM39BP
 SLACK_FOLLOWUP_MINUTES=15
 SLACK_REMINDER_REPEAT_HOURS=2
-SLACK_MAX_REMINDERS=3
+SLACK_FOLLOWUP_MAX_HOURS=72
 SLACK_MAX_EVENTS_PER_RUN=8
 ```
 
-`CRON_SECRET` is used as the bearer token for `/api/slack-sync`.
+No extra Supabase migration is required. Notification deduplication markers are stored as reserved `slack:` keys inside the existing `ad_lead_tracking` table and do not appear as customer leads.
 
-## 4. Deployment and first run
+## 3. Scheduler and authentication
 
-Deploy the branch. Vercel calls `/api/slack-sync` every five minutes.
+The workflow `.github/workflows/slack-sync.yml` runs every five minutes.
 
-The first run is a safe bootstrap: it records current leads and clients without flooding Slack, then sends one activation summary to `#a2o-dashboard`.
+It requests a short-lived GitHub Actions OIDC token and calls `/api/slack-sync`. The endpoint verifies:
+
+- GitHub token issuer and signature
+- Repository `terry1723/a2o-style-lab-crm`
+- Main branch
+- Exact Slack sync workflow
+
+No cron secret or paid Vercel cron plan is required.
+
+An optional `SLACK_SYNC_SECRET` or `CRON_SECRET` can still be added for manual API testing.
+
+## 4. First run
+
+The first successful run is a safe bootstrap. It records current leads and clients without flooding Slack, then sends one activation summary to `#a2o-dashboard`.
 
 After bootstrap, only new records, changes and overdue follow-ups generate notifications.
 
 ## Manual test
 
-```bash
-curl -H "Authorization: Bearer $CRON_SECRET" \
-  https://a2o-style-lab.vercel.app/api/slack-sync
-```
+Use the GitHub Actions page and run the `A2O Slack sync` workflow with `workflow_dispatch`.
 
 A successful response includes `ok`, `sent`, `leads` and `clients`.
 
