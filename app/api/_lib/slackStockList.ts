@@ -24,6 +24,7 @@ type SlackApiResponse = {
 }
 
 const DEFAULT_STOCK_CHANNEL_ID = 'C0BMZTM7D9D'
+const DEFAULT_STOCK_LIST_ID = 'F0BNFAWGYSW'
 
 function getSlackToken(): string {
   const token = process.env.SLACK_BOT_TOKEN
@@ -148,6 +149,8 @@ function stockSchema(): SlackListColumn[] {
 export async function ensureA2OStockList(existingListId = '') {
   const stockChannelId = process.env.SLACK_STOCK_CHANNEL_ID || DEFAULT_STOCK_CHANNEL_ID
   let listId = existingListId.trim()
+    || process.env.SLACK_STOCK_LIST_ID
+    || DEFAULT_STOCK_LIST_ID
   let created = false
 
   if (!listId) {
