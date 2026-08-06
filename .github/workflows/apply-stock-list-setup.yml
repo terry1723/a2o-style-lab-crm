@@ -18,10 +18,12 @@ jobs:
           fetch-depth: 0
       - name: Add A2O stock list setup
         run: python .github/scripts/patch_stock_list_setup.py
+      - name: Reuse the existing A2O stock list
+        run: python .github/scripts/patch_stock_list_state.py
       - name: Commit patch
         run: |
           git config user.name "A2O Automation"
           git config user.email "a2ogrouphk@gmail.com"
           git add app/api/slack-sync.ts
-          git commit -m "feat: create A2O stock list in Slack"
+          git commit -m "fix: reuse existing A2O stock list"
           git push origin HEAD:main
