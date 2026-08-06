@@ -1,4 +1,4 @@
-name: A2O Slack sync
+name: A2O Slack sync maintenance
 
 on:
   push:
@@ -6,51 +6,38 @@ on:
       - main
     paths:
       - '.github/workflows/slack-sync.yml'
-  schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch:
 
 permissions:
-  contents: read
-  id-token: write
-
-concurrency:
-  group: a2o-slack-sync
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  sync:
+  patch:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Request GitHub OIDC token
-        id: oidc
+      - uses: actions/checkout@v4
+
+      - name: Replace heavy client queries
         shell: bash
         run: |
-          set -euo pipefail
-          RESPONSE="$(curl -fsSL \
-            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=a2o-slack-sync")"
-          TOKEN="$(jq -r '.value' <<<"${RESPONSE}")"
-          test -n "${TOKEN}"
-          test "${TOKEN}" != "null"
-          echo "::add-mask::${TOKEN}"
-          echo "token=${TOKEN}" >> "${GITHUB_OUTPUT}"
+          python - <<'PY'
+          from pathlib import Path
 
-      - name: Bootstrap A2O Slack sync
-        env:
-          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          old = "supabase.from('clients').select('*').order('created_at', { ascending: false }),"
+          new = "supabase.from('clients').select('id,name,phone,plan,plan_price,amount_paid,balance_due,status'),"
+          paths = [Path('app/api/slack-sync.ts'), Path('app/api/slack-bootstrap.ts')]
+
+          for path in paths:
+              text = path.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected query not found in {path}')
+              path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Commit query fix
+        shell: bash
         run: |
-          set -euo pipefail
-          HTTP_STATUS="$(curl -sS --max-time 120 \
-            -X POST \
-            -H "Authorization: Bearer ${OIDC_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -o response.json \
-            -w '%{http_code}' \
-            https://a2o-style-lab.vercel.app/api/slack-bootstrap)"
-          cat response.json
-          echo
-          echo "HTTP ${HTTP_STATUS}"
-          test "${HTTP_STATUS}" -ge 200
-          test "${HTTP_STATUS}" -lt 300
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/api/slack-sync.ts app/api/slack-bootstrap.ts
+          git commit -m "fix: avoid clients table statement timeout in Slack sync"
+          git push
