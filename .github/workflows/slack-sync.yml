@@ -54,3 +54,5 @@ jobs:
           echo "HTTP ${HTTP_STATUS}"
           test "${HTTP_STATUS}" -ge 200
           test "${HTTP_STATUS}" -lt 300
+
+# Lead List synchronization runs inside the existing Slack sync endpoint.
