@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# One-time patch for the new A2O Lead Pipeline WhatsApp follow-up copy.
 path = Path('app/api/_lib/slackLeadList.ts')
 text = path.read_text(encoding='utf-8')
 
