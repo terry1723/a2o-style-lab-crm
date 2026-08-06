@@ -22,4 +22,4 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-# Triggered to verify the interactive assessment production merge.
+# Triggered to verify assessment measurement compatibility fix.
