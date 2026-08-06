@@ -1,0 +1,33 @@
+name: Apply objectives list integration
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/apply-objectives-list.yml'
+      - '.github/scripts/patch_objectives_list.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Patch Slack sync
+        run: python .github/scripts/patch_objectives_list.py
+      - name: Commit integration
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "A2O Automation"
+          git config user.email "a2ogrouphk@gmail.com"
+          git add app/api/slack-sync.ts
+          git commit -m "feat: integrate A2O objectives action plan list"
+          git push
