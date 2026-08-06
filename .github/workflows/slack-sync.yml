@@ -66,3 +66,4 @@ jobs:
 # WhatsApp link backfill batch 1.
 # Create and share the A2O inventory master list.
 # Apply confirmed initial A2O inventory batch.
+# Retry initial stock batch after empty-list schema fix.
