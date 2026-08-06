@@ -218,7 +218,14 @@ function buildFields(
     columns.wechat?.id ? { column_id: columns.wechat.id, rich_text: richText(row.wechatId) } : null,
     columns.cost?.id ? { column_id: columns.cost.id, number: [row.costRmb] } : null,
     columns.updated?.id ? { column_id: columns.updated.id, date: ['2026-08-06'] } : null,
-    columns.source?.id ? { column_id: columns.source.id, rich_text: richText(row.sourceMessage) } : null,
+    columns.source?.id ? {
+      column_id: columns.source.id,
+      link: [{
+        original_url: row.sourceMessage,
+        display_as_url: false,
+        display_name: '查看原始紀錄',
+      }],
+    } : null,
     columns.notes?.id ? { column_id: columns.notes.id, rich_text: richText('首次入帳｜入貨 +1｜已由 ChatGPT 核對') } : null,
   ].filter((field): field is Record<string, unknown> => Boolean(field))
 }
