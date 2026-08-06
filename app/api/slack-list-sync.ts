@@ -1,12 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { normalizeAdLeads, type AdLeadSourceRow } from '../src/features/ad-leads/adLeadService.js'
+import {
+  normalizeAdLeads,
+  type AdLeadOwner,
+  type AdLeadSourceRow,
+  type AdLeadStatus,
+  type AdLeadTracking,
+} from '../src/features/ad-leads/adLeadService.js'
 import { createSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { syncA2OLeadList } from './_lib/slackLeadList.js'
 
 type TrackingRow = {
   source_key: string
-  status: string
-  owner: string
+  status: AdLeadStatus
+  owner: AdLeadOwner
   updated_at?: string | null
 }
 
@@ -56,6 +62,10 @@ function decodeBase64Url(value: string): Uint8Array {
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
   const decoded = atob(padded)
   return Uint8Array.from(decoded, (character) => character.charCodeAt(0))
+}
+
+function toArrayBuffer(value: Uint8Array): ArrayBuffer {
+  return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer
 }
 
 function decodeJsonPart(value: string): unknown {
@@ -109,8 +119,8 @@ async function verifyGithubOidc(token: string, fetcher: typeof fetch = fetch): P
     const verified = await globalThis.crypto.subtle.verify(
       'RSASSA-PKCS1-v1_5',
       key,
-      decodeBase64Url(parts[2]),
-      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+      toArrayBuffer(decodeBase64Url(parts[2])),
+      toArrayBuffer(new TextEncoder().encode(`${parts[0]}.${parts[1]}`)),
     )
     if (!verified) return false
 
@@ -197,10 +207,10 @@ export default async function slackListSync(request: VercelRequest, response: Ve
     if (trackingResult.error) throw trackingResult.error
 
     const trackingRows = (trackingResult.data || []) as TrackingRow[]
-    const tracking = Object.fromEntries(
+    const tracking: Record<string, AdLeadTracking> = Object.fromEntries(
       trackingRows
         .filter((row) => !row.source_key.startsWith('slack:'))
-        .map((row) => [row.source_key, row]),
+        .map((row) => [row.source_key, { status: row.status, owner: row.owner }]),
     )
     const leads = normalizeAdLeads(source.leads, tracking)
     const result = await syncA2OLeadList(leads)
