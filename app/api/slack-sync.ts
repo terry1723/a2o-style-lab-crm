@@ -3,6 +3,7 @@ import { normalizeAdLeads, submittedAtTime, type AdLeadSourceRow } from '../src/
 import { createSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { formatHkd, maskPhone, portalUrl, postSlackMessage } from './_lib/slack.js'
 import { syncA2OLeadList } from './_lib/slackLeadList.js'
+import { ensureA2OStockList } from './_lib/slackStockList.js'
 
 type ClientRow = {
   id: string
@@ -60,6 +61,7 @@ const GITHUB_OIDC_AUDIENCE = 'a2o-slack-sync'
 const GITHUB_REPOSITORY = 'terry1723/a2o-style-lab-crm'
 const GITHUB_MAIN_REF = 'refs/heads/main'
 const BOOTSTRAP_KEY = 'slack:bootstrap:v2'
+const STOCK_LIST_KEY = 'slack:stock-list:v1'
 const STATE_STATUS = '已拒絕'
 const STATE_OWNER = 'New'
 
@@ -365,6 +367,22 @@ export default async function slackSync(request: VercelRequest, response: Vercel
     const leads = normalizeAdLeads(source.leads, tracking)
     const clients = (clientsResult.data || []) as ClientRow[]
 
+    let stockListSetup: Awaited<ReturnType<typeof ensureA2OStockList>> | null = null
+    let stockListSetupError = ''
+    try {
+      const stockListRow = trackingRows.find((row) => row.source_key === STOCK_LIST_KEY)
+      stockListSetup = await ensureA2OStockList(stockListRow?.status || '')
+      if (!stockListRow || stockListRow.status !== stockListSetup.listId) {
+        const { error } = await supabase.from('ad_lead_tracking').upsert(
+          [{ source_key: STOCK_LIST_KEY, status: stockListSetup.listId, owner: 'Inventory' }],
+          { onConflict: 'source_key' },
+        )
+        if (error) throw error
+      }
+    } catch (error) {
+      stockListSetupError = error instanceof Error ? error.message : 'slack_stock_list_setup_failed'
+    }
+
     let leadListSync: Awaited<ReturnType<typeof syncA2OLeadList>> | null = null
     let leadListSyncError = ''
     try {
@@ -419,6 +437,8 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         clients: clients.length,
         leadListSync,
         leadListSyncError,
+        stockListSetup,
+        stockListSetupError,
       })
       return
     }
@@ -507,6 +527,8 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       clients: clients.length,
       leadListSync,
       leadListSyncError,
+      stockListSetup,
+      stockListSetupError,
       unavailableSources: source.unavailableSources,
       errors,
     })
