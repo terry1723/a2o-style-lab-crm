@@ -1,0 +1,427 @@
+import type { AdLead } from '../../src/features/ad-leads/adLeadService.js'
+
+type SlackApiResponse = {
+  ok?: boolean
+  error?: string
+  response_metadata?: { next_cursor?: string }
+  items?: SlackListItem[]
+  item?: SlackListItem
+  list?: SlackListFile
+  file?: SlackListFile
+}
+
+type SlackListField = {
+  key?: string
+  column_id?: string
+  value?: unknown
+  rich_text?: unknown
+  phone?: unknown
+  select?: unknown
+  rating?: unknown
+  user?: unknown
+  channel?: unknown
+}
+
+type SlackListItem = {
+  id?: string
+  fields?: SlackListField[]
+}
+
+type SlackListChoice = {
+  value?: string
+  label?: string
+}
+
+type SlackListColumn = {
+  id?: string
+  key?: string
+  name?: string
+  type?: string
+  is_primary_column?: boolean
+  options?: {
+    choices?: SlackListChoice[]
+  }
+}
+
+type SlackListFile = {
+  id?: string
+  title?: string
+  list_metadata?: {
+    schema?: SlackListColumn[]
+  }
+}
+
+type FieldPayload = Record<string, unknown> & {
+  column_id: string
+}
+
+const DEFAULT_LIST_ID = 'F0BNEBT0FC2'
+const DEFAULT_LEADS_CHANNEL_ID = 'C0BND5QP3AN'
+const SAMPLE_TITLES = new Set(['Swift Supplies', 'Acme Widgets', 'Tech Innovators'])
+
+const OWNER_USER_IDS: Record<string, string> = {
+  Terry: process.env.SLACK_OWNER_TERRY_USER_ID || 'U0BMXN5CVBR',
+  Ryan: process.env.SLACK_OWNER_RYAN_USER_ID || 'U0BMZ4FB97Z',
+  Caren: process.env.SLACK_OWNER_CAREN_USER_ID || 'U0BNHREAMQC',
+}
+
+const COLUMN_ALIASES = {
+  primary: ['Lead 名稱', '客人', '客人姓名', '交易'],
+  amount: ['預計方案金額', '方案金額', '交易金額'],
+  priority: ['Lead 溫度', '優先事項', '優先度'],
+  stage: ['Pipeline 階段', 'Lead 狀態', '狀態', '階段'],
+  channel: ['來源頻道', '頻道'],
+  nextStep: ['快速回覆／下一步', '快速回覆模板', '下一步', '後續步驟'],
+  contact: ['客人姓名', '主要聯絡人'],
+  phone: ['電話／WhatsApp', 'WhatsApp', '電話號碼', '電話'],
+  email: ['電子郵件地址', 'Email', '電郵'],
+  owner: ['負責人', '交易負責人'],
+} as const
+
+function getSlackToken(): string {
+  const token = process.env.SLACK_BOT_TOKEN
+  if (!token) throw new Error('slack_not_configured')
+  return token
+}
+
+async function slackApi(method: string, body: Record<string, unknown>): Promise<SlackApiResponse> {
+  const response = await fetch(`https://slack.com/api/${method}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getSlackToken()}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) throw new Error(`slack_http_${response.status}`)
+
+  const payload = await response.json() as SlackApiResponse
+  if (!payload.ok) throw new Error(`slack_api_${payload.error || 'unknown_error'}`)
+  return payload
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function parseJson(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
+function collectText(value: unknown): string[] {
+  const parsed = parseJson(value)
+  if (typeof parsed === 'string') return [parsed]
+  if (typeof parsed === 'number' || typeof parsed === 'boolean') return [String(parsed)]
+  if (Array.isArray(parsed)) return parsed.flatMap(collectText)
+  if (!isRecord(parsed)) return []
+
+  const directKeys = ['text', 'label', 'value', 'originalUrl', 'url', 'name']
+  const direct = directKeys.flatMap((key) => key in parsed ? collectText(parsed[key]) : [])
+  if (direct.length) return direct
+  return Object.values(parsed).flatMap(collectText)
+}
+
+function fieldValues(field: SlackListField | undefined): string[] {
+  if (!field) return []
+  const preferred = [field.phone, field.select, field.user, field.channel, field.rating, field.rich_text, field.value]
+  for (const value of preferred) {
+    const texts = collectText(value).map((item) => item.trim()).filter(Boolean)
+    if (texts.length) return texts
+  }
+  return []
+}
+
+function normalizePhone(value: unknown): string {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (digits.length > 8 && digits.startsWith('852')) return digits.slice(-8)
+  return digits
+}
+
+function richText(value: string) {
+  return [
+    {
+      type: 'rich_text',
+      elements: [
+        {
+          type: 'rich_text_section',
+          elements: [{ type: 'text', text: value }],
+        },
+      ],
+    },
+  ]
+}
+
+function normalizeLabel(value: unknown): string {
+  return String(value || '').trim().toLowerCase().replace(/[\s／/|｜_-]+/g, '')
+}
+
+function findColumn(schema: SlackListColumn[], aliases: readonly string[]): SlackListColumn | undefined {
+  const normalizedAliases = aliases.map(normalizeLabel)
+  return schema.find((column) => {
+    const names = [column.name, column.key].map(normalizeLabel)
+    return names.some((name) => normalizedAliases.includes(name))
+  })
+}
+
+function stageAliases(status: AdLead['status']): string[] {
+  switch (status) {
+    case '未聯絡':
+      return ['未聯絡', '新 Lead', 'New Lead', '符合資格']
+    case 'WhatsApp 跟進中':
+      return ['WhatsApp 跟進中', '已聯絡', '跟進中', '擬議中的提案']
+    case '已預約':
+      return ['已預約', '等待預約', 'Booked', '正在評估']
+    case '已拒絕':
+      return ['已拒絕', '未成交', 'Lost', '已失去']
+  }
+}
+
+function findStageChoice(column: SlackListColumn | undefined, status: AdLead['status']): SlackListChoice | undefined {
+  const choices = column?.options?.choices || []
+  const aliases = stageAliases(status).map(normalizeLabel)
+  const exact = choices.find((choice) => aliases.includes(normalizeLabel(choice.label || choice.value)))
+  if (exact) return exact
+
+  const fallbackIndex = status === '未聯絡' ? 0
+    : status === 'WhatsApp 跟進中' ? 1
+      : status === '已預約' ? 2
+        : Math.max(0, choices.length - 1)
+  return choices[fallbackIndex]
+}
+
+function leadTitle(lead: AdLead): string {
+  const icon = lead.status === '未聯絡' ? '🆕'
+    : lead.status === 'WhatsApp 跟進中' ? '💬'
+      : lead.status === '已預約' ? '✅'
+        : '❌'
+  return `${icon} ${lead.name}｜${lead.source}`
+}
+
+function nextStepText(lead: AdLead): string {
+  if (lead.status === '未聯絡') {
+    return [
+      `Hi ${lead.name}，你好呀，我係 A2O Style Lab 嘅 ${lead.owner} 👋🏻`,
+      '見到你啱啱完成咗我哋嘅男士形象評估。',
+      '',
+      '想先了解多少少，你今次最想改善嘅係：髮型、穿搭、身形比例，定係整體形象方向呢？',
+      '我可以先按你嘅情況，簡單同你分析一下。',
+    ].join('\n')
+  }
+  if (lead.status === 'WhatsApp 跟進中') {
+    return '了解客人主要痛點、目的及場合；提供簡單分析，再邀請預約。'
+  }
+  if (lead.status === '已預約') {
+    return '發送預約確認；預約前一日再次提醒。'
+  }
+  return '記錄未成交原因；有需要時轉入舊 Lead Reactivation。'
+}
+
+function priorityRating(lead: AdLead): number {
+  if (lead.status === '未聯絡') return 3
+  if (lead.status === 'WhatsApp 跟進中') return 2
+  return 1
+}
+
+function textPayload(column: SlackListColumn | undefined, value: string): FieldPayload | null {
+  if (!column?.id || !value) return null
+  return { column_id: column.id, rich_text: richText(value) }
+}
+
+function phonePayload(column: SlackListColumn | undefined, value: string): FieldPayload | null {
+  if (!column?.id || !value) return null
+  return { column_id: column.id, phone: [value] }
+}
+
+function selectPayload(column: SlackListColumn | undefined, choice: SlackListChoice | undefined): FieldPayload | null {
+  if (!column?.id || !choice?.value) return null
+  return { column_id: column.id, select: [choice.value] }
+}
+
+function ratingPayload(column: SlackListColumn | undefined, value: number): FieldPayload | null {
+  if (!column?.id) return null
+  return { column_id: column.id, rating: [value] }
+}
+
+function channelPayload(column: SlackListColumn | undefined, channelId: string): FieldPayload | null {
+  if (!column?.id || !channelId) return null
+  return { column_id: column.id, channel: [channelId] }
+}
+
+function userPayload(column: SlackListColumn | undefined, userId: string | undefined): FieldPayload | null {
+  if (!column?.id || !userId) return null
+  return { column_id: column.id, user: [userId] }
+}
+
+async function listAllItems(listId: string): Promise<SlackListItem[]> {
+  const items: SlackListItem[] = []
+  let cursor = ''
+  do {
+    const payload = await slackApi('slackLists.items.list', {
+      list_id: listId,
+      limit: 100,
+      ...(cursor ? { cursor } : {}),
+    })
+    items.push(...(payload.items || []))
+    cursor = payload.response_metadata?.next_cursor || ''
+  } while (cursor)
+  return items
+}
+
+async function loadListFile(listId: string, items: SlackListItem[]): Promise<SlackListFile> {
+  const firstId = items.find((item) => item.id)?.id
+  if (firstId) {
+    const info = await slackApi('slackLists.items.info', { list_id: listId, id: firstId })
+    if (info.list?.list_metadata?.schema) return info.list
+  }
+
+  const fileInfo = await slackApi('files.info', { file: listId })
+  if (fileInfo.file?.list_metadata?.schema) return fileInfo.file
+  throw new Error('slack_list_schema_unavailable')
+}
+
+function currentField(item: SlackListItem, column: SlackListColumn | undefined): SlackListField | undefined {
+  if (!column?.id) return undefined
+  return (item.fields || []).find((field) => field.column_id === column.id || field.key === column.key)
+}
+
+function sameText(item: SlackListItem, column: SlackListColumn | undefined, expected: string): boolean {
+  if (!column?.id) return true
+  return fieldValues(currentField(item, column)).join(' ').includes(expected)
+}
+
+function samePhone(item: SlackListItem, column: SlackListColumn | undefined, expected: string): boolean {
+  if (!column?.id) return true
+  return normalizePhone(fieldValues(currentField(item, column))[0]) === normalizePhone(expected)
+}
+
+function sameSelect(item: SlackListItem, column: SlackListColumn | undefined, expected: SlackListChoice | undefined): boolean {
+  if (!column?.id || !expected?.value) return true
+  return fieldValues(currentField(item, column)).includes(expected.value)
+}
+
+function buildFields(
+  lead: AdLead,
+  columns: Record<keyof typeof COLUMN_ALIASES, SlackListColumn | undefined>,
+  leadsChannelId: string,
+): FieldPayload[] {
+  const stageChoice = findStageChoice(columns.stage, lead.status)
+  return [
+    textPayload(columns.primary, leadTitle(lead)),
+    ratingPayload(columns.priority, priorityRating(lead)),
+    selectPayload(columns.stage, stageChoice),
+    channelPayload(columns.channel, leadsChannelId),
+    textPayload(columns.nextStep, nextStepText(lead)),
+    textPayload(columns.contact, lead.name),
+    phonePayload(columns.phone, lead.phone),
+    userPayload(columns.owner, OWNER_USER_IDS[lead.owner]),
+  ].filter((field): field is FieldPayload => Boolean(field))
+}
+
+function rowNeedsUpdate(
+  item: SlackListItem,
+  lead: AdLead,
+  columns: Record<keyof typeof COLUMN_ALIASES, SlackListColumn | undefined>,
+): boolean {
+  return !sameText(item, columns.primary, lead.name)
+    || !samePhone(item, columns.phone, lead.phone)
+    || !sameSelect(item, columns.stage, findStageChoice(columns.stage, lead.status))
+    || !sameText(item, columns.nextStep, nextStepText(lead).slice(0, 35))
+}
+
+function uniqueLatestLeads(leads: AdLead[]): AdLead[] {
+  const seen = new Set<string>()
+  return leads.filter((lead) => {
+    const phone = normalizePhone(lead.phone)
+    if (!phone || seen.has(phone)) return false
+    seen.add(phone)
+    return true
+  })
+}
+
+export async function syncA2OLeadList(leads: AdLead[]) {
+  const listId = process.env.SLACK_LEAD_LIST_ID || DEFAULT_LIST_ID
+  const leadsChannelId = process.env.SLACK_LEADS_CHANNEL_ID || DEFAULT_LEADS_CHANNEL_ID
+
+  await slackApi('slackLists.update', {
+    id: listId,
+    name: 'A2O Lead Pipeline',
+    description_blocks: richText('A2O 新 Lead 自動同步｜未聯絡 → WhatsApp 跟進中 → 已預約 → 已拒絕。新 Lead 每 5 分鐘自動新增；「後續步驟」可直接複製去 WhatsApp／IG DM。'),
+  })
+
+  let items = await listAllItems(listId)
+  const listFile = await loadListFile(listId, items)
+  const schema = listFile.list_metadata?.schema || []
+  const columns = Object.fromEntries(
+    Object.entries(COLUMN_ALIASES).map(([key, aliases]) => [key, findColumn(schema, aliases)]),
+  ) as Record<keyof typeof COLUMN_ALIASES, SlackListColumn | undefined>
+
+  if (!columns.primary?.id || !columns.stage?.id || !columns.phone?.id) {
+    throw new Error('slack_list_required_columns_missing')
+  }
+
+  const sampleRows = items.filter((item) => {
+    const title = fieldValues(currentField(item, columns.primary))[0] || ''
+    return SAMPLE_TITLES.has(title)
+  })
+  for (const item of sampleRows) {
+    if (item.id) await slackApi('slackLists.items.delete', { list_id: listId, id: item.id })
+  }
+  if (sampleRows.length) items = items.filter((item) => !sampleRows.includes(item))
+
+  const existingByPhone = new Map<string, SlackListItem>()
+  for (const item of items) {
+    const phone = normalizePhone(fieldValues(currentField(item, columns.phone))[0])
+    if (phone && !existingByPhone.has(phone)) existingByPhone.set(phone, item)
+  }
+
+  const orderedLeads = uniqueLatestLeads(leads).sort((a, b) => {
+    const rank = (status: AdLead['status']) => status === '未聯絡' ? 0
+      : status === 'WhatsApp 跟進中' ? 1
+        : status === '已預約' ? 2
+          : 3
+    return rank(a.status) - rank(b.status)
+  })
+
+  const maxCreates = Math.max(1, Number(process.env.SLACK_LIST_MAX_CREATES_PER_RUN || 40))
+  const maxUpdates = Math.max(1, Number(process.env.SLACK_LIST_MAX_UPDATES_PER_RUN || 40))
+  let created = 0
+  let updated = 0
+
+  for (const lead of orderedLeads) {
+    const phone = normalizePhone(lead.phone)
+    const existing = existingByPhone.get(phone)
+    if (!existing) {
+      if (created >= maxCreates) continue
+      const result = await slackApi('slackLists.items.create', {
+        list_id: listId,
+        initial_fields: buildFields(lead, columns, leadsChannelId),
+      })
+      if (result.item) existingByPhone.set(phone, result.item)
+      created += 1
+      continue
+    }
+
+    if (!existing.id || updated >= maxUpdates || !rowNeedsUpdate(existing, lead, columns)) continue
+    const cells = buildFields(lead, columns, leadsChannelId).map((field) => ({
+      ...field,
+      row_id: existing.id,
+    }))
+    await slackApi('slackLists.items.update', { list_id: listId, cells })
+    updated += 1
+  }
+
+  return {
+    listId,
+    totalLeads: orderedLeads.length,
+    existingRows: items.length,
+    sampleRowsRemoved: sampleRows.length,
+    created,
+    updated,
+  }
+}
