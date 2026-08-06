@@ -1,4 +1,4 @@
-name: Apply Slack List resilience
+name: Apply Slack WhatsApp link
 
 on:
   push:
@@ -16,12 +16,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Improve Slack List sync resilience
-        run: python .github/scripts/patch_slack_list_resilience.py
+      - name: Add WhatsApp deep links to Lead Pipeline
+        run: python .github/scripts/patch_slack_whatsapp_link.py
       - name: Commit patch
         run: |
           git config user.name "A2O Automation"
           git config user.email "a2ogrouphk@gmail.com"
           git add app/api/_lib/slackLeadList.ts
-          git commit -m "fix: continue Slack List sync past invalid leads"
+          git commit -m "feat: add WhatsApp deep links to Lead Pipeline"
           git push origin HEAD:main
