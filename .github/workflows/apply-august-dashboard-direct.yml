@@ -21,3 +21,5 @@ jobs:
           SECRET_SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           VAR_SLACK_BOT_TOKEN: ${{ vars.SLACK_BOT_TOKEN }}
         run: node .github/scripts/apply_august_dashboard.mjs
+
+# Re-run after SLACK_BOT_TOKEN was added on 2026-08-06.
