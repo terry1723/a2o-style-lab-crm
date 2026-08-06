@@ -12,6 +12,7 @@ import type { AssessmentLeadInput } from '../types/assessment'
 
 const ACCEPTED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024
+const inputClassName = 'min-h-12 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-base text-white outline-none placeholder:text-white/35 focus:border-a2o-pink focus:ring-2 focus:ring-a2o-pink/30'
 
 type Props = {
   submitted: boolean
@@ -26,6 +27,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
   const [photoName, setPhotoName] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [heightCm, setHeightCm] = useState('')
+  const [weightKg, setWeightKg] = useState('')
   const [privacyConsent, setPrivacyConsent] = useState(false)
   const [marketingConsent, setMarketingConsent] = useState(false)
   const [error, setError] = useState('')
@@ -71,6 +74,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     event.preventDefault()
     const cleanPhone = phone.replace(/[\s-]/g, '')
     const validPhone = /^(?:\+?852)?\d{8}$/.test(cleanPhone)
+    const parsedHeight = Number(heightCm)
+    const parsedWeight = Number(weightKg)
 
     if (!name.trim()) {
       setError('請填寫稱呼或姓名。')
@@ -78,6 +83,14 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
     }
     if (!validPhone) {
       setError('請填寫有效的香港 WhatsApp 電話號碼。')
+      return
+    }
+    if (!/^\d+$/.test(heightCm) || parsedHeight < 120 || parsedHeight > 230) {
+      setError('請輸入 120 至 230 cm 的身高。')
+      return
+    }
+    if (!/^\d+(?:\.\d)?$/.test(weightKg) || parsedWeight < 35 || parsedWeight > 200) {
+      setError('請輸入 35 至 200 kg 的體重，最多一位小數。')
       return
     }
     if (!privacyConsent) {
@@ -90,6 +103,8 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
       await onSubmit({
         name: name.trim(),
         phone: cleanPhone,
+        heightCm: parsedHeight,
+        weightKg: parsedWeight,
         privacyConsent: true,
         marketingConsent,
         ...(photoFile ? { photo: photoFile } : {}),
@@ -105,7 +120,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         <CheckCircle2 className="mx-auto h-10 w-10 text-[#8FD3A8]" />
         <h2 className="mt-3 font-serif text-2xl font-medium">已收到你的形象檢測資料</h2>
         <p className="mt-3 text-sm leading-relaxed text-white/70">
-          A2O 團隊會根據你的答案及正面全身相，準備個人形象檢測報告。
+          A2O 團隊會根據你的答案及自願上傳的正面全身相，準備個人形象檢測報告。
           我們會在 1–2 個工作天內透過 WhatsApp 與你聯絡，請留意訊息。
         </p>
       </div>
@@ -200,9 +215,10 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         <input
           id="assessment-name"
           autoComplete="name"
+          maxLength={80}
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="min-h-12 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-base text-white outline-none placeholder:text-white/35 focus:border-a2o-pink focus:ring-2 focus:ring-a2o-pink/30"
+          className={inputClassName}
           placeholder="例如：陳先生"
         />
       </div>
@@ -215,14 +231,40 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
           autoComplete="tel"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
-          className="min-h-12 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-base text-white outline-none placeholder:text-white/35 focus:border-a2o-pink focus:ring-2 focus:ring-a2o-pink/30"
+          className={inputClassName}
           placeholder="例如：9123 4567"
         />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="assessment-height" className="mb-1.5 block text-xs font-medium text-white/70">身高（cm）</label>
+          <input
+            id="assessment-height"
+            inputMode="numeric"
+            autoComplete="off"
+            value={heightCm}
+            onChange={(event) => setHeightCm(event.target.value)}
+            className={inputClassName}
+            placeholder="例如：175"
+          />
+        </div>
+        <div>
+          <label htmlFor="assessment-weight" className="mb-1.5 block text-xs font-medium text-white/70">體重（kg）</label>
+          <input
+            id="assessment-weight"
+            inputMode="decimal"
+            autoComplete="off"
+            value={weightKg}
+            onChange={(event) => setWeightKg(event.target.value)}
+            className={inputClassName}
+            placeholder="例如：68.5"
+          />
+        </div>
       </div>
       <section aria-labelledby="privacy-consent-title" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-xs leading-relaxed text-white/65">
         <h3 id="privacy-consent-title" className="text-sm font-semibold text-white">私隱及知情同意聲明</h3>
         <p className="mt-2">
-          A2O Style Lab 會收集你的姓名、WhatsApp 號碼、問卷答案及自願上傳的相片，用於進行形象及穿搭分析、製作和傳送個人報告，以及處理與本次服務有關的查詢。
+          A2O Style Lab 會收集你的姓名、WhatsApp 號碼、身高、體重、問卷答案及自願上傳的相片，用於進行形象及穿搭分析、製作和傳送個人報告，以及處理與本次服務有關的查詢。
         </p>
         <p className="mt-2">
           相片屬自願提供，不上傳亦可完成基本分析。未經你另行同意，我們不會將相片用於公開宣傳、Before/After 個案、面容識別或 AI 模型訓練。
