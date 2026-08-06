@@ -33,6 +33,7 @@ type SlackApiResponse = {
   error?: string
   items?: SlackListItem[]
   item?: SlackListItem
+  list?: SlackListFile
   file?: SlackListFile
   response_metadata?: { next_cursor?: string }
 }
@@ -162,6 +163,28 @@ async function listAllItems(listId: string): Promise<SlackListItem[]> {
   return items
 }
 
+async function loadSchema(listId: string, items: SlackListItem[]): Promise<SlackListColumn[]> {
+  const firstItemId = items.find((item) => item.id)?.id
+  if (firstItemId) {
+    const info = await slackApi('slackLists.items.info', { list_id: listId, id: firstItemId })
+    const schema = info.list?.list_metadata?.schema || []
+    if (schema.length) return schema
+  }
+
+  const placeholder = await slackApi('slackLists.items.create', { list_id: listId })
+  const placeholderId = placeholder.item?.id
+  if (!placeholderId) throw new Error('slack_stock_placeholder_missing')
+
+  try {
+    const info = await slackApi('slackLists.items.info', { list_id: listId, id: placeholderId })
+    const schema = info.list?.list_metadata?.schema || []
+    if (!schema.length) throw new Error('slack_stock_schema_unavailable')
+    return schema
+  } finally {
+    await slackApi('slackLists.items.delete', { list_id: listId, id: placeholderId })
+  }
+}
+
 function findColumn(schema: SlackListColumn[], name: string): SlackListColumn | undefined {
   const target = normalize(name)
   return schema.find((column) => [column.name, column.key].some((value) => normalize(value) === target))
@@ -179,8 +202,8 @@ export async function syncInitialA2OStockBatch() {
     description_blocks: richText('A2O 所有入貨、出貨、贈送、退貨、損壞及盤點調整嘅正式庫存總表。每個產品、顏色及尺碼分開一行；每次由 ChatGPT 核對 #a2o-stock 未有 ✅ 嘅紀錄後更新。'),
   })
 
-  const fileInfo = await slackApi('files.info', { file: STOCK_LIST_ID })
-  const schema = fileInfo.file?.list_metadata?.schema || []
+  const items = await listAllItems(STOCK_LIST_ID)
+  const schema = await loadSchema(STOCK_LIST_ID, items)
   const columns = {
     product: findColumn(schema, '產品名稱'),
     photo: findColumn(schema, '產品相片'),
@@ -200,7 +223,6 @@ export async function syncInitialA2OStockBatch() {
   }
 
   const pendingChoice = selectChoice(columns.status, '待盤點') || 'unknown'
-  const items = await listAllItems(STOCK_LIST_ID)
   const existing = new Map<string, SlackListItem>()
   for (const item of items) {
     const key = [
