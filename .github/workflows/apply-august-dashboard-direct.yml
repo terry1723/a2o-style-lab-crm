@@ -1,0 +1,23 @@
+name: Apply August dashboard directly
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/apply-august-dashboard-direct.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply August dashboard and KPI in Slack
+        env:
+          SECRET_SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          VAR_SLACK_BOT_TOKEN: ${{ vars.SLACK_BOT_TOKEN }}
+        run: node .github/scripts/apply_august_dashboard.mjs
