@@ -40,7 +40,6 @@ type SlackApiResponse = {
 
 type StockRow = {
   product: string
-  photoFileId: string
   color: string
   size: string
   stock: number
@@ -54,7 +53,6 @@ const STOCK_LIST_ID = 'F0BNFAWGYSW'
 const STOCK_ROWS: StockRow[] = [
   {
     product: '直紋針織短袖圓領',
-    photoFileId: 'F0BNFJGHDGS',
     color: '灰色',
     size: 'M',
     stock: 1,
@@ -65,7 +63,6 @@ const STOCK_ROWS: StockRow[] = [
   },
   {
     product: '拉鏈領直紋針織短袖',
-    photoFileId: 'F0BNHHD0LLR',
     color: '米白色',
     size: 'M',
     stock: 1,
@@ -76,7 +73,6 @@ const STOCK_ROWS: StockRow[] = [
   },
   {
     product: '麻質半拉鏈假兩件上衣',
-    photoFileId: 'F0BN08VBU3H',
     color: '白色',
     size: 'L',
     stock: 1,
@@ -195,6 +191,38 @@ function selectChoice(column: SlackListColumn | undefined, label: string): strin
   return (column?.options?.choices || []).find((choice) => normalize(choice.label || choice.value) === target)?.value
 }
 
+function buildFields(
+  row: StockRow,
+  columns: {
+    product?: SlackListColumn
+    color?: SlackListColumn
+    size?: SlackListColumn
+    stock?: SlackListColumn
+    status?: SlackListColumn
+    supplier?: SlackListColumn
+    wechat?: SlackListColumn
+    cost?: SlackListColumn
+    updated?: SlackListColumn
+    source?: SlackListColumn
+    notes?: SlackListColumn
+  },
+) {
+  const statusChoice = selectChoice(columns.status, '待盤點')
+  return [
+    columns.product?.id ? { column_id: columns.product.id, rich_text: richText(row.product) } : null,
+    columns.color?.id ? { column_id: columns.color.id, rich_text: richText(row.color) } : null,
+    columns.size?.id ? { column_id: columns.size.id, rich_text: richText(row.size) } : null,
+    columns.stock?.id ? { column_id: columns.stock.id, number: [row.stock] } : null,
+    columns.status?.id && statusChoice ? { column_id: columns.status.id, select: [statusChoice] } : null,
+    columns.supplier?.id ? { column_id: columns.supplier.id, rich_text: richText(row.supplier) } : null,
+    columns.wechat?.id ? { column_id: columns.wechat.id, rich_text: richText(row.wechatId) } : null,
+    columns.cost?.id ? { column_id: columns.cost.id, number: [row.costRmb] } : null,
+    columns.updated?.id ? { column_id: columns.updated.id, date: ['2026-08-06'] } : null,
+    columns.source?.id ? { column_id: columns.source.id, rich_text: richText(row.sourceMessage) } : null,
+    columns.notes?.id ? { column_id: columns.notes.id, rich_text: richText('首次入帳｜入貨 +1｜已由 ChatGPT 核對') } : null,
+  ].filter((field): field is Record<string, unknown> => Boolean(field))
+}
+
 export async function syncInitialA2OStockBatch() {
   await slackApi('slackLists.update', {
     id: STOCK_LIST_ID,
@@ -206,7 +234,6 @@ export async function syncInitialA2OStockBatch() {
   const schema = await loadSchema(STOCK_LIST_ID, items)
   const columns = {
     product: findColumn(schema, '產品名稱'),
-    photo: findColumn(schema, '產品相片'),
     color: findColumn(schema, '顏色'),
     size: findColumn(schema, '尺碼'),
     stock: findColumn(schema, '現有庫存'),
@@ -222,51 +249,50 @@ export async function syncInitialA2OStockBatch() {
     throw new Error('slack_stock_required_columns_missing')
   }
 
-  const pendingChoice = selectChoice(columns.status, '待盤點') || 'unknown'
   const existing = new Map<string, SlackListItem>()
+  const blankItems: SlackListItem[] = []
   for (const item of items) {
-    const key = [
-      fieldText(item, columns.product),
-      fieldText(item, columns.color),
-      fieldText(item, columns.size),
-    ].map(normalize).join('|')
-    if (key !== '||') existing.set(key, item)
+    const product = fieldText(item, columns.product)
+    const color = fieldText(item, columns.color)
+    const size = fieldText(item, columns.size)
+    const key = [product, color, size].map(normalize).join('|')
+    if (key === '||') blankItems.push(item)
+    else existing.set(key, item)
   }
 
   let created = 0
   let updated = 0
+  let reusedBlank = 0
   for (const row of STOCK_ROWS) {
     const key = [row.product, row.color, row.size].map(normalize).join('|')
-    const initialFields = [
-      columns.product?.id ? { column_id: columns.product.id, rich_text: richText(row.product) } : null,
-      columns.photo?.id ? { column_id: columns.photo.id, attachment: [row.photoFileId] } : null,
-      columns.color?.id ? { column_id: columns.color.id, rich_text: richText(row.color) } : null,
-      columns.size?.id ? { column_id: columns.size.id, rich_text: richText(row.size) } : null,
-      columns.stock?.id ? { column_id: columns.stock.id, number: [row.stock] } : null,
-      columns.status?.id ? { column_id: columns.status.id, select: [pendingChoice] } : null,
-      columns.supplier?.id ? { column_id: columns.supplier.id, rich_text: richText(row.supplier) } : null,
-      columns.wechat?.id ? { column_id: columns.wechat.id, rich_text: richText(row.wechatId) } : null,
-      columns.cost?.id ? { column_id: columns.cost.id, number: [row.costRmb] } : null,
-      columns.updated?.id ? { column_id: columns.updated.id, date: ['2026-08-06'] } : null,
-      columns.source?.id ? {
-        column_id: columns.source.id,
-        link: [{ original_url: row.sourceMessage, display_as_url: false, display_name: '查看原始紀錄' }],
-      } : null,
-      columns.notes?.id ? { column_id: columns.notes.id, rich_text: richText('首次入帳｜入貨 +1｜已由 ChatGPT 核對') } : null,
-    ].filter((field): field is Record<string, unknown> => Boolean(field))
-
+    const fields = buildFields(row, columns)
     const current = existing.get(key)
-    if (!current?.id) {
-      await slackApi('slackLists.items.create', { list_id: STOCK_LIST_ID, initial_fields: initialFields })
-      created += 1
-    } else {
+
+    if (current?.id) {
       await slackApi('slackLists.items.update', {
         list_id: STOCK_LIST_ID,
-        cells: initialFields.map((field) => ({ ...field, row_id: current.id })),
+        cells: fields.map((field) => ({ ...field, row_id: current.id })),
       })
       updated += 1
+      continue
     }
+
+    const blank = blankItems.shift()
+    if (blank?.id) {
+      await slackApi('slackLists.items.update', {
+        list_id: STOCK_LIST_ID,
+        cells: fields.map((field) => ({ ...field, row_id: blank.id })),
+      })
+      reusedBlank += 1
+      continue
+    }
+
+    await slackApi('slackLists.items.create', {
+      list_id: STOCK_LIST_ID,
+      initial_fields: fields,
+    })
+    created += 1
   }
 
-  return { listId: STOCK_LIST_ID, created, updated, total: STOCK_ROWS.length }
+  return { listId: STOCK_LIST_ID, created, updated, reusedBlank, total: STOCK_ROWS.length }
 }
