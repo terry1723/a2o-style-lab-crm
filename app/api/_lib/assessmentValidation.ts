@@ -8,6 +8,8 @@ export type AssessmentSubmissionPayload = {
   sessionId: string
   name: string
   phone: string
+  heightCm: number
+  weightKg: number
   privacyConsent: true
   marketingConsent: boolean
   answers: AssessmentAnswerMap
@@ -22,6 +24,21 @@ export function normaliseHongKongPhone(phone: string) {
   if (/^852\d{8}$/.test(clean)) return `+${clean}`
   if (/^\d{8}$/.test(clean)) return `+852${clean}`
   throw new Error('invalid_phone')
+}
+
+function parseMeasurement(value: unknown, key: 'height' | 'weight') {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) throw new Error(`invalid_${key}`)
+
+  if (key === 'height') {
+    if (!Number.isInteger(parsed) || parsed < 120 || parsed > 230) throw new Error('invalid_height')
+    return parsed
+  }
+
+  if (parsed < 35 || parsed > 200 || Math.round(parsed * 10) !== parsed * 10) {
+    throw new Error('invalid_weight')
+  }
+  return parsed
 }
 
 function parseAnswers(value: unknown): AssessmentAnswerMap {
@@ -87,6 +104,8 @@ export function validateAssessmentSubmission(value: unknown): AssessmentSubmissi
     sessionId,
     name,
     phone: normaliseHongKongPhone(typeof input.phone === 'string' ? input.phone : ''),
+    heightCm: parseMeasurement(input.heightCm, 'height'),
+    weightKg: parseMeasurement(input.weightKg, 'weight'),
     privacyConsent: true,
     marketingConsent: input.marketingConsent === true,
     answers: parseAnswers(input.answers),
