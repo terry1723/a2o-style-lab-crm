@@ -5,6 +5,7 @@ import { formatHkd, maskPhone, portalUrl, postSlackMessage } from './_lib/slack.
 import { syncA2OLeadList } from './_lib/slackLeadList.js'
 import { ensureA2OStockList } from './_lib/slackStockList.js'
 import { syncInitialA2OStockBatch } from './_lib/slackInitialStockBatch.js'
+import { createA2OObjectivesList } from './_lib/slackObjectivesList.js'
 
 type ClientRow = {
   id: string
@@ -63,6 +64,7 @@ const GITHUB_REPOSITORY = 'terry1723/a2o-style-lab-crm'
 const GITHUB_MAIN_REF = 'refs/heads/main'
 const BOOTSTRAP_KEY = 'slack:bootstrap:v2'
 const INITIAL_STOCK_BATCH_KEY = 'slack:stock-batch:2026-08-06-01'
+const OBJECTIVES_LIST_SETUP_KEY = 'slack:objectives-list:2026-08-07-01'
 const STATE_STATUS = '已拒絕'
 const STATE_OWNER = 'New'
 
@@ -397,6 +399,19 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       }
     }
 
+
+    let objectivesListSetup: Awaited<ReturnType<typeof createA2OObjectivesList>> | null = null
+    let objectivesListSetupError = ''
+    if (!seenEvents.has(OBJECTIVES_LIST_SETUP_KEY)) {
+      try {
+        objectivesListSetup = await createA2OObjectivesList()
+        await markEvents(supabase, [OBJECTIVES_LIST_SETUP_KEY])
+        seenEvents.add(OBJECTIVES_LIST_SETUP_KEY)
+      } catch (error) {
+        objectivesListSetupError = error instanceof Error ? error.message : 'slack_objectives_list_setup_failed'
+      }
+    }
+
     const reminderMinutes = Math.max(5, Number(process.env.SLACK_FOLLOWUP_MINUTES || 15))
     const reminderRepeatMinutes = Math.max(60, Number(process.env.SLACK_REMINDER_REPEAT_HOURS || 2) * 60)
     const reminderMaxMinutes = Math.max(reminderMinutes, Number(process.env.SLACK_FOLLOWUP_MAX_HOURS || 72) * 60)
@@ -449,6 +464,8 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         stockBatchSyncError,
         stockListSetup,
         stockListSetupError,
+        objectivesListSetup,
+        objectivesListSetupError,
       })
       return
     }
@@ -541,6 +558,8 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       stockBatchSyncError,
       stockListSetup,
       stockListSetupError,
+      objectivesListSetup,
+      objectivesListSetupError,
       unavailableSources: source.unavailableSources,
       errors,
     })
