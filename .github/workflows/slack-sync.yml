@@ -59,3 +59,4 @@ jobs:
 # Triggered after Slack app reinstall on 2026-08-06.
 # Triggered after Slack List column mapping fix.
 # Triggered for method-specific Slack List diagnostics.
+# Triggered after resilient per-lead handling.
