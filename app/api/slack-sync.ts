@@ -61,7 +61,6 @@ const GITHUB_OIDC_AUDIENCE = 'a2o-slack-sync'
 const GITHUB_REPOSITORY = 'terry1723/a2o-style-lab-crm'
 const GITHUB_MAIN_REF = 'refs/heads/main'
 const BOOTSTRAP_KEY = 'slack:bootstrap:v2'
-const STOCK_LIST_KEY = 'slack:stock-list:v1'
 const STATE_STATUS = '已拒絕'
 const STATE_OWNER = 'New'
 
@@ -370,15 +369,7 @@ export default async function slackSync(request: VercelRequest, response: Vercel
     let stockListSetup: Awaited<ReturnType<typeof ensureA2OStockList>> | null = null
     let stockListSetupError = ''
     try {
-      const stockListRow = trackingRows.find((row) => row.source_key === STOCK_LIST_KEY)
-      stockListSetup = await ensureA2OStockList(stockListRow?.status || '')
-      if (!stockListRow || stockListRow.status !== stockListSetup.listId) {
-        const { error } = await supabase.from('ad_lead_tracking').upsert(
-          [{ source_key: STOCK_LIST_KEY, status: stockListSetup.listId, owner: 'Inventory' }],
-          { onConflict: 'source_key' },
-        )
-        if (error) throw error
-      }
+      stockListSetup = await ensureA2OStockList()
     } catch (error) {
       stockListSetupError = error instanceof Error ? error.message : 'slack_stock_list_setup_failed'
     }
