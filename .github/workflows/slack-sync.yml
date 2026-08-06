@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   sync:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Request GitHub OIDC token
@@ -67,3 +67,4 @@ jobs:
 # Create and share the A2O inventory master list.
 # Apply confirmed initial A2O inventory batch.
 # Retry initial stock batch after empty-list schema fix.
+# Populate the stock tab without Slack file attachments.
