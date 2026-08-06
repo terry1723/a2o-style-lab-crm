@@ -1,0 +1,33 @@
+name: Apply lead follow-up template
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/scripts/patch_lead_followup_template.py'
+      - '.github/workflows/apply-lead-followup-template.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch lead follow-up template
+        run: python .github/scripts/patch_lead_followup_template.py
+      - name: Commit updated template
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "A2O Automation"
+          git config user.email "a2ogrouphk@gmail.com"
+          git add app/api/_lib/slackLeadList.ts
+          git commit -m "feat: update new lead follow-up message"
+          git push
