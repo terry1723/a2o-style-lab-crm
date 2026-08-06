@@ -52,6 +52,13 @@ function publicError(error: unknown) {
   if (message === 'sheet_server_not_configured' || message === 'supabase_server_not_configured') {
     return { status: 503, error: 'server_not_configured' }
   }
+  if (message.startsWith('sheet_write_failed:')) {
+    return {
+      status: 502,
+      error: 'submission_unavailable',
+      reason: message.slice('sheet_write_failed:'.length),
+    }
+  }
   return { status: 502, error: 'submission_unavailable' }
 }
 
@@ -111,7 +118,10 @@ export function createSubmissionHandler(dependencies: Dependencies) {
       response.status(200).json({ ok: true, duplicate: appendResult.duplicate })
     } catch (error) {
       const mapped = publicError(error)
-      response.status(mapped.status).json({ error: mapped.error })
+      response.status(mapped.status).json({
+        error: mapped.error,
+        ...('reason' in mapped ? { reason: mapped.reason } : {}),
+      })
     }
   }
 }
