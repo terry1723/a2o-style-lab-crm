@@ -74,7 +74,7 @@ const COLUMN_ALIASES = {
   nextStep: ['快速回覆／下一步', '快速回覆模板', '下一步', '後續步驟'],
   contact: ['客人姓名', '主要聯絡人'],
   phone: ['電話／WhatsApp', 'WhatsApp', '電話號碼', '電話'],
-  email: ['電子郵件地址', 'Email', '電郵'],
+  email: ['WhatsApp 連結', 'WhatsApp', '電子郵件地址', 'Email', '電郵'],
   owner: ['負責人', '交易負責人'],
 } as const
 
@@ -258,6 +258,12 @@ function whatsappUrl(lead: AdLead): string {
   return `https://wa.me/${phone}${message ? `?text=${encodeURIComponent(message)}` : ''}`
 }
 
+function whatsAppUrl(lead: AdLead): string {
+  const digits = String(lead.phone || '').replace(/\D/g, '')
+  const internationalPhone = digits.length === 8 ? `852${digits}` : digits
+  return `https://wa.me/${internationalPhone}?text=${encodeURIComponent(nextStepText(lead))}`
+}
+
 function priorityRating(lead: AdLead): number {
   if (lead.status === '未聯絡') return 3
   if (lead.status === 'WhatsApp 跟進中') return 2
@@ -267,6 +273,11 @@ function priorityRating(lead: AdLead): number {
 function textPayload(column: SlackListColumn | undefined, value: string): FieldPayload | null {
   if (!column?.id || !value) return null
   return { column_id: column.id, rich_text: richText(value) }
+}
+
+function linkPayload(column: SlackListColumn | undefined, label: string, url: string): FieldPayload | null {
+  if (!column?.id || !url) return null
+  return { column_id: column.id, rich_text: richTextLink(label, url) }
 }
 
 function whatsappPayload(column: SlackListColumn | undefined, lead: AdLead): FieldPayload | null {
@@ -366,6 +377,7 @@ function buildFields(
     textPayload(columns.nextStep, nextStepText(lead)),
     whatsappPayload(columns.contact, lead),
     phonePayload(columns.phone, lead.phone),
+    linkPayload(columns.email, '開啟 WhatsApp', whatsAppUrl(lead)),
     userPayload(columns.owner, OWNER_USER_IDS[lead.owner]),
   ].filter((field): field is FieldPayload => Boolean(field))
 }
@@ -379,6 +391,7 @@ function rowNeedsUpdate(
     || !samePhone(item, columns.phone, lead.phone)
     || !sameSelect(item, columns.stage, findStageChoice(columns.stage, lead.status))
     || !sameText(item, columns.nextStep, nextStepText(lead).slice(0, 35))
+    || !sameText(item, columns.email, whatsAppUrl(lead))
     || !sameText(item, columns.contact, whatsappUrl(lead) || lead.name)
 }
 
