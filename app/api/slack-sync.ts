@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { formatHkd, maskPhone, portalUrl, postSlackMessage } from './_lib/slack.js'
 import { syncA2OLeadList } from './_lib/slackLeadList.js'
 import { ensureA2OStockList } from './_lib/slackStockList.js'
+import { syncInitialA2OStockBatch } from './_lib/slackInitialStockBatch.js'
 
 type ClientRow = {
   id: string
@@ -61,6 +62,7 @@ const GITHUB_OIDC_AUDIENCE = 'a2o-slack-sync'
 const GITHUB_REPOSITORY = 'terry1723/a2o-style-lab-crm'
 const GITHUB_MAIN_REF = 'refs/heads/main'
 const BOOTSTRAP_KEY = 'slack:bootstrap:v2'
+const INITIAL_STOCK_BATCH_KEY = 'slack:stock-batch:2026-08-06-01'
 const STATE_STATUS = '已拒絕'
 const STATE_OWNER = 'New'
 
@@ -382,6 +384,19 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       leadListSyncError = error instanceof Error ? error.message : 'slack_list_sync_failed'
     }
 
+
+    let stockBatchSync: Awaited<ReturnType<typeof syncInitialA2OStockBatch>> | null = null
+    let stockBatchSyncError = ''
+    if (!seenEvents.has(INITIAL_STOCK_BATCH_KEY)) {
+      try {
+        stockBatchSync = await syncInitialA2OStockBatch()
+        await markEvents(supabase, [INITIAL_STOCK_BATCH_KEY])
+        seenEvents.add(INITIAL_STOCK_BATCH_KEY)
+      } catch (error) {
+        stockBatchSyncError = error instanceof Error ? error.message : 'slack_initial_stock_batch_failed'
+      }
+    }
+
     const reminderMinutes = Math.max(5, Number(process.env.SLACK_FOLLOWUP_MINUTES || 15))
     const reminderRepeatMinutes = Math.max(60, Number(process.env.SLACK_REMINDER_REPEAT_HOURS || 2) * 60)
     const reminderMaxMinutes = Math.max(reminderMinutes, Number(process.env.SLACK_FOLLOWUP_MAX_HOURS || 72) * 60)
@@ -428,6 +443,10 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         clients: clients.length,
         leadListSync,
         leadListSyncError,
+      stockBatchSync,
+      stockBatchSyncError,
+        stockBatchSync,
+        stockBatchSyncError,
         stockListSetup,
         stockListSetupError,
       })
@@ -518,6 +537,8 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       clients: clients.length,
       leadListSync,
       leadListSyncError,
+      stockBatchSync,
+      stockBatchSyncError,
       stockListSetup,
       stockListSetupError,
       unavailableSources: source.unavailableSources,
