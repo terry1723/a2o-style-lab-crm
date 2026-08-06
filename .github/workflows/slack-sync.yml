@@ -1,6 +1,11 @@
 name: A2O Slack sync
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/slack-sync.yml'
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
