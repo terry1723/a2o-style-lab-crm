@@ -56,3 +56,4 @@ jobs:
           test "${HTTP_STATUS}" -lt 300
 
 # Lead List synchronization runs inside the existing Slack sync endpoint.
+# Triggered after Slack app reinstall on 2026-08-06.
