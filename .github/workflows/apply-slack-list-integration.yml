@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Patch existing Slack sync endpoint
-        shell: python {0}
+        shell: 'python {0}'
         run: |
           from pathlib import Path
 
