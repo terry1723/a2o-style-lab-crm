@@ -97,7 +97,7 @@ async function slackApi(method: string, body: Record<string, unknown>): Promise<
   if (!response.ok) throw new Error(`slack_http_${response.status}`)
 
   const payload = await response.json() as SlackApiResponse
-  if (!payload.ok) throw new Error(`slack_api_${payload.error || 'unknown_error'}`)
+  if (!payload.ok) throw new Error(`slack_api_${method}_${payload.error || 'unknown_error'}`)
   return payload
 }
 
