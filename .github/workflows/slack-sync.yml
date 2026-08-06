@@ -57,3 +57,4 @@ jobs:
 
 # Lead List synchronization runs inside the existing Slack sync endpoint.
 # Triggered after Slack app reinstall on 2026-08-06.
+# Triggered after Slack List column mapping fix.
