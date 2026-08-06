@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/slack-sync",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
