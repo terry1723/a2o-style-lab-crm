@@ -20,7 +20,7 @@ jobs:
           PAYLOAD=$(cat <<JSON
           {
             "sessionId": "${SESSION_ID}",
-            "name": "SLACK TEST 0814 DEBUG",
+            "name": "SLACK TEST 0814 FIXED",
             "phone": "94838383",
             "privacyConsent": true,
             "marketingConsent": true,
@@ -33,7 +33,7 @@ jobs:
             "attribution": {
               "sourceUrl": "https://a2o-style-lab.vercel.app/",
               "referrer": "",
-              "utmSource": "github_debug"
+              "utmSource": "github_debug_fixed"
             }
           }
           JSON
@@ -49,4 +49,4 @@ jobs:
           cat response.json
           echo
           test "${HTTP_STATUS}" -ge 200
-          test "${HTTP_STATUS}" -lt 600
+          test "${HTTP_STATUS}" -lt 300
