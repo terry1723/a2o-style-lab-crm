@@ -2,6 +2,7 @@ from pathlib import Path
 
 # One-time patch for the new A2O Lead Pipeline WhatsApp follow-up copy.
 # Re-triggered on 2026-08-07 so the production CRM uses the approved copy.
+# Retry after a transient GitHub runner setup failure.
 path = Path('app/api/_lib/slackLeadList.ts')
 text = path.read_text(encoding='utf-8')
 
