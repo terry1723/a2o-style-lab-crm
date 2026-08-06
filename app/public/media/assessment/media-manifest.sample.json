@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "experienceId": "a2o-four-video-image-assessment",
+  "videoSpec": {
+    "aspectRatio": "9:16",
+    "preferredResolution": "1080x1920",
+    "videoCodec": "H.264",
+    "audioCodec": "AAC"
+  },
+  "scenes": [
+    { "id": "scene-01", "order": 1, "video": "question-01.mp4", "questionId": "q1" },
+    { "id": "scene-02", "order": 2, "video": "question-02.mp4", "questionId": "q2" },
+    { "id": "scene-03", "order": 3, "video": "question-03.mp4", "questionId": "q3" },
+    { "id": "scene-04", "order": 4, "video": "question-04.mp4", "questionId": "q4" }
+  ],
+  "transitionVideos": []
+}
