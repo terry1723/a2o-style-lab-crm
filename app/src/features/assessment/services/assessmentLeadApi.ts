@@ -121,6 +121,8 @@ export async function submitAssessmentLeadToPipeline(
       sessionId: payload.sessionId,
       name: payload.input.name,
       phone: payload.input.phone,
+      heightCm: payload.input.heightCm,
+      weightKg: payload.input.weightKg,
       privacyConsent: payload.input.privacyConsent,
       marketingConsent: payload.input.marketingConsent,
       answers: payload.answers,
