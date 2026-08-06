@@ -1,0 +1,61 @@
+name: Apply Slack List column fallback
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-slack-list-column-fallback.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add positional column fallback
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/api/_lib/slackLeadList.ts')
+          text = path.read_text()
+          old = """  const columns = Object.fromEntries(
+    Object.entries(COLUMN_ALIASES).map(([key, aliases]) => [key, findColumn(schema, aliases)]),
+  ) as Record<keyof typeof COLUMN_ALIASES, SlackListColumn | undefined>
+"""
+          new = """  const namedColumns = Object.fromEntries(
+    Object.entries(COLUMN_ALIASES).map(([key, aliases]) => [key, findColumn(schema, aliases)]),
+  ) as Record<keyof typeof COLUMN_ALIASES, SlackListColumn | undefined>
+  const fallbackIndexes: Record<keyof typeof COLUMN_ALIASES, number> = {
+    primary: 0,
+    amount: 1,
+    priority: 2,
+    stage: 3,
+    channel: 4,
+    nextStep: 5,
+    contact: 6,
+    phone: 7,
+    email: 8,
+    owner: 9,
+  }
+  const columns = Object.fromEntries(
+    (Object.keys(COLUMN_ALIASES) as Array<keyof typeof COLUMN_ALIASES>)
+      .map((key) => [key, namedColumns[key] || schema[fallbackIndexes[key]]]),
+  ) as Record<keyof typeof COLUMN_ALIASES, SlackListColumn | undefined>
+"""
+          if old not in text:
+              raise SystemExit('column mapping anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "A2O Automation"
+          git config user.email "a2ogrouphk@gmail.com"
+          git add app/api/_lib/slackLeadList.ts
+          git commit -m "fix: map Slack List columns by template position"
+          git push origin HEAD:main
