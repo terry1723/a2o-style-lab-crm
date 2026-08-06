@@ -28,11 +28,17 @@ export async function appendAssessmentLead(row: AssessmentSheetRow, options: Web
 
   if (!webhookUrl || !sharedSecret) throw new Error('sheet_server_not_configured')
 
+  const webhookRow = {
+    ...row,
+    photoPath: row.photoPath || '未提供',
+    photoSignedUrl: row.photoSignedUrl || '未提供',
+  }
+
   try {
     const response = await fetchImpl(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...row, secret: sharedSecret }),
+      body: JSON.stringify({ ...webhookRow, secret: sharedSecret }),
       redirect: 'follow',
     })
     const payload = await response.json() as { ok?: boolean; duplicate?: boolean }
