@@ -150,6 +150,14 @@ function formatPhoneForSlack(value: unknown): string {
   return `+${digits}`
 }
 
+function formatPhoneForWhatsApp(value: unknown): string {
+  let digits = String(value || '').replace(/\D/g, '')
+  if (digits.startsWith('00')) digits = digits.slice(2)
+  if (digits.length === 8) digits = `852${digits}`
+  if (digits.length < 8 || digits.length > 15) return ''
+  return digits
+}
+
 function richText(value: string) {
   return [
     {
@@ -158,6 +166,20 @@ function richText(value: string) {
         {
           type: 'rich_text_section',
           elements: [{ type: 'text', text: value }],
+        },
+      ],
+    },
+  ]
+}
+
+function richTextLink(text: string, url: string) {
+  return [
+    {
+      type: 'rich_text',
+      elements: [
+        {
+          type: 'rich_text_section',
+          elements: [{ type: 'link', url, text }],
         },
       ],
     },
@@ -229,6 +251,13 @@ function nextStepText(lead: AdLead): string {
   return '記錄未成交原因；有需要時轉入舊 Lead Reactivation。'
 }
 
+function whatsappUrl(lead: AdLead): string {
+  const phone = formatPhoneForWhatsApp(lead.phone)
+  if (!phone) return ''
+  const message = lead.status === '未聯絡' ? nextStepText(lead) : ''
+  return `https://wa.me/${phone}${message ? `?text=${encodeURIComponent(message)}` : ''}`
+}
+
 function priorityRating(lead: AdLead): number {
   if (lead.status === '未聯絡') return 3
   if (lead.status === 'WhatsApp 跟進中') return 2
@@ -238,6 +267,16 @@ function priorityRating(lead: AdLead): number {
 function textPayload(column: SlackListColumn | undefined, value: string): FieldPayload | null {
   if (!column?.id || !value) return null
   return { column_id: column.id, rich_text: richText(value) }
+}
+
+function whatsappPayload(column: SlackListColumn | undefined, lead: AdLead): FieldPayload | null {
+  if (!column?.id) return null
+  const url = whatsappUrl(lead)
+  if (!url) return textPayload(column, lead.name)
+  return {
+    column_id: column.id,
+    rich_text: richTextLink(`💬 WhatsApp｜${lead.name}`, url),
+  }
 }
 
 function phonePayload(column: SlackListColumn | undefined, value: string): FieldPayload | null {
@@ -325,7 +364,7 @@ function buildFields(
     selectPayload(columns.stage, stageChoice),
     channelPayload(columns.channel, leadsChannelId),
     textPayload(columns.nextStep, nextStepText(lead)),
-    textPayload(columns.contact, lead.name),
+    whatsappPayload(columns.contact, lead),
     phonePayload(columns.phone, lead.phone),
     userPayload(columns.owner, OWNER_USER_IDS[lead.owner]),
   ].filter((field): field is FieldPayload => Boolean(field))
@@ -340,6 +379,7 @@ function rowNeedsUpdate(
     || !samePhone(item, columns.phone, lead.phone)
     || !sameSelect(item, columns.stage, findStageChoice(columns.stage, lead.status))
     || !sameText(item, columns.nextStep, nextStepText(lead).slice(0, 35))
+    || !sameText(item, columns.contact, whatsappUrl(lead) || lead.name)
 }
 
 function uniqueLatestLeads(leads: AdLead[]): AdLead[] {
@@ -359,7 +399,7 @@ export async function syncA2OLeadList(leads: AdLead[]) {
   await slackApi('slackLists.update', {
     id: listId,
     name: 'A2O Lead Pipeline',
-    description_blocks: richText('A2O 新 Lead 自動同步｜未聯絡 → WhatsApp 跟進中 → 已預約 → 已拒絕。新 Lead 每 5 分鐘自動新增；「後續步驟」可直接複製去 WhatsApp／IG DM。'),
+    description_blocks: richText('A2O 新 Lead 自動同步｜未聯絡 → WhatsApp 跟進中 → 已預約 → 已拒絕。電話旁邊可一鍵開啟 WhatsApp；未聯絡 Lead 會自動預填「後續步驟」訊息。'),
   })
 
   let items = await listAllItems(listId)
