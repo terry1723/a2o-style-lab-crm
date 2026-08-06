@@ -344,7 +344,7 @@ export default async function slackSync(request: VercelRequest, response: Vercel
     const [source, trackingResult, clientsResult] = await Promise.all([
       readSourceLeads(),
       supabase.from('ad_lead_tracking').select('source_key,status,owner,updated_at'),
-      supabase.from('clients').select('*').order('created_at', { ascending: false }),
+      supabase.from('clients').select('id,name,phone,plan,plan_price,amount_paid,balance_due,status'),
     ])
 
     if (trackingResult.error) throw trackingResult.error

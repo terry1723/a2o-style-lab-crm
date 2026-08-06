@@ -223,7 +223,7 @@ export default async function slackBootstrap(request: VercelRequest, response: V
     const [sourceRows, trackingResult, clientsResult] = await Promise.all([
       readLeads(),
       supabase.from('ad_lead_tracking').select('source_key,status,owner,updated_at'),
-      supabase.from('clients').select('*').order('created_at', { ascending: false }),
+      supabase.from('clients').select('id,name,phone,plan,plan_price,amount_paid,balance_due,status'),
     ])
 
     if (trackingResult.error) throw new Error(`tracking:${trackingResult.error.message}`)
