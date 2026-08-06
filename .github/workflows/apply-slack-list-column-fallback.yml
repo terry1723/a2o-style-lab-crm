@@ -1,4 +1,4 @@
-name: Apply Slack List column fallback
+name: Apply Slack List diagnostics
 
 on:
   push:
@@ -16,12 +16,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Add positional column fallback
-        run: python .github/scripts/patch_slack_list_columns.py
+      - name: Add Slack API error context
+        run: python .github/scripts/patch_slack_api_error_context.py
       - name: Commit patch
         run: |
           git config user.name "A2O Automation"
           git config user.email "a2ogrouphk@gmail.com"
           git add app/api/_lib/slackLeadList.ts
-          git commit -m "fix: map Slack List columns by template position"
+          git commit -m "chore: include Slack List API method in errors"
           git push origin HEAD:main
