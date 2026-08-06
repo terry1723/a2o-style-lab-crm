@@ -26,7 +26,10 @@ describe('submitAssessmentLead', () => {
       {
         name: '陳先生',
         phone: '9123 4567',
-        privacyConsent: true, marketingConsent: false,
+        heightCm: 175,
+        weightKg: 68.5,
+        privacyConsent: true,
+        marketingConsent: false,
         photo,
       },
       'session-1',
@@ -38,7 +41,10 @@ describe('submitAssessmentLead', () => {
       input: {
         name: '陳先生',
         phone: '9123 4567',
-        privacyConsent: true, marketingConsent: false,
+        heightCm: 175,
+        weightKg: 68.5,
+        privacyConsent: true,
+        marketingConsent: false,
         photo,
       },
       sessionId: 'session-1',
