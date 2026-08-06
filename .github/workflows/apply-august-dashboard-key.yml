@@ -1,0 +1,27 @@
+name: Apply August dashboard setup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/apply-august-dashboard-key.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch setup key
+        run: python .github/scripts/patch_august_dashboard_key.py
+      - name: Commit setup key
+        run: |
+          git config user.name "A2O Automation"
+          git config user.email "a2ogrouphk@gmail.com"
+          git add app/api/slack-sync.ts
+          git commit -m "feat: schedule August weekly dashboard and monthly KPI" || exit 0
+          git push
