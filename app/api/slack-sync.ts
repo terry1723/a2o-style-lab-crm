@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { normalizeAdLeads, submittedAtTime, type AdLeadSourceRow } from '../src/features/ad-leads/adLeadService.js'
 import { createSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { formatHkd, maskPhone, portalUrl, postSlackMessage } from './_lib/slack.js'
+import { syncA2OLeadList } from './_lib/slackLeadList.js'
 
 type ClientRow = {
   id: string
@@ -364,6 +365,14 @@ export default async function slackSync(request: VercelRequest, response: Vercel
     const leads = normalizeAdLeads(source.leads, tracking)
     const clients = (clientsResult.data || []) as ClientRow[]
 
+    let leadListSync: Awaited<ReturnType<typeof syncA2OLeadList>> | null = null
+    let leadListSyncError = ''
+    try {
+      leadListSync = await syncA2OLeadList(leads)
+    } catch (error) {
+      leadListSyncError = error instanceof Error ? error.message : 'slack_list_sync_failed'
+    }
+
     const reminderMinutes = Math.max(5, Number(process.env.SLACK_FOLLOWUP_MINUTES || 15))
     const reminderRepeatMinutes = Math.max(60, Number(process.env.SLACK_REMINDER_REPEAT_HOURS || 2) * 60)
     const reminderMaxMinutes = Math.max(reminderMinutes, Number(process.env.SLACK_FOLLOWUP_MAX_HOURS || 72) * 60)
@@ -403,7 +412,14 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       })
       await markEvents(supabase, initialKeys)
 
-      response.status(200).json({ ok: true, bootstrapped: true, leads: leads.length, clients: clients.length })
+      response.status(200).json({
+        ok: true,
+        bootstrapped: true,
+        leads: leads.length,
+        clients: clients.length,
+        leadListSync,
+        leadListSyncError,
+      })
       return
     }
 
@@ -489,6 +505,8 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       sent,
       leads: leads.length,
       clients: clients.length,
+      leadListSync,
+      leadListSyncError,
       unavailableSources: source.unavailableSources,
       errors,
     })
