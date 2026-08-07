@@ -76,3 +76,4 @@ jobs:
 # Sync the approved new Lead follow-up copy and WhatsApp prefill.
 # Retry after GitHub OIDC returned a temporary HTTP 503.
 # Verify Slack Pipeline stages are the source for follow-up reminders.
+# Diagnose current Slack List create/update write failures.
