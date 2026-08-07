@@ -467,31 +467,7 @@ export default async function slackSync(request: VercelRequest, response: Vercel
     if (!seenEvents.has(BOOTSTRAP_KEY)) {
       const initialKeys = [BOOTSTRAP_KEY]
 
-      // One-time idempotent backfill of existing Package clients into #a2o-clients.
-  // New clients continue to use the normal client-new notification path above.
-  for (const client of clients) {
-    if (sent >= maxEvents) break
-
-    const clientId = String(client.id || '')
-    if (!clientId) continue
-
-    const backfillKey = `${CLIENT_BACKFILL_PREFIX}${clientId}`
-    if (seenEvents.has(backfillKey)) continue
-
-    const paid = parseNumber(client.amount_paid)
-    const planPrice = parseNumber(client.plan_price)
-    const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)
-
-    if (!relevant) {
-      await markEvents(supabase, [backfillKey])
-      seenEvents.add(backfillKey)
-      continue
-    }
-
-    await send(channel('clients'), clientBackfillMessage(client), [backfillKey])
-  }
-
-    for (const lead of leads) {
+      for (const lead of leads) {
         initialKeys.push(eventKey('lead-new', lead.sourceKey))
         initialKeys.push(eventKey('lead-state', lead.sourceKey, leadFingerprint(lead.status, lead.owner)))
 
@@ -561,6 +537,30 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         errors.push(error instanceof Error ? error.message : 'slack_send_failed')
         return false
       }
+    }
+
+    // One-time idempotent backfill of existing Package clients into #a2o-clients.
+    // Existing Package clients are filled first; once all backfill keys exist this loop sends nothing.
+    for (const client of clients) {
+      if (sent >= maxEvents) break
+
+      const clientId = String(client.id || '')
+      if (!clientId) continue
+
+      const backfillKey = `${CLIENT_BACKFILL_PREFIX}${clientId}`
+      if (seenEvents.has(backfillKey)) continue
+
+      const paid = parseNumber(client.amount_paid)
+      const planPrice = parseNumber(client.plan_price)
+      const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)
+
+      if (!relevant) {
+        await markEvents(supabase, [backfillKey])
+        seenEvents.add(backfillKey)
+        continue
+      }
+
+      await send(channel('clients'), clientBackfillMessage(client), [backfillKey])
     }
 
     for (const lead of leads) {
