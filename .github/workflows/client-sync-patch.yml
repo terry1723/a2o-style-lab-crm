@@ -19,7 +19,7 @@ jobs:
         with:
           ref: main
 
-      - name: Prioritize one-time client backfill
+      - name: Fix client backfill position
         shell: bash
         run: |
           python - <<'PY'
@@ -29,24 +29,48 @@ jobs:
           text = path.read_text()
 
           marker = '    // One-time idempotent backfill of existing Package clients into #a2o-clients.\n'
-          response_marker = '    response.status(errors.length ? 207 : 200).json({\n'
-          lead_marker = '    for (const lead of leads) {\n'
+          bootstrap_lead = '    for (const lead of leads) {\n        initialKeys.push'
+          notification_lead = '    for (const lead of leads) {\n      if (sent >= maxEvents) break\n'
 
           start = text.find(marker)
           if start < 0:
               raise SystemExit('client backfill block not found')
-          end = text.find(response_marker, start)
+          end = text.find(bootstrap_lead, start)
           if end < 0:
-              raise SystemExit('client backfill block end not found')
+              raise SystemExit('bootstrap lead loop not found after backfill block')
 
-          block = text[start:end]
           text = text[:start] + text[end:]
 
-          lead_index = text.find(lead_marker)
-          if lead_index < 0:
-              raise SystemExit('lead loop not found')
+          block = """    // One-time idempotent backfill of existing Package clients into #a2o-clients.
+    // Existing Package clients are filled first; once all backfill keys exist this loop sends nothing.
+    for (const client of clients) {
+      if (sent >= maxEvents) break
 
-          text = text[:lead_index] + block + text[lead_index:]
+      const clientId = String(client.id || '')
+      if (!clientId) continue
+
+      const backfillKey = `${CLIENT_BACKFILL_PREFIX}${clientId}`
+      if (seenEvents.has(backfillKey)) continue
+
+      const paid = parseNumber(client.amount_paid)
+      const planPrice = parseNumber(client.plan_price)
+      const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)
+
+      if (!relevant) {
+        await markEvents(supabase, [backfillKey])
+        seenEvents.add(backfillKey)
+        continue
+      }
+
+      await send(channel('clients'), clientBackfillMessage(client), [backfillKey])
+    }
+
+"""
+
+          insert_at = text.find(notification_lead)
+          if insert_at < 0:
+              raise SystemExit('notification lead loop not found')
+          text = text[:insert_at] + block + text[insert_at:]
           path.write_text(text)
           PY
 
@@ -61,5 +85,5 @@ jobs:
           git config user.name "A2O CRM Bot"
           git config user.email "145178744+terry1723@users.noreply.github.com"
           git add app/api/slack-sync.ts
-          git commit -m "fix: prioritize one-time Package client backfill"
+          git commit -m "fix: place Package client backfill in notification loop"
           git push origin main
