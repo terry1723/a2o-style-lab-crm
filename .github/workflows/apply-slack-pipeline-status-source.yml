@@ -1,0 +1,37 @@
+name: Apply Slack pipeline status source
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/scripts/patch_slack_pipeline_status_source.py'
+      - '.github/workflows/apply-slack-pipeline-status-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch Slack pipeline status source
+        run: python .github/scripts/patch_slack_pipeline_status_source.py
+
+      - name: Commit updated Slack sync logic
+        run: |
+          set -euo pipefail
+          git config user.name 'A2O Automation'
+          git config user.email 'a2ogrouphk@gmail.com'
+          git add app/api/_lib/slackLeadList.ts app/api/slack-sync.ts
+          if git diff --cached --quiet; then
+            echo 'No changes required.'
+            exit 0
+          fi
+          git commit -m 'fix: use Slack pipeline status for follow-up reminders'
+          git push origin HEAD:main
