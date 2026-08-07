@@ -1,0 +1,105 @@
+name: Patch client channel sync
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/client-sync-patch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Patch existing Slack sync
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/api/slack-sync.ts')
+          text = path.read_text()
+
+          constant_needle = "const OBJECTIVES_LIST_SETUP_KEY = 'slack:objectives-list:august-weekly-dashboard-and-kpi-2026-08-06-01'\n"
+          constant_insert = constant_needle + "const CLIENT_BACKFILL_PREFIX = 'slack:client-backfill:v1:'\n"
+          if 'CLIENT_BACKFILL_PREFIX' not in text:
+              if constant_needle not in text:
+                  raise SystemExit('constant insertion point not found')
+              text = text.replace(constant_needle, constant_insert, 1)
+
+          function_needle = "function clientUpdateMessage(client: ClientRow): string {\n"
+          function_insert = """function clientBackfillMessage(client: ClientRow): string {
+            const paid = parseNumber(client.amount_paid)
+            const planPrice = parseNumber(client.plan_price)
+            return [
+              '👤 *Package 客戶同步*',
+              `客戶：${client.name || '未命名'}`,
+              `電話：${maskPhone(client.phone)}`,
+              `Plan：${client.plan || '未設定'}｜${formatHkd(planPrice)}`,
+              `已收：${formatHkd(paid)}｜餘額：${formatHkd(client.balance_due)}`,
+              `狀態：${client.status || '未設定'}`,
+              `<${portalUrl()}|查看 CRM 客戶資料>`,
+            ].join('\\n')
+          }
+
+          """
+          if 'function clientBackfillMessage' not in text:
+              if function_needle not in text:
+                  raise SystemExit('function insertion point not found')
+              text = text.replace(function_needle, function_insert + function_needle, 1)
+
+          response_needle = "    response.status(errors.length ? 207 : 200).json({\n"
+          loop_insert = """    // One-time idempotent backfill of existing Package clients into #a2o-clients.
+            // New clients continue to use the normal client-new notification path above.
+            for (const client of clients) {
+              if (sent >= maxEvents) break
+
+              const clientId = String(client.id || '')
+              if (!clientId) continue
+
+              const backfillKey = `${CLIENT_BACKFILL_PREFIX}${clientId}`
+              if (seenEvents.has(backfillKey)) continue
+
+              const paid = parseNumber(client.amount_paid)
+              const planPrice = parseNumber(client.plan_price)
+              const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)
+
+              if (!relevant) {
+                await markEvents(supabase, [backfillKey])
+                seenEvents.add(backfillKey)
+                continue
+              }
+
+              await send(channel('clients'), clientBackfillMessage(client), [backfillKey])
+            }
+
+          """
+          if 'One-time idempotent backfill of existing Package clients' not in text:
+              if response_needle not in text:
+                  raise SystemExit('backfill loop insertion point not found')
+              text = text.replace(response_needle, loop_insert + response_needle, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "A2O CRM Bot"
+          git config user.email "145178744+terry1723@users.noreply.github.com"
+          git add app/api/slack-sync.ts
+          git commit -m "feat: backfill CRM package clients to Slack client channel"
+          git push origin main
