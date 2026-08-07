@@ -514,6 +514,8 @@ export async function syncA2OLeadList(leads: AdLead[]) {
   let updated = 0
   let createFailures = 0
   let updateFailures = 0
+  const createErrors: string[] = []
+  const updateErrors: string[] = []
 
   for (const lead of orderedLeads) {
     const phone = normalizePhone(lead.phone)
@@ -527,8 +529,11 @@ export async function syncA2OLeadList(leads: AdLead[]) {
         })
         if (result.item) existingByPhone.set(phone, result.item)
         created += 1
-      } catch {
+      } catch (error) {
         createFailures += 1
+        if (createErrors.length < 5) {
+          createErrors.push(error instanceof Error ? error.message : 'slack_list_create_failed')
+        }
       }
       continue
     }
@@ -541,8 +546,11 @@ export async function syncA2OLeadList(leads: AdLead[]) {
     try {
       await slackApi('slackLists.items.update', { list_id: listId, cells })
       updated += 1
-    } catch {
+    } catch (error) {
       updateFailures += 1
+      if (updateErrors.length < 5) {
+        updateErrors.push(error instanceof Error ? error.message : 'slack_list_update_failed')
+      }
     }
   }
 
@@ -555,5 +563,7 @@ export async function syncA2OLeadList(leads: AdLead[]) {
     updated,
     createFailures,
     updateFailures,
+    createErrors,
+    updateErrors,
   }
 }
