@@ -79,3 +79,4 @@ jobs:
 # Diagnose current Slack List create/update write failures.
 # Verify invalid_input_type fix and backfill missing Lead rows.
 # Reconcile legacy no-phone duplicate rows immediately.
+# Trigger Package client channel backfill batch 1.
