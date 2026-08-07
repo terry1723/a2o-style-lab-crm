@@ -467,7 +467,31 @@ export default async function slackSync(request: VercelRequest, response: Vercel
     if (!seenEvents.has(BOOTSTRAP_KEY)) {
       const initialKeys = [BOOTSTRAP_KEY]
 
-      for (const lead of leads) {
+      // One-time idempotent backfill of existing Package clients into #a2o-clients.
+  // New clients continue to use the normal client-new notification path above.
+  for (const client of clients) {
+    if (sent >= maxEvents) break
+
+    const clientId = String(client.id || '')
+    if (!clientId) continue
+
+    const backfillKey = `${CLIENT_BACKFILL_PREFIX}${clientId}`
+    if (seenEvents.has(backfillKey)) continue
+
+    const paid = parseNumber(client.amount_paid)
+    const planPrice = parseNumber(client.plan_price)
+    const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)
+
+    if (!relevant) {
+      await markEvents(supabase, [backfillKey])
+      seenEvents.add(backfillKey)
+      continue
+    }
+
+    await send(channel('clients'), clientBackfillMessage(client), [backfillKey])
+  }
+
+    for (const lead of leads) {
         initialKeys.push(eventKey('lead-new', lead.sourceKey))
         initialKeys.push(eventKey('lead-state', lead.sourceKey, leadFingerprint(lead.status, lead.owner)))
 
@@ -597,30 +621,6 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         await send(channel('clients'), clientUpdateMessage(client), [stateKey])
       }
     }
-
-    // One-time idempotent backfill of existing Package clients into #a2o-clients.
-  // New clients continue to use the normal client-new notification path above.
-  for (const client of clients) {
-    if (sent >= maxEvents) break
-
-    const clientId = String(client.id || '')
-    if (!clientId) continue
-
-    const backfillKey = `${CLIENT_BACKFILL_PREFIX}${clientId}`
-    if (seenEvents.has(backfillKey)) continue
-
-    const paid = parseNumber(client.amount_paid)
-    const planPrice = parseNumber(client.plan_price)
-    const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)
-
-    if (!relevant) {
-      await markEvents(supabase, [backfillKey])
-      seenEvents.add(backfillKey)
-      continue
-    }
-
-    await send(channel('clients'), clientBackfillMessage(client), [backfillKey])
-  }
 
     response.status(errors.length ? 207 : 200).json({
       ok: errors.length === 0,
