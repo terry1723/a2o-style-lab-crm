@@ -411,6 +411,42 @@ function uniqueLatestLeads(leads: AdLead[]): AdLead[] {
   })
 }
 
+
+function stageStatus(column: SlackListColumn | undefined, values: string[]): AdLead['status'] | null {
+  const statuses: AdLead['status'][] = ['未聯絡', 'WhatsApp 跟進中', '已預約', '已拒絕']
+  const choices = column?.options?.choices || []
+
+  for (const rawValue of values) {
+    const choice = choices.find((item) => item.value === rawValue)
+    const candidates = [rawValue, choice?.label || '', choice?.value || ''].map(normalizeLabel).filter(Boolean)
+    for (const status of statuses) {
+      const aliases = stageAliases(status).map(normalizeLabel)
+      if (candidates.some((candidate) => aliases.includes(candidate))) return status
+    }
+  }
+  return null
+}
+
+export async function readA2OLeadListStatuses(): Promise<Record<string, AdLead['status']>> {
+  const listId = process.env.SLACK_LEAD_LIST_ID || DEFAULT_LIST_ID
+  const items = await listAllItems(listId)
+  const listFile = await loadListFile(listId, items)
+  const schema = listFile.list_metadata?.schema || []
+  const stageColumn = findColumn(schema, COLUMN_ALIASES.stage) || schema[3]
+  const phoneColumn = findColumn(schema, COLUMN_ALIASES.phone) || schema[7]
+
+  if (!stageColumn?.id || !phoneColumn?.id) throw new Error('slack_list_status_columns_missing')
+
+  const statuses: Record<string, AdLead['status']> = {}
+  for (const item of items) {
+    const phone = normalizePhone(fieldValues(currentField(item, phoneColumn))[0])
+    if (!phone) continue
+    const status = stageStatus(stageColumn, fieldValues(currentField(item, stageColumn)))
+    if (status) statuses[phone] = status
+  }
+  return statuses
+}
+
 export async function syncA2OLeadList(leads: AdLead[]) {
   const listId = process.env.SLACK_LEAD_LIST_ID || DEFAULT_LIST_ID
   const leadsChannelId = process.env.SLACK_LEADS_CHANNEL_ID || DEFAULT_LEADS_CHANNEL_ID

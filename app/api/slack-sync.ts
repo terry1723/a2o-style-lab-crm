@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { normalizeAdLeads, submittedAtTime, type AdLeadSourceRow } from '../src/features/ad-leads/adLeadService.js'
 import { createSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { formatHkd, maskPhone, portalUrl, postSlackMessage } from './_lib/slack.js'
-import { syncA2OLeadList } from './_lib/slackLeadList.js'
+import { readA2OLeadListStatuses, syncA2OLeadList } from './_lib/slackLeadList.js'
 import { ensureA2OStockList } from './_lib/slackStockList.js'
 import { syncInitialA2OStockBatch } from './_lib/slackInitialStockBatch.js'
 import { createA2OObjectivesList } from './_lib/slackObjectivesList.js'
@@ -81,6 +81,13 @@ function parseNumber(value: unknown): number {
 
 function channel(name: keyof typeof DEFAULT_CHANNELS): string {
   return process.env[`SLACK_${name.toUpperCase()}_CHANNEL_ID`] || DEFAULT_CHANNELS[name]
+}
+
+
+function normalizeLeadPhone(value: unknown): string {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (digits.length > 8 && digits.startsWith('852')) return digits.slice(-8)
+  return digits
 }
 
 function leadFingerprint(status: string, owner: string): string {
@@ -367,7 +374,33 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         .filter((row) => !row.source_key.startsWith('slack:'))
         .map((row) => [row.source_key, row]),
     )
-    const leads = normalizeAdLeads(source.leads, tracking)
+    const sourceLeads = normalizeAdLeads(source.leads, tracking)
+    let leadListStatusReadError = ''
+    let pipelineStatuses: Record<string, (typeof sourceLeads)[number]['status']> = {}
+    try {
+      pipelineStatuses = await readA2OLeadListStatuses()
+    } catch (error) {
+      leadListStatusReadError = error instanceof Error ? error.message : 'slack_list_status_read_failed'
+    }
+
+    const leads = sourceLeads.map((lead) => {
+      const pipelineStatus = pipelineStatuses[normalizeLeadPhone(lead.phone)]
+      return pipelineStatus ? { ...lead, status: pipelineStatus } : lead
+    })
+
+    const pipelineStatusUpdates = leads.filter((lead, index) => lead.status !== sourceLeads[index]?.status)
+    if (pipelineStatusUpdates.length) {
+      const { error } = await supabase.from('ad_lead_tracking').upsert(
+        pipelineStatusUpdates.map((lead) => ({
+          source_key: lead.sourceKey,
+          status: lead.status,
+          owner: lead.owner,
+        })),
+        { onConflict: 'source_key' },
+      )
+      if (error) throw error
+    }
+
     const clients = (clientsResult.data || []) as ClientRow[]
 
     let stockListSetup: Awaited<ReturnType<typeof ensureA2OStockList>> | null = null
@@ -424,7 +457,8 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         initialKeys.push(eventKey('lead-state', lead.sourceKey, leadFingerprint(lead.status, lead.owner)))
 
         const ageMinutes = minutesSince(lead.submittedAt)
-        if (lead.status === '未聯絡'
+        if (!leadListStatusReadError
+          && lead.status === '未聯絡'
           && ageMinutes !== null
           && ageMinutes >= reminderMinutes
           && ageMinutes <= reminderMaxMinutes) {
@@ -458,6 +492,7 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         clients: clients.length,
         leadListSync,
         leadListSyncError,
+        leadListStatusReadError,
       stockBatchSync,
       stockBatchSyncError,
         stockBatchSync,
@@ -504,7 +539,8 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       if (sent >= maxEvents) break
 
       const ageMinutes = minutesSince(lead.submittedAt)
-      if (lead.status === '未聯絡'
+      if (!leadListStatusReadError
+        && lead.status === '未聯絡'
         && ageMinutes !== null
         && ageMinutes >= reminderMinutes
         && ageMinutes <= reminderMaxMinutes) {
@@ -554,6 +590,7 @@ export default async function slackSync(request: VercelRequest, response: Vercel
       clients: clients.length,
       leadListSync,
       leadListSyncError,
+      leadListStatusReadError,
       stockBatchSync,
       stockBatchSyncError,
       stockListSetup,
