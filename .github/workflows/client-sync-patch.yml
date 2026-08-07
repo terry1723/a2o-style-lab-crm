@@ -1,4 +1,4 @@
-name: Patch client channel sync
+name: Cleanup client channel backfill
 
 on:
   push:
@@ -12,14 +12,14 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  cleanup:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Fix client backfill position
+      - name: Remove one-time backfill logic
         shell: bash
         run: |
           python - <<'PY'
@@ -28,55 +28,26 @@ jobs:
           path = Path('app/api/slack-sync.ts')
           text = path.read_text()
 
-          marker = '    // One-time idempotent backfill of existing Package clients into #a2o-clients.\n'
-          bootstrap_lead = '    for (const lead of leads) {\n        initialKeys.push'
-          notification_lead = '    for (const lead of leads) {\n      if (sent >= maxEvents) break\n'
+          text = text.replace("const CLIENT_BACKFILL_PREFIX = 'slack:client-backfill:v1:'\n", '', 1)
 
-          start = text.find(marker)
-          if start < 0:
-              raise SystemExit('client backfill block not found')
-          end = text.find(bootstrap_lead, start)
-          if end < 0:
-              raise SystemExit('bootstrap lead loop not found after backfill block')
+          function_start = text.find('function clientBackfillMessage(client: ClientRow): string {\n')
+          function_end = text.find('function clientUpdateMessage(client: ClientRow): string {\n', function_start)
+          if function_start >= 0 and function_end >= 0:
+              text = text[:function_start] + text[function_end:]
 
-          text = text[:start] + text[end:]
+          loop_marker = '    // One-time idempotent backfill of existing Package clients into #a2o-clients.\n'
+          normal_lead_loop = '    for (const lead of leads) {\n      if (sent >= maxEvents) break\n'
+          loop_start = text.find(loop_marker)
+          if loop_start >= 0:
+              loop_end = text.find(normal_lead_loop, loop_start)
+              if loop_end < 0:
+                  raise SystemExit('normal lead notification loop not found')
+              text = text[:loop_start] + text[loop_end:]
 
-          block_lines = [
-              '    // One-time idempotent backfill of existing Package clients into #a2o-clients.',
-              '    // Existing Package clients are filled first; once all backfill keys exist this loop sends nothing.',
-              '    for (const client of clients) {',
-              '      if (sent >= maxEvents) break',
-              '',
-              "      const clientId = String(client.id || '')",
-              '      if (!clientId) continue',
-              '',
-              '      const backfillKey = `${CLIENT_BACKFILL_PREFIX}${clientId}`',
-              '      if (seenEvents.has(backfillKey)) continue',
-              '',
-              '      const paid = parseNumber(client.amount_paid)',
-              '      const planPrice = parseNumber(client.plan_price)',
-              '      const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)',
-              '',
-              '      if (!relevant) {',
-              '        await markEvents(supabase, [backfillKey])',
-              '        seenEvents.add(backfillKey)',
-              '        continue',
-              '      }',
-              '',
-              "      await send(channel('clients'), clientBackfillMessage(client), [backfillKey])",
-              '    }',
-              '',
-          ]
-          block = '\n'.join(block_lines) + '\n'
-
-          insert_at = text.find(notification_lead)
-          if insert_at < 0:
-              raise SystemExit('notification lead loop not found')
-          text = text[:insert_at] + block + text[insert_at:]
           path.write_text(text)
           PY
 
-      - name: Commit patch
+      - name: Commit cleanup
         shell: bash
         run: |
           set -euo pipefail
@@ -87,5 +58,5 @@ jobs:
           git config user.name "A2O CRM Bot"
           git config user.email "145178744+terry1723@users.noreply.github.com"
           git add app/api/slack-sync.ts
-          git commit -m "fix: place Package client backfill in notification loop"
+          git commit -m "chore: remove completed Package client backfill"
           git push origin main
