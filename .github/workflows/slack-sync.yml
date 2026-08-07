@@ -75,3 +75,4 @@ jobs:
 # Deploy 2026 August weekly Objective Dashboard and monthly KPI.
 # Sync the approved new Lead follow-up copy and WhatsApp prefill.
 # Retry after GitHub OIDC returned a temporary HTTP 503.
+# Verify Slack Pipeline stages are the source for follow-up reminders.
