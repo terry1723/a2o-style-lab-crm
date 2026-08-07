@@ -65,7 +65,6 @@ const GITHUB_MAIN_REF = 'refs/heads/main'
 const BOOTSTRAP_KEY = 'slack:bootstrap:v2'
 const INITIAL_STOCK_BATCH_KEY = 'slack:stock-batch:2026-08-06-01'
 const OBJECTIVES_LIST_SETUP_KEY = 'slack:objectives-list:august-weekly-dashboard-and-kpi-2026-08-06-01'
-const CLIENT_BACKFILL_PREFIX = 'slack:client-backfill:v1:'
 const STATE_STATUS = '已拒絕'
 const STATE_OWNER = 'New'
 
@@ -308,20 +307,6 @@ function clientMessage(client: ClientRow, isConversion: boolean): string {
   ].join('\n')
 }
 
-function clientBackfillMessage(client: ClientRow): string {
-  const paid = parseNumber(client.amount_paid)
-  const planPrice = parseNumber(client.plan_price)
-  return [
-    '👤 *Package 客戶同步*',
-    `客戶：${client.name || '未命名'}`,
-    `電話：${maskPhone(client.phone)}`,
-    `Plan：${client.plan || '未設定'}｜${formatHkd(planPrice)}`,
-    `已收：${formatHkd(paid)}｜餘額：${formatHkd(client.balance_due)}`,
-    `狀態：${client.status || '未設定'}`,
-    `<${portalUrl()}|查看 CRM 客戶資料>`,
-  ].join('\n')
-}
-
 function clientUpdateMessage(client: ClientRow): string {
   return [
     '🔄 *客戶狀態更新*',
@@ -537,30 +522,6 @@ export default async function slackSync(request: VercelRequest, response: Vercel
         errors.push(error instanceof Error ? error.message : 'slack_send_failed')
         return false
       }
-    }
-
-    // One-time idempotent backfill of existing Package clients into #a2o-clients.
-    // Existing Package clients are filled first; once all backfill keys exist this loop sends nothing.
-    for (const client of clients) {
-      if (sent >= maxEvents) break
-
-      const clientId = String(client.id || '')
-      if (!clientId) continue
-
-      const backfillKey = `${CLIENT_BACKFILL_PREFIX}${clientId}`
-      if (seenEvents.has(backfillKey)) continue
-
-      const paid = parseNumber(client.amount_paid)
-      const planPrice = parseNumber(client.plan_price)
-      const relevant = paid > 0 || planPrice > 0 || Boolean(client.plan)
-
-      if (!relevant) {
-        await markEvents(supabase, [backfillKey])
-        seenEvents.add(backfillKey)
-        continue
-      }
-
-      await send(channel('clients'), clientBackfillMessage(client), [backfillKey])
     }
 
     for (const lead of leads) {
