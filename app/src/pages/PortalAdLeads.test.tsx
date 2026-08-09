@@ -19,6 +19,17 @@ describe('PortalAdLeads', () => {
     vi.stubGlobal('fetch', fetchMock)
   })
 
+  it('allows direct access to its own password gate without staff session', async () => {
+    localStorage.removeItem('a2o_staff_auth_v2')
+    sessionStorage.removeItem('a2o_ad_leads_access')
+
+    render(<PortalAdLeads />)
+
+    expect(screen.getByLabelText('廣告新客密碼')).toBeInTheDocument()
+    await waitFor(() => expect(navigate).not.toHaveBeenCalled())
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('loads leads and renders the specified tracking columns', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

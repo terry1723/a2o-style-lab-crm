@@ -118,11 +118,6 @@ export default function PortalAdLeads() {
   }, [])
 
   useEffect(() => {
-    if (!localStorage.getItem('a2o_staff_auth_v2')) {
-      navigate('/portal')
-      return
-    }
-
     if (hasAccess) load()
     else setLoading(false)
   }, [hasAccess, load, navigate])
