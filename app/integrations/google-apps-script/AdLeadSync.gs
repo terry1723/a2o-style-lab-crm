@@ -5,6 +5,7 @@
 
 var SYNC_CURSOR_PREFIX = 'CURSOR_'
 var SYNC_BATCH_LIMIT = 100
+var SYNC_TIME_BUDGET_MS = 240000
 var SYNC_HANDLERS = ['runFiveMinuteSync', 'runFormSubmitSync']
 
 function syncProperty(key) {
@@ -118,17 +119,23 @@ function syncSources(trigger) {
     var importedRows = 0
     var advancedSources = 0
     var unavailableSources = []
+    var startedAt = new Date().getTime()
 
-    config.forEach(function (source) {
+    for (var sourceIndex = 0; sourceIndex < config.length; sourceIndex += 1) {
+      if (new Date().getTime() - startedAt >= SYNC_TIME_BUDGET_MS) {
+        unavailableSources.push('time_budget_exceeded')
+        break
+      }
+      var source = config[sourceIndex]
       var rows
       try {
         rows = readSource(source)
       } catch (error) {
         unavailableSources.push(source.source)
-        return
+        continue
       }
       var increment = sourceIncrement(source, rows)
-      if (increment.rows.length === 0) return
+      if (increment.rows.length === 0) continue
 
       for (var offset = 0; offset < increment.rows.length; offset += SYNC_BATCH_LIMIT) {
         var batch = increment.rows.slice(offset, offset + SYNC_BATCH_LIMIT)
@@ -138,7 +145,7 @@ function syncSources(trigger) {
       }
       setSyncProperty(cursorKey(source), increment.nextCursor)
       advancedSources += 1
-    })
+    }
 
     // This heartbeat drains CRM status/owner/appointment Outbox rows even
     // when no Sheet source has a new row.

@@ -18,6 +18,7 @@ describe('Supabase ad lead sync function contract', () => {
     expect(source).toContain('AbortController')
     expect(source).toContain("service_unavailable")
     expect(source).toContain('payload.requestId !== requestId')
+    expect(source.match(/retryAfterSeconds = retryAfter/g) ?? []).toHaveLength(1)
     expect(source).not.toContain('CRON_SECRET')
     expect(source).not.toContain('Vercel')
   })
