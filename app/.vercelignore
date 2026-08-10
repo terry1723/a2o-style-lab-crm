@@ -1,0 +1,4 @@
+# Keep test modules in the repository and Vitest suite, but never publish them
+# as Serverless Functions under Vercel's api/ convention.
+api/**/*.test.ts
+api/**/*.test.tsx
