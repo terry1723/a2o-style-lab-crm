@@ -4,12 +4,18 @@ const REPLAY_WINDOW_SECONDS = 300
 const MAX_ROWS = 100
 const OUTBOX_BATCH_SIZE = 25
 const RETRYABLE_CODES = new Set(['ratelimited', 'request_timeout', 'service_unavailable', 'internal_error', 'network_error', 'timeout'])
+const APPROVED_SOURCES = new Set([
+  'Men New Form|1BGJtbAbJekS_94c6KCVpMTsob8zcZQT0qTO9vPuPUOI|men-new form',
+  'Style Lab New Form|1BGJtbAbJekS_94c6KCVpMTsob8zcZQT0qTO9vPuPUOI|style lab new form',
+  'A2O Style Lab|1q9pwOqwnkwJpPEsjrSJBjWmtbybiLxP5oMNm2yK90zc|a2o style lab',
+  'A2O Website|1Xi_u4DYkkMtpl7ClpaxwOyGjU7VAud6d8_uQGmQRHcY|a2owebsite',
+])
 
 type JsonObject = Record<string, unknown>
 type IngestRow = {
   sourceKey: string
   sourceForm: string
-  sourceId?: string
+  sourceId: string
   submittedAt: string
   name: string
   phone: string
@@ -95,13 +101,19 @@ function sourceMetadata(sourceId: string | undefined): { spreadsheetId: string |
   return match ? { spreadsheetId: match[1], sheetName: match[2], rowNumber: Number(match[3]) } : { spreadsheetId: null, sheetName: null, rowNumber: null }
 }
 
+function approvedSource(sourceForm: string, sourceId: string): boolean {
+  const match = sourceId.match(/^([^:]+):([^:]+):([2-9]\d*)$/)
+  return Boolean(match && APPROVED_SOURCES.has(`${sourceForm}|${match[1]}|${match[2]}`))
+}
+
 function parseRows(value: unknown): IngestRow[] {
   if (!Array.isArray(value) || value.length > MAX_ROWS) fail('invalid_rows')
   return value.map((candidate) => {
     if (!isObject(candidate)) fail('invalid_row')
     const sourceForm = requireText(candidate.sourceForm ?? candidate.source, 'invalid_source_form', 120)
-    const sourceId = typeof candidate.sourceId === 'string' ? candidate.sourceId.trim() : undefined
-    const sourceKey = requireText(candidate.sourceKey ?? `${sourceForm}:${sourceId ?? ''}`, 'invalid_source_key', 300)
+    const sourceId = requireText(candidate.sourceId, 'invalid_source_id', 240)
+    const sourceKey = requireText(candidate.sourceKey, 'invalid_source_key', 300)
+    if (!approvedSource(sourceForm, sourceId) || sourceKey !== `${sourceForm}:${sourceId}`) fail('invalid_source')
     const submittedAt = requireText(candidate.submittedAt, 'invalid_submitted_at', 80)
     if (!Number.isFinite(Date.parse(submittedAt))) fail('invalid_submitted_at')
     return {
@@ -143,16 +155,32 @@ function slackConfig() {
 }
 
 async function slackApi(config: ReturnType<typeof slackConfig>, method: string, body: JsonObject): Promise<JsonObject> {
-  const response = await fetch(`https://slack.com/api/${method}`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${config.token}`, 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify(body),
-  }).catch(() => fail('network_error'))
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10_000)
+  let response: Response
+  try {
+    response = await fetch(`https://slack.com/api/${method}`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${config.token}`, 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (error) {
+    fail(isObject(error) && error.name === 'AbortError' ? 'timeout' : 'network_error')
+  } finally {
+    clearTimeout(timeout)
+  }
+  if (!response.ok) {
+    const retryAfter = Number(response.headers.get('retry-after') ?? '')
+    const code = response.status === 429 ? 'ratelimited' : response.status >= 500 ? 'service_unavailable' : 'api_http_error'
+    const error = new Error(code) as Error & { retryAfterSeconds?: number }
+    if (Number.isFinite(retryAfter)) error.retryAfterSeconds = retryAfter
+    throw error
+  }
   let payload: unknown
   try { payload = await response.json() } catch { fail('invalid_response') }
   if (!isObject(payload) || payload.ok !== true) {
-    const retryAfter = Number(response.headers.get('retry-after') ?? '')
-    const code = response.status === 429 ? 'ratelimited' : response.status >= 500 ? 'service_unavailable' : isObject(payload) && typeof payload.error === 'string' ? payload.error : 'api_error'
+    const code = isObject(payload) && typeof payload.error === 'string' ? payload.error : 'api_error'
     const error = new Error(code) as Error & { retryAfterSeconds?: number }
     if (Number.isFinite(retryAfter)) error.retryAfterSeconds = retryAfter
     throw error
@@ -289,6 +317,9 @@ async function handle(request: Request): Promise<Response> {
   let payload: unknown
   try { payload = JSON.parse(rawBody) } catch { return json({ error: 'invalid_json' }, 400) }
   if (!isObject(payload)) return json({ error: 'invalid_payload' }, 400)
+  if (payload.requestId !== requestId) return json({ error: 'invalid_request_id' }, 400)
+  if (typeof payload.sentAt !== 'string' || !Number.isFinite(Date.parse(payload.sentAt))) return json({ error: 'invalid_sent_at' }, 400)
+  if (Math.abs(Date.now() - Date.parse(payload.sentAt)) > REPLAY_WINDOW_SECONDS * 1000) return json({ error: 'stale_sent_at' }, 401)
   const trigger = requireText(payload.trigger, 'invalid_trigger', 40)
   if (!['form_submit', 'five_minute', 'manual_reconcile'].includes(trigger)) return json({ error: 'invalid_trigger' }, 400)
   const rows = parseRows(payload.rows)

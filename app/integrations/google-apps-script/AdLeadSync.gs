@@ -117,13 +117,15 @@ function syncSources(trigger) {
     var requestCount = 0
     var importedRows = 0
     var advancedSources = 0
+    var unavailableSources = []
 
     config.forEach(function (source) {
       var rows
       try {
         rows = readSource(source)
       } catch (error) {
-        throw new Error('source_read_failed')
+        unavailableSources.push(source.source)
+        return
       }
       var increment = sourceIncrement(source, rows)
       if (increment.rows.length === 0) return
@@ -144,7 +146,7 @@ function syncSources(trigger) {
       callSyncFunction(trigger, [])
       requestCount = 1
     }
-    return { ok: true, trigger: trigger, requests: requestCount, rows: importedRows, sourcesAdvanced: advancedSources }
+    return { ok: true, trigger: trigger, requests: requestCount, rows: importedRows, sourcesAdvanced: advancedSources, unavailableSources: unavailableSources }
   } finally {
     if (lock.hasLock()) lock.releaseLock()
   }

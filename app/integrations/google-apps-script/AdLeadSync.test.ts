@@ -12,14 +12,17 @@ type SyncContext = {
   syncSources: (trigger: string) => unknown
 }
 
-function createSyncContext(options: { responseCode?: number; rows?: unknown[] } = {}): SyncContext {
+function createSyncContext(options: { responseCode?: number; rows?: unknown[]; sourceRows?: Record<string, unknown[]>; readFailures?: string[] } = {}): SyncContext {
   const properties: Record<string, string> = {
     AD_LEAD_EDGE_FUNCTION_URL: 'https://project.supabase.co/functions/v1/ad-lead-sync',
     AD_LEAD_INGEST_HMAC_SECRET: 'test-secret',
   }
   const requests: SyncContext['requests'] = []
   const context = createContext({
-    SOURCE_CONFIG: [{ source: 'A2O Website', spreadsheetId: 'sheet-1', sheetName: 'a2owebsite' }],
+    SOURCE_CONFIG: [
+      { source: 'A2O Website', spreadsheetId: 'sheet-1', sheetName: 'a2owebsite' },
+      { source: 'Men New Form', spreadsheetId: 'sheet-2', sheetName: 'men-new form' },
+    ],
     PropertiesService: { getScriptProperties: () => ({
       getProperty: (key: string) => properties[key] ?? null,
       setProperty: (key: string, value: string) => { properties[key] = value },
@@ -43,7 +46,10 @@ function createSyncContext(options: { responseCode?: number; rows?: unknown[] } 
         }
       },
     },
-    readSource: () => options.rows ?? [],
+    readSource: (source: { source: string }) => {
+      if ((options.readFailures ?? []).includes(source.source)) throw new Error('sheet_unavailable')
+      return options.sourceRows?.[source.source] ?? options.rows ?? []
+    },
     Date,
   })
   const source = readFileSync(scriptPath, 'utf8')
@@ -85,6 +91,29 @@ describe('advertising lead Apps Script sync coordinator', () => {
     ctx.syncSources('five_minute')
 
     expect(ctx.requests).toHaveLength(1)
+    expect(ctx.requests[0].body.rows).toEqual([])
+  })
+
+  it('continues with healthy sources and still sends a heartbeat when one sheet is unavailable', () => {
+    const ctx = createSyncContext({
+      readFailures: ['A2O Website'],
+      sourceRows: { 'Men New Form': [{ source: 'Men New Form', id: 'sheet-2:men-new form:2', submittedAt: '2026-08-10T01:00:00Z', name: 'Synthetic', phone: '91234567', tag: 'test' }] },
+    })
+
+    ctx.syncSources('five_minute')
+
+    expect(ctx.requests).toHaveLength(1)
+    expect(ctx.requests[0].body.rows[0]).toMatchObject({ sourceForm: 'Men New Form' })
+    expect(ctx.properties['CURSOR_sheet_2_men_new_form']).toBe('2')
+  })
+
+  it('sends a drain heartbeat when every source read is temporarily unavailable', () => {
+    const ctx = createSyncContext({ readFailures: ['A2O Website', 'Men New Form'] })
+
+    const result = ctx.syncSources('five_minute') as { requests: number; unavailableSources: string[] }
+
+    expect(result.requests).toBe(1)
+    expect(result.unavailableSources).toEqual(['A2O Website', 'Men New Form'])
     expect(ctx.requests[0].body.rows).toEqual([])
   })
 })
