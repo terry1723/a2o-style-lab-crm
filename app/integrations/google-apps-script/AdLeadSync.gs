@@ -8,6 +8,10 @@ var SYNC_BATCH_LIMIT = 100
 var SYNC_TIME_BUDGET_MS = 240000
 var SYNC_HANDLERS = ['runFiveMinuteSync', 'runFormSubmitSync']
 
+function sourceStatusKey(source, suffix) {
+  return cursorKey(source) + '_' + suffix
+}
+
 function syncProperty(key) {
   return PropertiesService.getScriptProperties().getProperty(key)
 }
@@ -132,6 +136,7 @@ function syncSources(trigger) {
         rows = readSource(source)
       } catch (error) {
         unavailableSources.push(source.source)
+        setSyncProperty(sourceStatusKey(source, 'LAST_ERROR'), 'source_read_failed')
         continue
       }
       var increment = sourceIncrement(source, rows)
@@ -139,11 +144,20 @@ function syncSources(trigger) {
 
       for (var offset = 0; offset < increment.rows.length; offset += SYNC_BATCH_LIMIT) {
         var batch = increment.rows.slice(offset, offset + SYNC_BATCH_LIMIT)
-        callSyncFunction(trigger, batch)
+        var accepted
+        try {
+          accepted = callSyncFunction(trigger, batch)
+        } catch (error) {
+          setSyncProperty(sourceStatusKey(source, 'LAST_ERROR'), 'edge_sync_failed')
+          throw error
+        }
+        if (accepted && accepted.requestId) setSyncProperty(sourceStatusKey(source, 'LAST_REQUEST_ID'), accepted.requestId)
         requestCount += 1
         importedRows += batch.length
       }
       setSyncProperty(cursorKey(source), increment.nextCursor)
+      setSyncProperty(sourceStatusKey(source, 'LAST_SUCCESS_AT'), new Date().toISOString())
+      setSyncProperty(sourceStatusKey(source, 'LAST_ERROR'), '')
       advancedSources += 1
     }
 
