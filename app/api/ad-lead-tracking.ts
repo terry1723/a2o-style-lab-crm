@@ -7,19 +7,9 @@ import {
   type AdLeadAppointmentBooking,
 } from './_lib/adLeadAppointments.js'
 import {
-  claimAdLeadOutboxForLead,
   bookCanonicalAdLeadAppointment,
-  classifyOutboxFailure,
-  completeAdLeadOutbox,
-  failAdLeadOutbox,
-  loadCanonicalAdLeadBySourceKey,
-  type CanonicalLeadSnapshot,
-  type OutboxFailureDecision,
-  type SlackSyncOutboxRow,
-  type SyncFailure,
   updateCanonicalAdLeadTracking,
 } from './_lib/adLeadCanonical.js'
-import { createConfiguredSlackLeadPipeline } from './_lib/slackLeadPipeline.js'
 
 type RequestLike = { method?: string; body?: unknown }
 type ResponseLike = {
@@ -34,15 +24,6 @@ type Dependencies = {
   upsertCanonicalTracking?: (update: AdLeadTrackingUpdate) => Promise<void>
   bookCanonicalAppointment?: (booking: AdLeadAppointmentBooking) => Promise<void>
   canonicalEnabled?: () => boolean
-}
-
-type CanonicalSlackSyncDependencies = {
-  loadLeadBySourceKey?: (sourceKey: string) => Promise<CanonicalLeadSnapshot | null>
-  claimOutbox?: (leadId: string, workerId: string) => Promise<SlackSyncOutboxRow | null>
-  syncLead?: (lead: CanonicalLeadSnapshot) => Promise<string>
-  completeOutbox?: (row: SlackSyncOutboxRow, itemId: string, workerId: string, syncedVersion: number) => Promise<void>
-  failOutbox?: (row: SlackSyncOutboxRow, decision: OutboxFailureDecision, failure: SyncFailure, workerId: string) => Promise<void>
-  workerId?: () => string
 }
 
 function parseBody(body: unknown): Record<string, unknown> {
@@ -103,50 +84,6 @@ export function createAdLeadTrackingHandler({
         return
       }
       response.status(503).json({ error: 'tracking_unavailable' })
-    }
-  }
-}
-
-function errorCode(error: unknown): string {
-  return error && typeof error === 'object' && !Array.isArray(error) && typeof (error as Record<string, unknown>).code === 'string'
-    ? (error as Record<string, string>).code
-    : error instanceof Error ? error.message : 'network_error'
-}
-
-function syncFailure(error: unknown): SyncFailure {
-  return {
-    code: errorCode(error),
-    ...(error && typeof error === 'object' && !Array.isArray(error) && typeof (error as Record<string, unknown>).retryAfterSeconds === 'number'
-      ? { retryAfterSeconds: (error as Record<string, number>).retryAfterSeconds }
-      : {}),
-  }
-}
-
-export function createCanonicalLeadSlackSync(dependencies: CanonicalSlackSyncDependencies = {}) {
-  const loadLeadBySourceKey = dependencies.loadLeadBySourceKey ?? loadCanonicalAdLeadBySourceKey
-  const claimOutbox = dependencies.claimOutbox ?? claimAdLeadOutboxForLead
-  const completeOutbox = dependencies.completeOutbox ?? completeAdLeadOutbox
-  const failOutbox = dependencies.failOutbox ?? failAdLeadOutbox
-  const workerIdFactory = dependencies.workerId ?? (() => `crm-sync-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
-  let slackPipeline: ReturnType<typeof createConfiguredSlackLeadPipeline> | null = null
-  const syncLead = dependencies.syncLead ?? (async (lead: CanonicalLeadSnapshot) => {
-    slackPipeline ??= createConfiguredSlackLeadPipeline()
-    return slackPipeline.upsertLead(lead)
-  })
-
-  return async (sourceKey: string) => {
-    const workerId = workerIdFactory()
-    const lead = await loadLeadBySourceKey(sourceKey)
-    if (!lead) return
-    const row = await claimOutbox(lead.canonicalId, workerId)
-    if (!row) return
-    try {
-      const itemId = await syncLead(lead)
-      await completeOutbox(row, itemId, workerId, lead.syncVersion)
-    } catch (error) {
-      const failure = syncFailure(error)
-      const decision = classifyOutboxFailure(failure, row.attempt_count)
-      await failOutbox(row, decision, failure, workerId)
     }
   }
 }

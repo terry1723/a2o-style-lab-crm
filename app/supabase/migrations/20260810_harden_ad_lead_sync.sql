@@ -25,6 +25,115 @@ alter function public.book_ad_lead_appointment(text, text, date, text) set searc
 revoke all on function public.book_ad_lead_appointment(text, text, date, text) from public, anon, authenticated;
 grant execute on function public.book_ad_lead_appointment(text, text, date, text) to service_role;
 
+-- Reconcile legacy source-key appointments onto the canonical lead's latest
+-- source key. This keeps one reserved slot per canonical lead when the same
+-- phone submits the form more than once.
+do $$
+declare
+  v_lead record;
+  v_date date;
+  v_time text;
+begin
+  for v_lead in
+    select id, latest_source_key, current_status, owner, appointment_at
+    from public.ad_leads
+    where appointment_at is not null
+      and latest_source_key is not null
+  loop
+    v_date := (v_lead.appointment_at at time zone 'Asia/Hong_Kong')::date;
+    v_time := to_char(v_lead.appointment_at at time zone 'Asia/Hong_Kong', 'HH24:MI');
+    if v_time in ('12:00', '13:30', '15:00', '16:30', '18:00', '19:30', '21:00') then
+      if not exists (
+        select 1
+        from public.ad_lead_appointments a
+        where a.appointment_date = v_date
+          and a.appointment_time = v_time
+          and a.source_key not in (
+            select source_key
+            from public.ad_lead_submissions
+            where lead_id = v_lead.id
+          )
+      ) then
+        insert into public.ad_lead_tracking (source_key, status, owner)
+        values (v_lead.latest_source_key, v_lead.current_status, v_lead.owner)
+        on conflict (source_key) do nothing;
+
+        delete from public.ad_lead_appointments
+        where source_key in (
+          select source_key
+          from public.ad_lead_submissions
+          where lead_id = v_lead.id
+            and source_key <> v_lead.latest_source_key
+        );
+
+        insert into public.ad_lead_appointments (source_key, appointment_date, appointment_time)
+        values (v_lead.latest_source_key, v_date, v_time)
+        on conflict (source_key) do update
+        set appointment_date = excluded.appointment_date,
+            appointment_time = excluded.appointment_time;
+      end if;
+    end if;
+  end loop;
+end;
+$$;
+
+-- Future bookings perform the same cleanup before reserving the new slot.
+create or replace function public.book_ad_lead_appointment(
+  p_source_key text,
+  p_owner text,
+  p_appointment_date date,
+  p_appointment_time text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_lead_id uuid;
+  v_appointment_at timestamptz;
+begin
+  select lead_id into v_lead_id
+  from public.ad_lead_submissions
+  where source_key = p_source_key
+  order by submitted_at desc
+  limit 1;
+
+  if v_lead_id is not null then
+    delete from public.ad_lead_appointments
+    where source_key in (
+      select source_key
+      from public.ad_lead_submissions
+      where lead_id = v_lead_id
+        and source_key <> p_source_key
+    );
+  end if;
+
+  insert into public.ad_lead_tracking (source_key, status, owner)
+  values (p_source_key, '已預約', p_owner)
+  on conflict (source_key) do update
+  set status = excluded.status, owner = excluded.owner;
+
+  insert into public.ad_lead_appointments (source_key, appointment_date, appointment_time)
+  values (p_source_key, p_appointment_date, p_appointment_time)
+  on conflict (source_key) do update
+  set appointment_date = excluded.appointment_date,
+      appointment_time = excluded.appointment_time;
+
+  if v_lead_id is not null then
+    v_appointment_at := (p_appointment_date::text || ' ' || p_appointment_time)::timestamp at time zone 'Asia/Hong_Kong';
+    update public.ad_leads
+    set current_status = '已預約', owner = p_owner,
+        appointment_at = v_appointment_at, sync_version = sync_version + 1
+    where id = v_lead_id;
+    perform public.enqueue_ad_lead_slack_sync(v_lead_id, (select sync_version from public.ad_leads where id = v_lead_id));
+  end if;
+end;
+$$;
+
+revoke all on function public.book_ad_lead_appointment(text, text, date, text) from public, anon, authenticated;
+grant execute on function public.book_ad_lead_appointment(text, text, date, text) to service_role;
+
 -- Completion must identify the claimed target as well as the worker. A worker
 -- whose lease was reclaimed cannot complete or fail the newer worker's row.
 drop function if exists public.mark_ad_lead_slack_synced(uuid, uuid, text, bigint, text);

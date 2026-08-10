@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAdLeadsHandler } from './ad-leads'
-import { createAdLeadTrackingHandler, createCanonicalLeadSlackSync } from './ad-lead-tracking'
+import { createAdLeadTrackingHandler } from './ad-lead-tracking'
 
 function responseRecorder() {
   return {
@@ -135,32 +135,6 @@ describe('advertising lead endpoints', () => {
 
     expect(response.statusCode).toBe(200)
     expect(canonicalUpsert).toHaveBeenCalledOnce()
-  })
-
-  it('claims the canonical outbox row before an immediate Slack upsert', async () => {
-    const lead = {
-      source: 'A2O Website', id: 'A2O Website:sheet:1', submittedAt: '2026-08-09T09:00:00+08:00',
-      name: 'Synthetic Lead', phone: '+85291234567', tag: 'ig', sourceKey: 'A2O Website:sheet:1',
-      status: 'WhatsApp 跟進中' as const, owner: 'Ryan' as const, canonicalId: 'LEAD-1',
-      normalizedPhone: '85291234567', appointmentAt: null, slackListItemId: null, syncVersion: 3,
-    }
-    const row = { id: 'OUTBOX-1', lead_id: 'LEAD-1', target_version: 3, attempt_count: 1, locked_by: 'crm-worker' }
-    const loadLeadBySourceKey = vi.fn().mockResolvedValue(lead)
-    const claimOutbox = vi.fn().mockResolvedValue(row)
-    const syncLead = vi.fn().mockResolvedValue('REC-1')
-    const completeOutbox = vi.fn().mockResolvedValue(undefined)
-    const failOutbox = vi.fn()
-    const sync = createCanonicalLeadSlackSync({
-      loadLeadBySourceKey, claimOutbox, syncLead, completeOutbox, failOutbox,
-      workerId: () => 'crm-worker',
-    })
-
-    await sync('A2O Website:sheet:1')
-
-    expect(claimOutbox).toHaveBeenCalledWith('LEAD-1', 'crm-worker')
-    expect(syncLead).toHaveBeenCalledWith(lead)
-    expect(completeOutbox).toHaveBeenCalledWith(row, 'REC-1', 'crm-worker', 3)
-    expect(failOutbox).not.toHaveBeenCalled()
   })
 
   it('rejects malformed tracking updates before persistence', async () => {
