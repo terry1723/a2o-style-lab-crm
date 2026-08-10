@@ -33,7 +33,6 @@ type Dependencies = {
   bookAppointment?: (booking: AdLeadAppointmentBooking) => Promise<void>
   upsertCanonicalTracking?: (update: AdLeadTrackingUpdate) => Promise<void>
   bookCanonicalAppointment?: (booking: AdLeadAppointmentBooking) => Promise<void>
-  syncCanonicalLead?: (sourceKey: string) => Promise<void>
   canonicalEnabled?: () => boolean
 }
 
@@ -62,7 +61,6 @@ export function createAdLeadTrackingHandler({
   bookAppointment,
   upsertCanonicalTracking,
   bookCanonicalAppointment,
-  syncCanonicalLead,
   canonicalEnabled = () => false,
 }: Dependencies) {
   return async (request: RequestLike, response: ResponseLike) => {
@@ -91,7 +89,6 @@ export function createAdLeadTrackingHandler({
           appointment_date: appointmentDate as string,
           appointment_time: appointmentTime as AdLeadAppointmentBooking['appointment_time'],
         })
-        if (useCanonical && syncCanonicalLead) await syncCanonicalLead(sourceKey).catch(() => undefined)
         response.status(200).json({ sourceKey, status: '已預約', owner, appointmentDate, appointmentTime })
         return
       }
@@ -99,7 +96,6 @@ export function createAdLeadTrackingHandler({
       const upsert = useCanonical ? upsertCanonicalTracking : upsertTracking
       if (!upsert) throw new Error('ad_lead_tracking_unavailable')
       await upsert({ source_key: sourceKey, status, owner })
-      if (useCanonical && syncCanonicalLead) await syncCanonicalLead(sourceKey).catch(() => undefined)
       response.status(200).json({ sourceKey, status, owner })
     } catch (error) {
       if (error instanceof Error && error.message === 'appointment_slot_taken') {
@@ -155,14 +151,11 @@ export function createCanonicalLeadSlackSync(dependencies: CanonicalSlackSyncDep
   }
 }
 
-const syncCanonicalLead = createCanonicalLeadSlackSync()
-
 const handler = createAdLeadTrackingHandler({
   upsertTracking: upsertAdLeadTracking,
   bookAppointment: bookAdLeadAppointment,
   upsertCanonicalTracking: updateCanonicalAdLeadTracking,
   bookCanonicalAppointment: bookCanonicalAdLeadAppointment,
-  syncCanonicalLead,
   canonicalEnabled: () => process.env.AD_LEAD_CANONICAL_MODE === 'canonical',
 })
 
