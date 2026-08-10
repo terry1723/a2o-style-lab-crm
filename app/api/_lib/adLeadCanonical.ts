@@ -366,6 +366,7 @@ export function createCanonicalLeadRepository(
         p_outbox_id: row.id,
         p_lead_id: row.lead_id,
         p_worker_id: workerId,
+        p_target_version: row.target_version,
         p_synced_version: syncedVersion,
         p_slack_list_item_id: itemId,
       })
@@ -376,6 +377,7 @@ export function createCanonicalLeadRepository(
       const { error } = await client.rpc('fail_ad_lead_slack_outbox', {
         p_outbox_id: row.id,
         p_worker_id: workerId,
+        p_target_version: row.target_version,
         p_status: decision.status,
         p_next_attempt_at: decision.nextAttemptAt,
         p_error_code: failure.code,

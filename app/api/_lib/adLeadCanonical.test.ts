@@ -63,4 +63,25 @@ describe('canonical advertising lead repository helpers', () => {
       sourceKey: 'A2O Website:latest', appointmentDate: '2026-08-01', appointmentTime: '18:00',
     }])
   })
+
+  it('passes the claimed target version when completing and failing an outbox row', async () => {
+    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const client = {
+      from: () => ({}) as never,
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        calls.push({ name, args })
+        return { data: null, error: null }
+      },
+    }
+    const repository = createCanonicalLeadRepository(client as never)
+    const row = { id: 'OUTBOX-1', lead_id: 'LEAD-1', target_version: 7, attempt_count: 1, locked_by: 'worker-1' }
+
+    await repository.completeOutbox(row, 'SLACK-1', 'worker-1', 8)
+    await repository.failOutbox(row, { status: 'failed', nextAttemptAt: '2026-08-10T01:00:00.000Z' }, { code: 'ratelimited' }, 'worker-1')
+
+    expect(calls).toEqual([
+      { name: 'mark_ad_lead_slack_synced', args: expect.objectContaining({ p_target_version: 7, p_synced_version: 8, p_worker_id: 'worker-1' }) },
+      { name: 'fail_ad_lead_slack_outbox', args: expect.objectContaining({ p_target_version: 7, p_worker_id: 'worker-1' }) },
+    ])
+  })
 })
