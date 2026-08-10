@@ -16,7 +16,7 @@
 - Create: `app/api/_lib/adLeadSyncProtocol.ts`
 - Test: `app/api/_lib/adLeadSyncProtocol.test.ts`
 
-- [ ] **Step 1: Write failing tests for canonical signing and replay validation**
+- [x] **Step 1: Write failing tests for canonical signing and replay validation**
 
 Test that the same raw body produces the same HMAC, a changed body produces a different signature, and timestamps older than five minutes are rejected.
 
@@ -42,21 +42,21 @@ describe('ad lead sync protocol', () => {
 })
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails because the protocol module is missing**
+- [x] **Step 2: Run the focused test and verify it fails because the protocol module is missing**
 
 Run: `npm test -- --run api/_lib/adLeadSyncProtocol.test.ts` from `app/`.
 Expected: FAIL with a module-not-found error for `adLeadSyncProtocol`.
 
-- [ ] **Step 3: Implement the Web Crypto protocol helper**
+- [x] **Step 3: Implement the Web Crypto protocol helper**
 
 Use `crypto.subtle` with HMAC-SHA256 and encode the exact message `${timestamp}\n${requestId}\n${rawBody}`. Export the five-minute freshness predicate and a constant replay window. Do not use Node-only `createHmac`, so the helper can be copied into the Deno Edge Function.
 
-- [ ] **Step 4: Run the focused test and verify it passes**
+- [x] **Step 4: Run the focused test and verify it passes**
 
 Run: `npm test -- --run api/_lib/adLeadSyncProtocol.test.ts`.
 Expected: 2 tests pass.
 
-- [ ] **Step 5: Commit the protocol unit**
+- [x] **Step 5: Commit the protocol unit**
 
 ```bash
 git add app/api/_lib/adLeadSyncProtocol.ts app/api/_lib/adLeadSyncProtocol.test.ts
@@ -70,7 +70,7 @@ git commit -m "feat: add signed ad lead sync protocol"
 - Create: `app/integrations/google-apps-script/AdLeadSync.test.ts`
 - Modify: `app/integrations/google-apps-script/README.md`
 
-- [ ] **Step 1: Write failing contract tests for source cursors, overlap and HMAC requests**
+- [x] **Step 1: Write failing contract tests for source cursors, overlap and HMAC requests**
 
 The VM test must provide fake `PropertiesService`, `UrlFetchApp`, `LockService` and `SpreadsheetApp` globals. Assert that a failed Edge response does not advance the source cursor, a successful batch advances it, and an empty five-minute run still calls the Edge Function with `rows: []`.
 
@@ -81,12 +81,12 @@ it('does not advance a source cursor when the Edge Function rejects the batch', 
 })
 ```
 
-- [ ] **Step 2: Run the focused Apps Script test and verify the contract fails**
+- [x] **Step 2: Run the focused Apps Script test and verify the contract fails**
 
 Run: `npm test -- --run integrations/google-apps-script/AdLeadSync.test.ts` from `app/`.
 Expected: FAIL because `AdLeadSync.gs` does not exist.
 
-- [ ] **Step 3: Implement the Apps Script sync coordinator**
+- [x] **Step 3: Implement the Apps Script sync coordinator**
 
 Implement:
 
@@ -103,16 +103,16 @@ Implement:
 
 Reuse the normalization functions from `AdLeadInbox.gs` by keeping the file self-contained when pasted into Apps Script; do not call the existing read-only `doGet` endpoint over HTTP.
 
-- [ ] **Step 4: Run the focused test and verify it passes**
+- [x] **Step 4: Run the focused test and verify it passes**
 
 Run: `npm test -- --run integrations/google-apps-script/AdLeadSync.test.ts integrations/google-apps-script/AdLeadInbox.test.ts`.
 Expected: all Apps Script contracts pass.
 
-- [ ] **Step 5: Document trigger installation and secret ownership**
+- [x] **Step 5: Document trigger installation and secret ownership**
 
 Update the README with the two Script Properties, the stable owner account, trigger installation order, cursor recovery procedure and the rule that failed requests leave cursors unchanged.
 
-- [ ] **Step 6: Commit the Apps Script coordinator**
+- [x] **Step 6: Commit the Apps Script coordinator**
 
 ```bash
 git add app/integrations/google-apps-script/AdLeadSync.gs app/integrations/google-apps-script/AdLeadSync.test.ts app/integrations/google-apps-script/README.md
@@ -125,16 +125,16 @@ git commit -m "feat: reconcile ad lead sheets every five minutes"
 - Create: `app/supabase/migrations/20260810_harden_ad_lead_sync.sql`
 - Test: `app/api/_lib/adLeadCanonical.test.ts`
 
-- [ ] **Step 1: Add a failing repository test for current-version completion and stale lease rejection**
+- [x] **Step 1: Add a failing repository test for current-version completion and stale lease rejection**
 
 Extend the repository test fake RPC recorder to assert `mark_ad_lead_slack_synced` receives the worker token and the version from the latest loaded snapshot. Add a failure case where the RPC returns `stale_outbox_lease` and the repository surfaces it without retrying.
 
-- [ ] **Step 2: Run the focused test and verify it fails against the old completion contract**
+- [x] **Step 2: Run the focused test and verify it fails against the old completion contract**
 
 Run: `npm test -- --run api/_lib/adLeadCanonical.test.ts`.
 Expected: FAIL on the new assertion.
 
-- [ ] **Step 3: Add the additive hardening migration**
+- [x] **Step 3: Add the additive hardening migration**
 
 The migration must:
 
@@ -146,12 +146,12 @@ The migration must:
 - Preserve invalid phone submissions in `ad_lead_review_queue`.
 - Ensure canonical appointment projection uses the latest source key without creating a second appointment for the same normalized phone.
 
-- [ ] **Step 4: Run the focused tests and SQL static checks**
+- [x] **Step 4: Run the focused tests and SQL static checks**
 
 Run: `npm test -- --run api/_lib/adLeadCanonical.test.ts` and `git diff --check`.
 Expected: tests pass and the migration has no whitespace errors. Production SQL execution is a separate deployment gate and is not performed locally.
 
-- [ ] **Step 5: Commit the migration hardening**
+- [x] **Step 5: Commit the migration hardening**
 
 ```bash
 git add app/supabase/migrations/20260810_harden_ad_lead_sync.sql app/api/_lib/adLeadCanonical.test.ts
@@ -166,16 +166,16 @@ git commit -m "fix: harden canonical ad lead outbox leases"
 - Create: `app/supabase/functions/ad-lead-sync/README.md`
 - Test: `app/api/_lib/adLeadSyncProtocol.test.ts`
 
-- [ ] **Step 1: Add failing protocol/handler tests for unauthorized, replay and empty-sweep behavior**
+- [x] **Step 1: Add failing protocol/handler tests for unauthorized, replay and empty-sweep behavior**
 
 Use the pure protocol helpers to test HMAC rejection and a handler contract fixture that sends `{trigger:'five_minute', rows:[]}` and expects the worker path to run. The Edge Function source must not be able to return customer rows or log secrets.
 
-- [ ] **Step 2: Run the focused tests and verify the new contract fails**
+- [x] **Step 2: Run the focused tests and verify the new contract fails**
 
 Run: `npm test -- --run api/_lib/adLeadSyncProtocol.test.ts`.
 Expected: FAIL on the empty-sweep/Edge Function contract until the source exists.
 
-- [ ] **Step 3: Implement the Edge Function**
+- [x] **Step 3: Implement the Edge Function**
 
 Implement a Deno `Deno.serve` handler that:
 
@@ -190,12 +190,12 @@ Implement a Deno `Deno.serve` handler that:
 
 Add deployment notes for Function Secrets `SLACK_BOT_TOKEN`, List ID/maps, `AD_LEAD_INGEST_HMAC_SECRET` and the server-only Supabase key.
 
-- [ ] **Step 4: Run local protocol tests, TypeScript build and inspect the Edge Function source**
+- [x] **Step 4: Run local protocol tests, TypeScript build and inspect the Edge Function source**
 
 Run: `npm test -- --run api/_lib/adLeadSyncProtocol.test.ts` and `npm run build` from `app/`.
 Expected: tests pass, build exits 0, and `rg` confirms no Vercel env or customer payload logging in the Edge Function.
 
-- [ ] **Step 5: Commit the Edge Function**
+- [x] **Step 5: Commit the Edge Function**
 
 ```bash
 git add app/supabase/config.toml app/supabase/functions/ad-lead-sync app/api/_lib/adLeadSyncProtocol.test.ts
@@ -211,25 +211,25 @@ git commit -m "feat: add Supabase edge ad lead sync worker"
 - Modify: `app/api/cron/ad-lead-sync.ts` tests or mark the endpoint retired
 - Test: `app/api/ad-leads.test.ts`, `app/api/ad-lead-tracking.test.ts`
 
-- [ ] **Step 1: Write failing tests proving CRM writes enqueue but do not call Slack directly**
+- [x] **Step 1: Write failing tests proving CRM writes enqueue but do not call Slack directly**
 
 Provide a canonical tracking dependency with a spy that records calls and assert the handler returns 200 while no direct `syncCanonicalLead` callback is invoked. Add the same assertion for appointment booking.
 
-- [ ] **Step 2: Run the focused tests and verify the old direct-sync behavior fails the new assertion**
+- [x] **Step 2: Run the focused tests and verify the old direct-sync behavior fails the new assertion**
 
 Run: `npm test -- --run api/ad-lead-tracking.test.ts api/ad-leads.test.ts`.
 Expected: FAIL because the current canonical handler calls `syncCanonicalLead`.
 
-- [ ] **Step 3: Remove the direct Slack callback and Vercel Cron declaration**
+- [x] **Step 3: Remove the direct Slack callback and Vercel Cron declaration**
 
 Keep canonical RPC writes intact; remove only the direct `syncCanonicalLead` calls and dependency. Delete the `crons` block from `app/vercel.json`, retaining the SPA rewrite. Mark the Vercel cron handler retired or keep it unreachable only if its tests remain useful; no production configuration may call it.
 
-- [ ] **Step 4: Run focused CRM tests and verify empty-sweep semantics are covered**
+- [x] **Step 4: Run focused CRM tests and verify empty-sweep semantics are covered**
 
 Run: `npm test -- --run api/ad-lead-tracking.test.ts api/ad-leads.test.ts app/api/cron/ad-lead-sync.test.ts` from `app/`.
 Expected: CRM writes remain successful, no direct Slack call occurs, and existing canonical read tests pass.
 
-- [ ] **Step 5: Commit the cutover boundary**
+- [x] **Step 5: Commit the cutover boundary**
 
 ```bash
 git add app/vercel.json app/api/ad-lead-tracking.ts app/api/ad-leads.ts app/api/cron/ad-lead-sync.ts app/api/ad-lead-tracking.test.ts app/api/ad-leads.test.ts app/api/cron/ad-lead-sync.test.ts
@@ -242,7 +242,7 @@ git commit -m "fix: route CRM lead changes through the Supabase outbox"
 - Modify: `docs/superpowers/specs/2026-08-10-slack-lead-pipeline-production-recovery-spec.md` only to record verified implementation status
 - Create: `docs/runbooks/ad-lead-slack-sync.md`
 
-- [ ] **Step 1: Run the complete verification suite**
+- [x] **Step 1: Run the complete verification suite**
 
 Run from `app/`:
 
@@ -255,11 +255,11 @@ git diff --check
 
 Record exact failures; do not hide pre-existing lint warnings.
 
-- [ ] **Step 2: Add a runbook for the production operator**
+- [x] **Step 2: Add a runbook for the production operator**
 
 Document migration order, Supabase Function deployment, Apps Script trigger installation, secret locations, synthetic test flow, cursor reset/reconcile procedure, Slack preflight, retry/dead-letter operation and rollback. Do not include real keys, customer names or phone numbers.
 
-- [ ] **Step 3: Perform repository-level acceptance checks**
+- [x] **Step 3: Perform repository-level acceptance checks**
 
 Verify:
 
@@ -270,7 +270,7 @@ Verify:
 - CRM tracking/appointment handlers do not call Slack directly.
 - Existing CRM tests and login behavior remain unchanged.
 
-- [ ] **Step 4: Commit documentation and handoff**
+- [x] **Step 4: Commit documentation and handoff**
 
 ```bash
 git add docs/superpowers/specs/2026-08-10-slack-lead-pipeline-production-recovery-spec.md docs/runbooks/ad-lead-slack-sync.md

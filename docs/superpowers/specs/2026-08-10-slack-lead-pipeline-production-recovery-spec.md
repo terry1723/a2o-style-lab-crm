@@ -1,7 +1,8 @@
 # A2O Google Sheet → Supabase → Slack Lead Pipeline Specification
 
-> **Status:** 方案 A 已獲確認；本文件只定義待執行的設計與驗收標準。
-> 本文件本身不會修改正式資料、安裝 Trigger、部署 Edge Function 或更新 Slack。
+> **Status:** 方案 A 已獲確認；本地程式實作及驗證已完成，正式部署仍需在已登入的
+> Supabase、Google Apps Script、Slack 及 Vercel 環境執行 runbook。未完成部署閘門前，
+> 不視為正式同步已上線。
 
 ## 1. 目標
 
