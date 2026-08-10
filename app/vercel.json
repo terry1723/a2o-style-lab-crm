@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron/ad-lead-sync",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

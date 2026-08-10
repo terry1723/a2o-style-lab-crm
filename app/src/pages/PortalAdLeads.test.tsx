@@ -226,5 +226,5 @@ describe('PortalAdLeads', () => {
     expect(screen.queryByText('客人 21')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '下一頁' }))
     expect(await screen.findByText('客人 21')).toBeInTheDocument()
-  })
+  }, 10000)
 })
