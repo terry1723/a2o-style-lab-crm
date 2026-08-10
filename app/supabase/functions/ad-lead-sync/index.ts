@@ -181,9 +181,7 @@ async function slackApi(config: ReturnType<typeof slackConfig>, method: string, 
   try { payload = await response.json() } catch { fail('invalid_response') }
   if (!isObject(payload) || payload.ok !== true) {
     const code = isObject(payload) && typeof payload.error === 'string' ? payload.error : 'api_error'
-    const error = new Error(code) as Error & { retryAfterSeconds?: number }
-    if (Number.isFinite(retryAfter)) error.retryAfterSeconds = retryAfter
-    throw error
+    throw new Error(code)
   }
   return payload
 }
