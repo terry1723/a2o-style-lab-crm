@@ -94,7 +94,9 @@ function normalizeLeadRow(source, rowNumber, headers, row) {
   const name = text(row[nameIndex])
   const phone = text(row[phoneIndex])
   const tag = text(row[tagIndex])
-  if (!submittedAt || !name || !phone) return null
+  // Internal CRM metadata rows use an `l:` marker and are not advertising
+  // submissions. Never pass them into the signed ingest payload.
+  if (!submittedAt || /^l:/.test(submittedAt) || !name || !phone) return null
 
   return {
     source: source.source,

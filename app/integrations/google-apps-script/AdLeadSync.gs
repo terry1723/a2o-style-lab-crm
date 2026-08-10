@@ -65,15 +65,23 @@ function syncSignature(secret, timestamp, requestId, rawBody) {
 }
 
 function isoSubmittedAt(value) {
-  var raw = String(value == null ? '' : value).trim()
+  var raw = String(value == null ? '' : value).replace(/[\u00a0\u3000\t]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!raw) throw new Error('invalid_submitted_at')
   var parsed = new Date(raw)
   if (!isNaN(parsed.getTime())) return parsed.toISOString()
-  var match = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(上午|下午)\s+(\d{1,2}):(\d{2}):(\d{2})$/)
-  if (!match) throw new Error('invalid_submitted_at')
+  // Google Sheets may return locale-formatted values such as
+  // `2026/7/31 下午 4:25` (seconds omitted) or `上午12:19:04` (no space).
+  // Some tabs use Chinese 年／月／日 separators, so deliberately extract
+  // the date/time tokens instead of relying on one locale's exact spacing.
+  var match = raw.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})\D+(上午|下午)?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  if (!match) {
+    console.log('invalid_submitted_at_raw=' + raw)
+    throw new Error('invalid_submitted_at')
+  }
   var hour = Number(match[5])
   if (match[4] === '下午' && hour < 12) hour += 12
   if (match[4] === '上午' && hour === 12) hour = 0
-  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), hour - 8, Number(match[6]), Number(match[7]))).toISOString()
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), hour - 8, Number(match[6]), Number(match[7] || 0))).toISOString()
 }
 
 function callSyncFunction(trigger, rows) {
@@ -94,22 +102,36 @@ function callSyncFunction(trigger, rows) {
       tag: row.tag || '',
     }
   })
-  var rawBody = JSON.stringify({ requestId: requestId, sentAt: new Date().toISOString(), trigger: trigger, rows: payloadRows })
-  var response = UrlFetchApp.fetch(endpoint, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: rawBody,
-    headers: {
-      'X-A2O-Request-Id': requestId,
-      'X-A2O-Timestamp': timestamp,
-      'X-A2O-Signature': syncSignature(secret, timestamp, requestId, rawBody),
-    },
-    muteHttpExceptions: true,
-  })
+  var jsonBody = JSON.stringify({ requestId: requestId, sentAt: new Date().toISOString(), trigger: trigger, rows: payloadRows })
+  // Sign and send an ASCII-only envelope. UrlFetchApp has been observed to
+  // transcode non-empty JSON payloads, which changes the server-side HMAC.
+  var rawBody = Utilities.base64Encode(Utilities.newBlob(jsonBody, 'application/json').getBytes())
+  var requestSignature = syncSignature(secret, timestamp, requestId, rawBody)
+  var response
+  try {
+    response = UrlFetchApp.fetch(endpoint, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: rawBody,
+      headers: {
+        'X-A2O-Request-Id': requestId,
+        'X-A2O-Timestamp': timestamp,
+        'X-A2O-Signature': requestSignature,
+        'X-A2O-Body-Encoding': 'base64',
+      },
+      muteHttpExceptions: true,
+    })
+  } catch (error) {
+    console.log('edge_fetch_error=' + String(error))
+    throw new Error('edge_sync_failed')
+  }
   var code = response.getResponseCode()
   var payload = {}
   try { payload = JSON.parse(response.getContentText() || '{}') } catch (error) { payload = {} }
-  if (code < 200 || code >= 300 || payload.ok !== true) throw new Error('edge_sync_failed')
+  if (code < 200 || code >= 300 || payload.ok !== true) {
+    console.log('edge_response_code=' + code + ' body=' + response.getContentText().slice(0, 500))
+    throw new Error('edge_sync_failed')
+  }
   return payload
 }
 
