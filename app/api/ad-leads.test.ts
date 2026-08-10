@@ -122,13 +122,11 @@ describe('advertising lead endpoints', () => {
     expect(legacyUpsert).not.toHaveBeenCalled()
   })
 
-  it('best-effort syncs a canonical CRM update immediately after the outbox write', async () => {
+  it('does not call Slack from the CRM request after the canonical outbox write', async () => {
     const canonicalUpsert = vi.fn().mockResolvedValue(undefined)
-    const syncCanonicalLead = vi.fn().mockResolvedValue(undefined)
     const trackingHandler = createAdLeadTrackingHandler({
       upsertTracking: vi.fn(),
       upsertCanonicalTracking: canonicalUpsert,
-      syncCanonicalLead,
       canonicalEnabled: () => true,
     })
     const response = responseRecorder()
@@ -136,8 +134,7 @@ describe('advertising lead endpoints', () => {
     await trackingHandler({ method: 'PATCH', body: { sourceKey: 'a2owebsite:s1', status: 'WhatsApp 跟進中', owner: 'Ryan' } }, response)
 
     expect(response.statusCode).toBe(200)
-    expect(canonicalUpsert.mock.invocationCallOrder[0]).toBeLessThan(syncCanonicalLead.mock.invocationCallOrder[0])
-    expect(syncCanonicalLead).toHaveBeenCalledWith('a2owebsite:s1')
+    expect(canonicalUpsert).toHaveBeenCalledOnce()
   })
 
   it('claims the canonical outbox row before an immediate Slack upsert', async () => {

@@ -59,6 +59,18 @@ function syncSignature(secret, timestamp, requestId, rawBody) {
   return 'sha256=' + hexBytes(Utilities.computeHmacSha256Signature(message, secret))
 }
 
+function isoSubmittedAt(value) {
+  var raw = String(value == null ? '' : value).trim()
+  var parsed = new Date(raw)
+  if (!isNaN(parsed.getTime())) return parsed.toISOString()
+  var match = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(上午|下午)\s+(\d{1,2}):(\d{2}):(\d{2})$/)
+  if (!match) throw new Error('invalid_submitted_at')
+  var hour = Number(match[5])
+  if (match[4] === '下午' && hour < 12) hour += 12
+  if (match[4] === '上午' && hour === 12) hour = 0
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), hour - 8, Number(match[6]), Number(match[7]))).toISOString()
+}
+
 function callSyncFunction(trigger, rows) {
   var endpoint = syncProperty('AD_LEAD_EDGE_FUNCTION_URL')
   var secret = syncProperty('AD_LEAD_INGEST_HMAC_SECRET')
@@ -66,7 +78,18 @@ function callSyncFunction(trigger, rows) {
 
   var requestId = Utilities.getUuid()
   var timestamp = String(Math.floor(new Date().getTime() / 1000))
-  var rawBody = JSON.stringify({ requestId: requestId, sentAt: new Date().toISOString(), trigger: trigger, rows: rows })
+  var payloadRows = rows.map(function (row) {
+    return {
+      sourceKey: row.source + ':' + row.id,
+      sourceForm: row.source,
+      sourceId: row.id,
+      submittedAt: isoSubmittedAt(row.submittedAt),
+      name: row.name,
+      phone: row.phone,
+      tag: row.tag || '',
+    }
+  })
+  var rawBody = JSON.stringify({ requestId: requestId, sentAt: new Date().toISOString(), trigger: trigger, rows: payloadRows })
   var response = UrlFetchApp.fetch(endpoint, {
     method: 'post',
     contentType: 'application/json',

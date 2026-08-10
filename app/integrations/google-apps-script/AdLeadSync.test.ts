@@ -71,6 +71,11 @@ describe('advertising lead Apps Script sync coordinator', () => {
 
     expect(ctx.properties['CURSOR_sheet_1_a2owebsite']).toBe('2')
     expect(ctx.requests[0].body.trigger).toBe('form_submit')
+    expect(ctx.requests[0].body.rows[0]).toMatchObject({
+      sourceKey: 'A2O Website:sheet-1:a2owebsite:2',
+      sourceId: 'sheet-1:a2owebsite:2',
+      submittedAt: '2026-08-10T01:00:00.000Z',
+    })
     expect(ctx.requests[0].headers['X-A2O-Signature']).toMatch(/^sha256=/)
   })
 
