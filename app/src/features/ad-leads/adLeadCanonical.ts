@@ -1,4 +1,4 @@
-import { sourceKey, submittedAtTime, type AdLeadSourceRow } from './adLeadService'
+import { sourceKey, submittedAtTime, type AdLeadSourceRow } from './adLeadService.js'
 
 export type CanonicalLeadDraft = {
   normalizedPhone: string
