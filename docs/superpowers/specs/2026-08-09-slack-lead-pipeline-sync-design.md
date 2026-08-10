@@ -2,7 +2,7 @@
 
 **日期：** 2026-08-09
 
-**狀態：** 已確認設計，尚未實作
+**狀態：** 已確認設計，程式及測試已實作；待套用 Supabase migration 及 Vercel／Slack 環境設定後啟用。Health／retry endpoint 已採 server secret 保護；由於現有 CRM 登入只在瀏覽器保存旗標，未新增不安全的 client-side 健康狀態請求。
 
 **目標系統：** A2O Style Lab CRM、Supabase、Google Sheets、Slack List
 
@@ -475,16 +475,13 @@ Slack `429` 必須遵守 `Retry-After`，不得使用較短重試時間。
 
 ## 15. 監察與管理功能
 
-CRM「廣告新客」頁面只增加簡潔狀態，不建立大型 dashboard：
+目前以受保護的 server endpoint 提供同步狀態及重試能力，不改動現有
+CRM 登入系統。因為現有後台登入只在瀏覽器保存 `localStorage` 旗標，不能
+直接當作 server authentication；因此 `PortalAdLeads` 不會把未授權的
+client-side page password 轉發到 health／retry endpoint。日後如要在頁面
+顯示狀態，須先加入真正的 server-side staff session 或受保護 proxy。
 
-- 最近一次 Google Sheet 成功匯入時間
-- 最近一次 Slack 成功同步時間
-- Pending 工作數量
-- Failed／dead-letter 數量
-- 如有錯誤，顯示不含敏感資料的簡化原因
-- 管理員「重新同步失敗項目」按鈕
-
-建議額外提供受保護的 server health endpoint，回傳：
+Health endpoint 回傳：
 
 ```json
 {
@@ -601,7 +598,7 @@ Health endpoint 不得回傳姓名、電話或原始客人資料。
 6. 實作 Slack List adapter 及欄位 mapping。
 7. 實作 Outbox Worker、retry、lease 及 dead-letter。
 8. 加入 Vercel Cron 及安全環境變數。
-9. 加入簡潔同步狀態 UI。
+9. （可選後續）在加入 server-side staff session 後，再加入簡潔同步狀態 UI。
 10. Preview dry-run、Slack 測試 List、正式 backfill、cutover 及監察。
 
 ---

@@ -100,7 +100,7 @@ export default function PortalAdLeads() {
     return options
   }, [appointmentBySlot])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     setLoading(true)
     setError('')
     try {
@@ -110,8 +110,10 @@ export default function PortalAdLeads() {
       setLeads(data.leads || [])
       setAppointments(data.appointments || [])
       setPage(1)
+      return true
     } catch {
       setError('載入廣告新客失敗，請稍後再試。')
+      return false
     } finally {
       setLoading(false)
     }

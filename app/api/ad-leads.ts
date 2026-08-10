@@ -3,6 +3,7 @@ import { normalizeAdLeads, type AdLeadSourceRow, type AdLeadTracking } from '../
 import { loadAdLeadTracking } from './_lib/adLeadTracking.js'
 import { loadAdLeadAppointments } from './_lib/adLeadAppointments.js'
 import type { AdLeadAppointment } from '../src/features/ad-leads/adLeadService.js'
+import { loadCanonicalAdLeads } from './_lib/adLeadCanonical.js'
 
 type RequestLike = { method?: string }
 type ResponseLike = {
@@ -11,7 +12,7 @@ type ResponseLike = {
   setHeader?: (name: string, value: string) => unknown
 }
 
-type SourceLeadResponse = {
+export type SourceLeadResponse = {
   leads: AdLeadSourceRow[]
   unavailableSources: string[]
 }
@@ -20,6 +21,8 @@ type Dependencies = {
   readSourceLeads: () => Promise<SourceLeadResponse>
   loadTracking: () => Promise<Record<string, AdLeadTracking>>
   loadAppointments: () => Promise<AdLeadAppointment[]>
+  loadCanonical?: () => Promise<{ leads: AdLeadSourceRow[]; appointments: AdLeadAppointment[] }>
+  canonicalEnabled?: () => boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -56,7 +59,13 @@ export async function readAppsScriptAdLeads(fetcher: typeof fetch = fetch): Prom
   return payload
 }
 
-export function createAdLeadsHandler({ readSourceLeads, loadTracking, loadAppointments }: Dependencies) {
+export function createAdLeadsHandler({
+  readSourceLeads,
+  loadTracking,
+  loadAppointments,
+  loadCanonical,
+  canonicalEnabled = () => false,
+}: Dependencies) {
   return async (request: RequestLike, response: ResponseLike) => {
     response.setHeader?.('Cache-Control', 'no-store')
     if (request.method !== 'GET') {
@@ -65,6 +74,16 @@ export function createAdLeadsHandler({ readSourceLeads, loadTracking, loadAppoin
     }
 
     try {
+      if (canonicalEnabled()) {
+        if (!loadCanonical) throw new Error('canonical_leads_unavailable')
+        const canonical = await loadCanonical()
+        response.status(200).json({
+          leads: canonical.leads,
+          appointments: canonical.appointments,
+          unavailableSources: [],
+        })
+        return
+      }
       const [source, tracking, appointments] = await Promise.all([readSourceLeads(), loadTracking(), loadAppointments()])
       response.status(200).json({
         leads: normalizeAdLeads(source.leads, tracking),
@@ -81,6 +100,8 @@ const handler = createAdLeadsHandler({
   readSourceLeads: readAppsScriptAdLeads,
   loadTracking: loadAdLeadTracking,
   loadAppointments: loadAdLeadAppointments,
+  loadCanonical: loadCanonicalAdLeads,
+  canonicalEnabled: () => process.env.AD_LEAD_CANONICAL_MODE === 'canonical',
 })
 
 export default async function adLeads(request: VercelRequest, response: VercelResponse) {
