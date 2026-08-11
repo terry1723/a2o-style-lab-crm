@@ -1,0 +1,3 @@
+# Keep unit-test modules out of Vercel's serverless function discovery.
+# Production API handlers remain deployable under app/api.
+api/**/*.test.ts
