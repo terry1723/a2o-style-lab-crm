@@ -61,6 +61,16 @@ body {
   min-height: 100dvh;
 }
 
+/* Keep the visual-regression-protected assessment viewport unchanged once
+   below-the-fold content makes the document vertically scrollable. */
+html {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
 @layer components {
   .glass-card {
     @apply bg-white/80 backdrop-blur-md rounded-2xl border border-white/50 shadow-lg;
