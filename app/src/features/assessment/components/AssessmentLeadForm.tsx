@@ -18,7 +18,7 @@ type Props = {
   onSubmit: (input: AssessmentLeadInput) => Promise<void>
 }
 
-const inputClassName = 'min-h-12 w-full rounded-2xl border border-white/15 bg-white/10 px-4 text-base text-white outline-none placeholder:text-white/35 focus:border-a2o-pink focus:ring-2 focus:ring-a2o-pink/30'
+const inputClassName = 'min-h-12 w-full rounded-2xl border border-white/25 bg-[#151515] px-4 text-base font-semibold text-white outline-none placeholder:text-white/35 focus:border-white focus:ring-2 focus:ring-white/35'
 
 export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
   const [photoDataUrl, setPhotoDataUrl] = useState('')
@@ -119,7 +119,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
   if (submitted) {
     return (
       <div className="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 text-center">
-        <CheckCircle2 className="mx-auto h-10 w-10 text-[#8FD3A8]" />
+        <CheckCircle2 className="mx-auto h-10 w-10 text-white" />
         <h2 className="mt-3 font-serif text-2xl font-medium">已收到你的形象檢測資料</h2>
         <p className="mt-3 text-sm leading-relaxed text-white/70">
           A2O 團隊會根據你的答案準備個人形象檢測報告；如你已上傳正面全身相，我們會一併作為分析參考。
@@ -189,7 +189,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
 
       <section className="pt-2" aria-labelledby="assessment-photo-title">
         <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-a2o-pink/20 text-[#F1B6C6]">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/35 bg-[#151515] text-white">
             <Camera className="h-5 w-5" />
           </span>
           <div>
@@ -210,7 +210,7 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
               <button
                 type="button"
                 onClick={removePhoto}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 text-xs text-white/75 transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 text-xs text-white/75 transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 <Trash2 className="h-3.5 w-3.5" /> 移除
               </button>
@@ -219,9 +219,9 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
         ) : (
           <label
             htmlFor="assessment-photo"
-            className="mt-4 flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/25 bg-white/5 px-5 py-6 text-center transition hover:border-a2o-pink/70 hover:bg-white/10 focus-within:ring-2 focus-within:ring-a2o-pink"
+            className="mt-4 flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/35 bg-[#151515] px-5 py-6 text-center transition hover:border-white hover:bg-black focus-within:ring-2 focus-within:ring-white"
           >
-            <Upload className="h-6 w-6 text-[#F1B6C6]" />
+            <Upload className="h-6 w-6 text-white" />
             <span className="mt-2 text-sm font-semibold">選擇正面全身相</span>
             <span className="mt-1 text-xs text-white/45">JPEG、PNG、WebP｜最多 10 MB</span>
             <input
@@ -241,15 +241,15 @@ export function AssessmentLeadForm({ submitted, submitting, onSubmit }: Props) {
           type="checkbox"
           checked={consent}
           onChange={(event) => setConsent(event.target.checked)}
-          className="mt-0.5 h-4 w-4 accent-[#D4849A]"
+          className="mt-0.5 h-4 w-4 accent-white"
         />
         <span>我同意 A2O Style Lab 使用以上資料，以及我選擇上傳的相片，用於個人形象檢測及 WhatsApp 跟進。</span>
       </label>
-      {error && <p role="alert" className="text-sm text-[#FFB4B4]">{error}</p>}
+      {error && <p role="alert" className="border-l-2 border-white pl-3 text-sm text-white">{error}</p>}
       <button
         type="submit"
         disabled={submitting}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-a2o-pink px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#F7F6F2] px-5 py-3 text-sm font-black text-black transition hover:bg-black hover:text-white hover:ring-1 hover:ring-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
       >
         {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
         {submitting ? '提交中…' : '提交並製作個人檢測報告'}

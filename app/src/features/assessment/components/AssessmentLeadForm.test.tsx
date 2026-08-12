@@ -134,6 +134,14 @@ describe('AssessmentLeadForm', () => {
     expect(screen.getByText('請填寫以下資料，讓我們更準確地了解你的形象需要。')).toBeInTheDocument()
   })
 
+  it('uses the approved warm-white monochrome submit action', () => {
+    render(<AssessmentLeadForm {...defaultProps} />)
+
+    const submit = screen.getByRole('button', { name: '提交並製作個人檢測報告' })
+    expect(submit).toHaveClass('bg-[#F7F6F2]', 'text-black')
+    expect(submit.className).not.toContain('a2o-pink')
+  })
+
   it('keeps the selected photo and all profile fields when submission fails', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockRejectedValue(new Error('sheet unavailable'))

@@ -29,5 +29,6 @@ describe('QuestionOverlay', () => {
     const firstOption = screen.getByRole('radio', { name: '1' })
     expect(firstOption.parentElement).toHaveClass('grid-cols-5')
     expect(screen.getAllByRole('radio')).toHaveLength(10)
+    expect(firstOption.className).not.toContain('a2o-pink')
   })
 })

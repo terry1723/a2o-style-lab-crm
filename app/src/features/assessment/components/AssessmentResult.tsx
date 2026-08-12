@@ -26,7 +26,7 @@ export function AssessmentResult({
         <div className="assessment-result-enter rounded-[2rem] border border-white/15 bg-white/10 p-5 shadow-2xl sm:p-7">
           {!submitted && (
             <>
-              <span className="inline-flex items-center gap-2 rounded-full bg-a2o-pink/20 px-3 py-1.5 text-xs font-semibold text-[#F1B6C6]">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-[#151515] px-3 py-1.5 text-xs font-bold text-white">
                 <ClipboardCheck className="h-3.5 w-3.5" /> 四條問題已完成
               </span>
               <h1 className="mt-4 font-serif text-2xl font-medium leading-tight sm:text-3xl">最後一步：準備你的個人檢測報告</h1>
@@ -45,7 +45,7 @@ export function AssessmentResult({
             target="_blank"
             rel="noopener noreferrer"
             onClick={onWhatsAppClick}
-            className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-a2o-pink px-5 py-3 text-center text-sm font-semibold text-white shadow-lg transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#F7F6F2] px-5 py-3 text-center text-sm font-black text-black shadow-lg transition hover:bg-black hover:text-white hover:ring-1 hover:ring-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <MessageCircle className="h-4 w-4" />
             {ASSESSMENT_WHATSAPP_LABEL}

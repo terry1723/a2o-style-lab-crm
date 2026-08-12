@@ -61,17 +61,17 @@ export function QuestionOverlay({ question, progress, disabled, onConfirm }: Pro
                 aria-checked={checked}
                 disabled={disabled}
                 onClick={() => choose(option.id)}
-                className={`flex min-h-12 w-full items-center rounded-2xl border py-3 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-wait ${
+                className={`flex min-h-12 w-full items-center rounded-2xl border py-3 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-wait ${
                   isScale ? 'justify-center px-2 text-center text-base tabular-nums' : 'justify-between gap-3 px-4 text-left text-sm'
                 } ${
                   checked
-                    ? 'border-a2o-pink bg-a2o-pink text-white'
-                    : 'border-white/15 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
+                    ? 'border-[#F7F6F2] bg-[#F7F6F2] text-black'
+                    : 'border-white/30 bg-[#151515]/90 text-white hover:border-white hover:bg-black'
                 }`}
               >
                 <span>{option.label}</span>
                 {!isScale && (
-                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${checked ? 'border-white bg-white text-a2o-pink' : 'border-white/35'}`}>
+                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${checked ? 'border-black bg-black text-white' : 'border-white/45'}`}>
                     {checked && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
                   </span>
                 )}
@@ -85,7 +85,7 @@ export function QuestionOverlay({ question, progress, disabled, onConfirm }: Pro
             type="button"
             disabled={disabled || selected.length === 0}
             onClick={() => onConfirm(selected)}
-            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-a2o-black transition hover:bg-a2o-beige focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink disabled:opacity-40"
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#F7F6F2] px-5 py-3 text-sm font-black text-black transition hover:bg-black hover:text-white hover:ring-1 hover:ring-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40"
           >
             繼續 <ChevronRight className="h-4 w-4" />
           </button>

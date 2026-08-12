@@ -1,11 +1,6 @@
-import { AssessmentEngine } from '../features/assessment/components/AssessmentEngine'
+import { AssessmentSection } from '../features/assessment/components/AssessmentSection'
 import { A2OHomepageContent } from '../features/homepage/components/A2OHomepageContent'
 
 export default function Home() {
-  return (
-    <>
-      <AssessmentEngine />
-      <A2OHomepageContent />
-    </>
-  )
+  return <A2OHomepageContent assessment={<AssessmentSection />} />
 }

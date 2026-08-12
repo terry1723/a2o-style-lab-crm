@@ -44,6 +44,8 @@ describe('AssessmentResult capture shell', () => {
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     expect(screen.queryByRole('button', { name: '重新開始檢測' })).not.toBeInTheDocument()
+    expect(link).toHaveClass('bg-[#F7F6F2]', 'text-black')
+    expect(link.className).not.toContain('a2o-pink')
 
     await user.click(link)
     expect(onWhatsAppClick).toHaveBeenCalledOnce()

@@ -169,6 +169,14 @@ describe('AssessmentEngine media layers', () => {
     expect(fadeAudioVolume).not.toHaveBeenCalled()
   })
 
+  it('uses the approved warm-white opening action', () => {
+    render(<AssessmentEngine />)
+
+    const start = screen.getByRole('button', { name: '開始形象檢測' })
+    expect(start).toHaveClass('bg-[#F7F6F2]', 'text-black')
+    expect(start.className).not.toContain('a2o-pink')
+  })
+
   it('starts the soundtrack synchronously in the opening gesture with baseline volume and mute state', () => {
     let inStartGesture = false
     const soundtrackSnapshots: Array<{ gesture: boolean; volume: number; muted: boolean; currentTime: number }> = []
@@ -430,7 +438,7 @@ describe('AssessmentEngine media layers', () => {
   it('centres the portrait consultation stage on wider screens', () => {
     const { container } = render(<AssessmentEngine />)
 
-    expect(container.querySelector('main')).toHaveClass('flex', 'items-center', 'justify-center')
+    expect(container.firstElementChild).toHaveClass('flex', 'items-center', 'justify-center')
   })
 
   it('uses the canonical opening cover for the desktop ambience', () => {

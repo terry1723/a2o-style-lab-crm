@@ -783,19 +783,19 @@ export function AssessmentEngine() {
 
   if (state.status === 'fatal_error') {
     return (
-      <main className="grid min-h-[100dvh] place-items-center bg-a2o-beige p-6 text-center">
+      <div className="grid min-h-[100dvh] place-items-center bg-black p-6 text-center text-[#F7F6F2]">
         <div className="max-w-sm">
           <img src="/images/a2o-logo.png" alt="A₂O Style Lab" className="mx-auto h-10 w-auto" />
           <h1 className="mt-6 text-2xl font-semibold">暫時未能載入診斷</h1>
-          <p className="mt-2 text-sm text-a2o-black/60">{state.playbackIssue}</p>
-          <button type="button" onClick={restart} className="btn-primary mt-6">重新嘗試</button>
+          <p className="mt-2 text-sm text-white/60">{state.playbackIssue}</p>
+          <button type="button" onClick={restart} className="mt-6 min-h-12 bg-[#F7F6F2] px-6 font-black text-black">重新嘗試</button>
         </div>
-      </main>
+      </div>
     )
   }
 
   return (
-    <main className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#171310]">
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-black">
       <audio
         ref={soundtrackRef}
         src="/media/assessment/soundtrack.mp3"
@@ -811,7 +811,7 @@ export function AssessmentEngine() {
       />
       <div className="absolute inset-0 bg-black/45" aria-hidden="true" />
 
-      <div className="assessment-stage relative mx-auto overflow-hidden bg-[#191512] shadow-2xl">
+      <div className="assessment-stage relative mx-auto overflow-hidden bg-[#090909] shadow-2xl">
         <SceneVideoBuffer
           ref={sceneARef}
           src={sourceA}
@@ -858,7 +858,7 @@ export function AssessmentEngine() {
               type="button"
               onClick={toggleMuted}
               aria-label={state.muted ? '開啟聲音' : '靜音'}
-              className="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink"
+              className="grid h-10 w-10 place-items-center rounded-full border border-white/25 bg-black/65 text-white backdrop-blur transition hover:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               {state.muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
@@ -869,7 +869,7 @@ export function AssessmentEngine() {
                 rel="noopener noreferrer"
                 onClick={() => trackWhatsAppClick('header')}
                 aria-label={ASSESSMENT_WHATSAPP_LABEL}
-                className="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a2o-pink"
+                className="grid h-10 w-10 place-items-center rounded-full border border-white/25 bg-black/65 text-white backdrop-blur transition hover:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 <MessageCircle className="h-4 w-4" />
               </a>
@@ -902,7 +902,7 @@ export function AssessmentEngine() {
                   <button
                     type="button"
                     onClick={start}
-                    className="mt-7 flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-a2o-pink px-6 py-4 text-base font-semibold text-white shadow-xl transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.98]"
+                    className="mt-7 flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[#F7F6F2] px-6 py-4 text-base font-black text-black shadow-xl transition hover:bg-black hover:text-white hover:ring-1 hover:ring-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.98]"
                   >
                     <Play className="h-4 w-4 fill-current" />
                     {assessmentConfig.opening.cta}
@@ -955,6 +955,6 @@ export function AssessmentEngine() {
           />
         )}
       </div>
-    </main>
+    </div>
   )
 }
