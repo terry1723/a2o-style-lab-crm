@@ -5,7 +5,9 @@ import { transformationCases } from '../data/cases'
 import { faqs } from '../data/faq'
 import { audiences, services } from '../data/services'
 import { trackHomepageEvent } from '../services/analytics'
+import { useHeroParallax } from '../hooks/useHeroParallax'
 import { A2OEditorialIcon, type EditorialIconName } from './A2OEditorialIcons'
+import { A2OMarquee } from './A2OMarquee'
 
 const methods: Array<{ number: string; name: string; english: string; copy: string; icon: EditorialIconName }> = [
   { number: '01', name: '比例', english: 'PROPORTION', copy: '分析身形比例與服裝輪廓，建立更平衡、更俐落的視覺比例。', icon: 'proportion' },
@@ -57,6 +59,7 @@ function ScrollEvents() {
 
 export function A2OHomepageContent({ assessment }: { assessment?: ReactNode }) {
   const reducedMotion = useReducedMotion()
+  const heroParallax = useHeroParallax(Boolean(reducedMotion))
   const carouselRef = useRef<HTMLDivElement>(null)
   const viewedCases = useRef(new Set<string>())
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -87,7 +90,7 @@ export function A2OHomepageContent({ assessment }: { assessment?: ReactNode }) {
     <main className="overflow-x-hidden bg-[#080808] font-sans text-[#f7f6f2] selection:bg-white selection:text-black">
       <ScrollEvents />
 
-      <section className="relative flex min-h-[88svh] items-center overflow-hidden border-b border-white/15 px-5 py-20 sm:px-8 lg:px-12">
+      <section onPointerMove={heroParallax.onPointerMove} onPointerLeave={heroParallax.onPointerLeave} className="relative flex min-h-[88svh] items-center overflow-hidden border-b border-white/15 px-5 py-20 sm:px-8 lg:px-12">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_34%,rgba(255,255,255,.16),transparent_25%),linear-gradient(90deg,#080808_0%,#080808_45%,rgba(8,8,8,.25)_100%)]" />
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 lg:grid-cols-[.86fr_1.14fr] lg:gap-16">
           <motion.div initial="hidden" animate="visible" variants={rise} transition={{ duration: 0.55 }} className="relative z-10">
@@ -99,23 +102,27 @@ export function A2OHomepageContent({ assessment }: { assessment?: ReactNode }) {
               <button type="button" onClick={() => scrollToSection('a2o-method')} className="inline-flex min-h-12 items-center justify-center border border-white/50 px-7 text-sm font-black transition hover:bg-white hover:text-black">了解 A2O 形象方法</button>
             </div>
           </motion.div>
-          <motion.figure initial="hidden" animate="visible" variants={rise} transition={{ duration: 0.65, delay: 0.08 }} className="relative overflow-hidden border border-white/20 bg-[#111]">
-            <img src="/a2o/editorial/client-editorial-strip.png" alt="A2O Style Lab 客戶形象作品" className="w-full object-contain contrast-110" />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-white/5" />
+          <motion.figure initial="hidden" animate="visible" variants={rise} transition={{ duration: 0.65, delay: 0.15 }} className="relative overflow-hidden border border-white/20 bg-[#111]">
+            <motion.div animate={{ x: heroParallax.offset.x, y: heroParallax.offset.y }} transition={{ type: 'spring', stiffness: 110, damping: 24, mass: 0.6 }} className="relative scale-[1.025] will-change-transform">
+              <img src="/a2o/editorial/client-editorial-strip.png" alt="A2O Style Lab 客戶形象作品" className="w-full object-contain contrast-110" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-white/5" />
+            </motion.div>
           </motion.figure>
         </div>
       </section>
 
+      <A2OMarquee />
+
       {assessment}
 
-      <section aria-label="真實改變・看得見的影響力" className="border-b border-white/15 px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
+      <section data-motion-section="transformations" aria-label="真實改變・看得見的影響力" className="border-b border-white/15 px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
         <div className="mx-auto max-w-7xl">
-          <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
+          <motion.div initial={{ opacity: 0, y: reducedMotion ? 0 : 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.4 }} transition={{ duration: reducedMotion ? 0 : 0.55 }} className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <Heading light eyebrow="REAL TRANSFORMATIONS" title="真實改變・看得見的影響力" copy="不同的人，需要不同的形象方向。A2O 從髮型、比例、色彩與穿搭，設計真正適合每個人的改善方法。" />
             <div className="flex gap-3"><button type="button" aria-label="查看上一個設計案例" onClick={() => moveCarousel('previous')} className="grid h-12 w-12 place-items-center border border-white/35 hover:bg-white hover:text-black"><ArrowLeft size={19} /></button><button type="button" aria-label="查看下一個設計案例" onClick={() => moveCarousel('next')} className="grid h-12 w-12 place-items-center border border-white/35 hover:bg-white hover:text-black"><ArrowRight size={19} /></button></div>
-          </div>
+          </motion.div>
           <div ref={carouselRef} onScroll={onCarouselScroll} onKeyDown={(event) => { if (event.key === 'ArrowRight') moveCarousel('next'); if (event.key === 'ArrowLeft') moveCarousel('previous') }} tabIndex={0} aria-label="A2O Before and After 設計案例" className="mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4 outline-none focus-visible:ring-2 focus-visible:ring-white">
-            {transformationCases.map((item) => <article key={item.id} className="w-[86vw] shrink-0 snap-start sm:w-80 lg:w-[calc((100%-2.5rem)/3)]"><div className="border border-white/15 bg-[#151515] p-2"><img src={item.image} alt={item.alt} loading="lazy" className="aspect-[3/4] w-full object-contain" /></div><div className="mt-4 flex flex-wrap gap-2">{item.tags.map((tag) => <span key={tag} className="border border-white/20 px-3 py-1 text-[10px] font-bold tracking-[.12em] text-white/65">{tag}</span>)}</div></article>)}
+            {transformationCases.map((item, index) => <motion.article data-motion-card="transformation" initial={{ opacity: 0, y: reducedMotion ? 0 : 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.24 }} transition={{ duration: reducedMotion ? 0 : 0.48, delay: reducedMotion ? 0 : Math.min(index, 3) * 0.07 }} key={item.id} className="group w-[86vw] shrink-0 snap-start sm:w-80 lg:w-[calc((100%-2.5rem)/3)]"><div className="overflow-hidden border border-white/15 bg-[#151515] p-2"><img src={item.image} alt={item.alt} loading="lazy" className="aspect-[3/4] w-full object-contain transition-transform duration-500 ease-out group-hover:scale-[1.025] motion-reduce:transform-none" /></div><div className="mt-4 flex flex-wrap gap-2">{item.tags.map((tag) => <span key={tag} className="border border-white/20 px-3 py-1 text-[10px] font-bold tracking-[.12em] text-white/65">{tag}</span>)}</div></motion.article>)}
           </div>
           <button type="button" onClick={() => scrollToSection('transformation-overview')} className="mt-8 inline-flex min-h-11 items-center gap-2 border-b border-white pb-1 text-sm font-black">查看更多案例 <ArrowUpRight size={16} /></button>
           <figure id="transformation-overview" className="mt-14 overflow-hidden border border-white/15 bg-[#111]"><img src="/a2o/editorial/transformation-collage.png" alt="A2O Style Lab 多個客戶的形象轉變" loading="lazy" className="w-full object-contain" /></figure>
@@ -128,7 +135,7 @@ export function A2OHomepageContent({ assessment }: { assessment?: ReactNode }) {
         </div>
       </section>
 
-      <section className="bg-[#f7f6f2] px-5 py-20 text-black sm:px-8 sm:py-28 lg:px-12"><div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.72fr_1.28fr] lg:gap-20"><Heading eyebrow="A2O SERVICES" title="服務內容" copy="從初步分析到實際執行，按你的需要建立完整而可持續的形象方向。" /><div className="border-t-2 border-black">{services.map((service, index) => <article key={service} className="grid min-h-16 grid-cols-[48px_1fr_20px] items-center gap-4 border-b border-black/25 py-3"><span data-editorial-icon={serviceIcons[index]} className="grid h-10 w-10 place-items-center rounded-lg border-2 border-black p-1.5"><A2OEditorialIcon name={serviceIcons[index]} className="h-full w-full" /></span><h3 className="text-sm font-black sm:text-base">{service}</h3><span className="text-xl">›</span></article>)}</div></div></section>
+      <section data-motion-section="services" className="bg-[#f7f6f2] px-5 py-20 text-black sm:px-8 sm:py-28 lg:px-12"><div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.72fr_1.28fr] lg:gap-20"><motion.div initial={{ opacity: 0, y: reducedMotion ? 0 : 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.35 }} transition={{ duration: reducedMotion ? 0 : 0.52 }}><Heading eyebrow="A2O SERVICES" title="服務內容" copy="從初步分析到實際執行，按你的需要建立完整而可持續的形象方向。" /></motion.div><div className="border-t-2 border-black">{services.map((service, index) => <motion.article data-motion-row="service" initial={{ opacity: 0, y: reducedMotion ? 0 : 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.55 }} transition={{ duration: reducedMotion ? 0 : 0.38, delay: reducedMotion ? 0 : Math.min(index, 5) * 0.055 }} key={service} className="group grid min-h-16 grid-cols-[48px_1fr_20px] items-center gap-4 border-b border-black/25 py-3"><span data-editorial-icon={serviceIcons[index]} className="grid h-10 w-10 place-items-center rounded-lg border-2 border-black p-1.5 transition-transform duration-300 group-hover:scale-105 motion-reduce:transform-none"><A2OEditorialIcon name={serviceIcons[index]} className="h-full w-full" /></span><h3 className="text-sm font-black sm:text-base">{service}</h3><span className="text-xl transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transform-none">›</span></motion.article>)}</div></div></section>
 
       <section className="border-b border-white/15 px-5 py-20 sm:px-8 sm:py-24 lg:px-12"><div className="mx-auto max-w-7xl"><Heading light title="適合這樣的你" /><div className="mt-10 flex flex-wrap gap-3">{audiences.map((audience, index) => <div key={audience} className="flex min-h-12 items-center gap-3 rounded-full border border-white/35 px-5 text-sm font-black"><A2OEditorialIcon name={index % 2 ? 'founder' : 'professional'} className="h-5 w-5" />{audience}</div>)}</div></div></section>
 

@@ -4,6 +4,25 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes a2o-marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.a2o-marquee-track {
+  animation: a2o-marquee-scroll 18s linear infinite;
+}
+
+.a2o-marquee-track:hover {
+  animation-duration: 30s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a2o-marquee-track {
+    animation: none;
+  }
+}
+
 @layer base {
   :root {
     --background: 30 20% 95%;

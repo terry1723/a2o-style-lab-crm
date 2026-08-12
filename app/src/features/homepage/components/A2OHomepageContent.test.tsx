@@ -7,7 +7,7 @@ vi.mock('framer-motion', () => ({
   motion: new Proxy({}, {
     get: (_target, tag: string) => ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => {
       const Element = tag as keyof React.JSX.IntrinsicElements
-      const { initial: _initial, whileInView: _whileInView, viewport: _viewport, variants: _variants, transition: _transition, ...htmlProps } = props as Record<string, unknown>
+      const { initial: _initial, animate: _animate, whileInView: _whileInView, viewport: _viewport, variants: _variants, transition: _transition, ...htmlProps } = props as Record<string, unknown>
       return <Element {...htmlProps}>{children}</Element>
     },
   }),
@@ -31,15 +31,24 @@ function renderHomepageWithAssessment() {
 }
 
 describe('A2O monochrome homepage content', () => {
-  it('places the assessment immediately after the hero and before transformations', () => {
+  it('keeps the assessment before transformations', () => {
     renderHomepageWithAssessment()
 
-    const hero = screen.getByRole('heading', { name: '形象，是你最值得投資的長期資產' }).closest('section')
     const assessment = screen.getByTestId('assessment-slot')
     const transformations = screen.getByRole('heading', { name: '真實改變・看得見的影響力' }).closest('section')
 
-    expect(hero?.nextElementSibling).toBe(assessment)
     expect(assessment.nextElementSibling).toBe(transformations)
+  })
+
+  it('places the motion marquee between the hero and assessment', () => {
+    renderHomepageWithAssessment()
+
+    const hero = screen.getByRole('heading', { name: '形象，是你最值得投資的長期資產' }).closest('section')
+    const marquee = screen.getByRole('region', { name: 'A2O 形象方法重點' })
+    const assessment = screen.getByTestId('assessment-slot')
+
+    expect(hero?.nextElementSibling).toBe(marquee)
+    expect(marquee.nextElementSibling).toBe(assessment)
   })
 
   it('renders the approved hero and section anchor actions', () => {
@@ -97,5 +106,14 @@ describe('A2O monochrome homepage content', () => {
     for (const image of clientPhotography) {
       expect(image).not.toHaveClass('grayscale')
     }
+  })
+
+  it('marks transformation cards and service rows for one-time staged motion', () => {
+    const { container } = renderHomepage()
+
+    expect(container.querySelector('[data-motion-section="transformations"]')).toBeInTheDocument()
+    expect(container.querySelectorAll('[data-motion-card="transformation"]')).toHaveLength(6)
+    expect(container.querySelector('[data-motion-section="services"]')).toBeInTheDocument()
+    expect(container.querySelectorAll('[data-motion-row="service"]')).toHaveLength(8)
   })
 })
