@@ -7,7 +7,7 @@ export function AssessmentSection() {
     <section id="assessment" aria-label="A2O 互動形象檢測" className="scroll-mt-0 overflow-hidden bg-[#050505] text-[#f7f6f2]">
       <div className="mx-auto grid max-w-[1920px] lg:grid-cols-[minmax(0,1fr)_minmax(390px,520px)_minmax(0,1fr)]">
         <aside className={panelBase}>
-          <img src="/a2o/cases/case-01.jpg" alt="" className="absolute inset-0 h-full w-full object-cover grayscale brightness-[.24] blur-[1px]" />
+          <img src="/a2o/cases/case-01.jpg" alt="" className="absolute inset-0 h-full w-full object-cover brightness-[.24] blur-[1px]" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/70" />
           <div className="relative z-10 p-10 xl:p-14">
             <p className="text-[10px] font-black tracking-[0.28em] text-white/55">A2O STYLE LAB</p>
@@ -19,7 +19,7 @@ export function AssessmentSection() {
           <AssessmentEngine />
         </div>
         <aside className={panelBase}>
-          <img src="/a2o/cases/case-03.jpg" alt="" className="absolute inset-0 h-full w-full object-cover grayscale brightness-[.24] blur-[1px]" />
+          <img src="/a2o/cases/case-03.jpg" alt="" className="absolute inset-0 h-full w-full object-cover brightness-[.24] blur-[1px]" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/70" />
           <div className="relative z-10 p-10 xl:p-14">
             <p className="text-[10px] font-black tracking-[0.28em] text-white/55">A2O STYLE LAB</p>

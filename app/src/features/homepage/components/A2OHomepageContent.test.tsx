@@ -71,4 +71,19 @@ describe('A2O monochrome homepage content', () => {
     expect(screen.getByText('從初步分析到實際執行，按你的需要建立完整而可持續的形象方向。')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '常見問題' })).toBeInTheDocument()
   })
+
+  it('keeps client and transformation photography in its original colour', () => {
+    renderHomepage()
+
+    const clientPhotography = [
+      screen.getByAltText('A2O Style Lab 客戶形象作品'),
+      ...screen.getAllByAltText(/A2O Style Lab 男士形象 Before and After 設計案例/),
+      screen.getByAltText('A2O Style Lab 多個客戶的形象轉變'),
+      screen.getByAltText('A2O Style Lab 為不同客戶設計的形象方向'),
+    ]
+
+    for (const image of clientPhotography) {
+      expect(image).not.toHaveClass('grayscale')
+    }
+  })
 })
