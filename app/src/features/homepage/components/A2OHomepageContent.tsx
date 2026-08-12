@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown } from 'lucide-react'
 import { transformationCases } from '../data/cases'
@@ -25,6 +24,7 @@ const outcomes = [
 ]
 
 const rise = { hidden: { opacity: 0, y: 18 }, visible: { opacity: 1, y: 0 } }
+const bookingWhatsAppUrl = `https://wa.me/85254077240?text=${encodeURIComponent('你好，我想預約一對一形象諮詢。')}`
 
 function Heading({ eyebrow, title, copy, light = false }: { eyebrow?: string; title: string; copy?: string; light?: boolean }) {
   return (
@@ -138,7 +138,7 @@ export function A2OHomepageContent({ assessment }: { assessment?: ReactNode }) {
 
       <section className="px-5 py-20 sm:px-8 sm:py-28 lg:px-12"><div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[.45fr_1fr] lg:gap-20"><Heading light eyebrow="FAQ" title="常見問題" /><div className="border-t border-white/30">{faqs.map((faq, index) => { const open = openFaq === index; return <div key={faq.question} className="border-b border-white/30"><h3><button type="button" aria-expanded={open} aria-controls={`faq-${index}`} onClick={() => setOpenFaq(open ? null : index)} className="flex min-h-16 w-full items-center justify-between gap-5 py-4 text-left text-sm font-black sm:text-base">{faq.question}<ChevronDown size={19} className={open ? 'rotate-180' : ''} /></button></h3><div id={`faq-${index}`} role="region" aria-hidden={!open} className={`grid transition-[grid-template-rows] ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}><div className="overflow-hidden"><p className="max-w-2xl pb-6 text-sm font-semibold leading-7 text-white/65">{faq.answer}</p></div></div></div> })}</div></div></section>
 
-      <section className="border-t border-white/15 px-5 py-20 text-center sm:px-8 sm:py-28"><div className="mx-auto max-w-4xl"><p className="text-[10px] font-black tracking-[.25em] text-white/45">A2O STYLE LAB</p><h2 className="mt-5 font-serif text-4xl font-black leading-tight sm:text-6xl">準備好，建立更適合你的形象了嗎？</h2><p className="mt-6 text-sm font-semibold text-white/60">從了解自己開始，找到真正適合你的方向。</p><div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row"><button type="button" onClick={() => scrollToSection('assessment')} className="inline-flex min-h-12 items-center justify-center bg-[#f7f6f2] px-7 text-sm font-black text-black hover:bg-black hover:text-white hover:ring-1 hover:ring-white">開始形象檢測</button><Link to="/booking" onClick={() => trackHomepageEvent('homepage_final_cta', { action: 'booking' })} className="inline-flex min-h-12 items-center justify-center border border-white/50 px-7 text-sm font-black hover:bg-white hover:text-black">預約一對一諮詢</Link></div></div></section>
+      <section className="border-t border-white/15 px-5 py-20 text-center sm:px-8 sm:py-28"><div className="mx-auto max-w-4xl"><p className="text-[10px] font-black tracking-[.25em] text-white/45">A2O STYLE LAB</p><h2 className="mt-5 font-serif text-4xl font-black leading-tight sm:text-6xl">準備好，建立更適合你的形象了嗎？</h2><p className="mt-6 text-sm font-semibold text-white/60">從了解自己開始，找到真正適合你的方向。</p><div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row"><button type="button" onClick={() => scrollToSection('assessment')} className="inline-flex min-h-12 items-center justify-center bg-[#f7f6f2] px-7 text-sm font-black text-black hover:bg-black hover:text-white hover:ring-1 hover:ring-white">開始形象檢測</button><a href={bookingWhatsAppUrl} target="_blank" rel="noopener noreferrer" onClick={() => trackHomepageEvent('homepage_final_cta', { action: 'booking' })} className="inline-flex min-h-12 items-center justify-center border border-white/50 px-7 text-sm font-black hover:bg-white hover:text-black">預約一對一諮詢</a></div></div></section>
       <footer className="border-t border-white/15 px-5 py-8 text-xs font-bold text-white/45 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:justify-between"><span className="tracking-[.16em]">A2O STYLE LAB</span><span>© {new Date().getFullYear()} A2O Style Lab. All rights reserved.</span></div></footer>
     </main>
   )

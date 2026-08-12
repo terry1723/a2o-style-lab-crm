@@ -51,6 +51,18 @@ describe('A2O monochrome homepage content', () => {
     expect(screen.queryByRole('link', { name: '開始形象檢測' })).not.toBeInTheDocument()
   })
 
+  it('opens the one-to-one consultation CTA in WhatsApp with the short booking message', () => {
+    renderHomepage()
+
+    const bookingLink = screen.getByRole('link', { name: '預約一對一諮詢' })
+    expect(bookingLink).toHaveAttribute(
+      'href',
+      `https://wa.me/85254077240?text=${encodeURIComponent('你好，我想預約一對一形象諮詢。')}`,
+    )
+    expect(bookingLink).toHaveAttribute('target', '_blank')
+    expect(bookingLink).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
   it('shows outcome themes without fabricated customer attribution', () => {
     renderHomepage()
 
