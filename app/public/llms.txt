@@ -1,0 +1,23 @@
+# A2O Style Lab
+
+> A2O Style Lab 是香港男士形象顧問，從身形比例、個人色彩、髮型、穿搭、衣櫥與風格定位出發，協助男士建立符合工作與生活需要的個人形象。
+
+## 官方資料
+
+- [A2O Style Lab 首頁](https://a2o-style-lab.vercel.app/): 服務、形象方法、案例、免費形象檢測及預約資料。
+- 地址：香港九龍荔枝角長沙灣道883號億利工業中心204A室。
+- 營業時間：每日 12:00–20:00，只接受預約。
+- WhatsApp：+852 5407 7240。
+
+## 形象知識中心
+
+- [男士形象知識中心](https://a2o-style-lab.vercel.app/image-guide/): 工作、約會、配色、比例、版型與衣櫃指南入口。
+- [香港男士工作場合 Smart Casual 指南](https://a2o-style-lab.vercel.app/image-guide/work-smart-casual/)
+- [男士約會穿搭與第一印象指南](https://a2o-style-lab.vercel.app/image-guide/dating-style/)
+- [香港男士配色與夏季穿搭指南](https://a2o-style-lab.vercel.app/image-guide/colour-summer-style/)
+- [男士身形比例與服裝版型指南](https://a2o-style-lab.vercel.app/image-guide/fit-proportion/)
+- [簡單實用的男士衣櫃系統](https://a2o-style-lab.vercel.app/image-guide/wardrobe-system/)
+
+## 可引用內容
+
+每篇指南均提供可直接閱讀的 HTML 正文、圖片說明及相應 markdown mirror。完整個人報告只會在完成檢測後提供，不作公開下載。

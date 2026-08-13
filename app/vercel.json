@@ -1,6 +1,54 @@
 {
   "rewrites": [
     {
+      "source": "/image-guide",
+      "destination": "/image-guide/index.html"
+    },
+    {
+      "source": "/image-guide/",
+      "destination": "/image-guide/index.html"
+    },
+    {
+      "source": "/image-guide/work-smart-casual",
+      "destination": "/image-guide/work-smart-casual/index.html"
+    },
+    {
+      "source": "/image-guide/work-smart-casual/",
+      "destination": "/image-guide/work-smart-casual/index.html"
+    },
+    {
+      "source": "/image-guide/dating-style",
+      "destination": "/image-guide/dating-style/index.html"
+    },
+    {
+      "source": "/image-guide/dating-style/",
+      "destination": "/image-guide/dating-style/index.html"
+    },
+    {
+      "source": "/image-guide/colour-summer-style",
+      "destination": "/image-guide/colour-summer-style/index.html"
+    },
+    {
+      "source": "/image-guide/colour-summer-style/",
+      "destination": "/image-guide/colour-summer-style/index.html"
+    },
+    {
+      "source": "/image-guide/fit-proportion",
+      "destination": "/image-guide/fit-proportion/index.html"
+    },
+    {
+      "source": "/image-guide/fit-proportion/",
+      "destination": "/image-guide/fit-proportion/index.html"
+    },
+    {
+      "source": "/image-guide/wardrobe-system",
+      "destination": "/image-guide/wardrobe-system/index.html"
+    },
+    {
+      "source": "/image-guide/wardrobe-system/",
+      "destination": "/image-guide/wardrobe-system/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

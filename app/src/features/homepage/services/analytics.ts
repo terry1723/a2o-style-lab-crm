@@ -7,6 +7,7 @@ type HomepageEvent =
   | 'homepage_scroll_75'
   | 'homepage_final_cta'
   | 'homepage_assessment_return'
+  | 'homepage_knowledge_click'
 
 export function trackHomepageEvent(name: HomepageEvent, payload: Record<string, string | number> = {}) {
   window.dispatchEvent(new CustomEvent('a2o:homepage-event', { detail: { name, ...payload } }))

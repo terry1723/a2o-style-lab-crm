@@ -25,6 +25,33 @@ const outcomes = [
   ['04', '日常更容易執行', '穿搭變得有系統，能夠長期維持而不是只靠一套造型。'],
 ]
 
+const knowledgeGuides = [
+  {
+    slug: 'dating-style',
+    title: '約會穿搭與第一印象',
+    copy: '用輪廓、材質與整潔細節，建立自然、有吸引力而不刻意的第一印象。',
+    number: '02',
+  },
+  {
+    slug: 'colour-summer-style',
+    title: '男士色彩與香港夏季穿搭',
+    copy: '掌握明度、配色與面料，在炎熱天氣保持清爽、俐落和精神。',
+    number: '03',
+  },
+  {
+    slug: 'fit-proportion',
+    title: '身形比例與服裝版型',
+    copy: '從衣長、褲長與鞋褲銜接，改善整體比例，而不是盲目追求修身。',
+    number: '04',
+  },
+  {
+    slug: 'wardrobe-system',
+    title: '實用男士衣櫥系統',
+    copy: '建立可互相配搭的核心單品，減少錯誤購物，讓每天穿搭更簡單。',
+    number: '05',
+  },
+]
+
 const rise = { hidden: { opacity: 0, y: 18 }, visible: { opacity: 1, y: 0 } }
 const bookingWhatsAppUrl = `https://wa.me/85254077240?text=${encodeURIComponent('你好，我想預約一對一形象諮詢。')}`
 
@@ -63,6 +90,12 @@ export function A2OHomepageContent({ assessment }: { assessment?: ReactNode }) {
   const carouselRef = useRef<HTMLDivElement>(null)
   const viewedCases = useRef(new Set<string>())
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.hash.split('?')[1] ?? '').has('start')) return
+    const assessmentElement = document.getElementById('assessment')
+    assessmentElement?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' })
+  }, [reducedMotion])
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' })
@@ -142,6 +175,45 @@ export function A2OHomepageContent({ assessment }: { assessment?: ReactNode }) {
       <section className="border-b border-white/15 px-5 py-20 sm:px-8 sm:py-28 lg:px-12"><div className="mx-auto max-w-7xl"><Heading light eyebrow="COMMON OUTCOMES" title="客戶常見轉變" copy="把形象改善轉化成清晰、實用，而且可以長期維持的日常方法。" /><div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{outcomes.map(([number, title, copy], index) => <article key={number} className={`min-h-48 border p-6 ${index % 2 ? 'border-white bg-[#f7f6f2] text-black' : 'border-white/20 bg-[#151515]'}`}><b className="font-serif text-4xl font-black">{number}</b><h3 className="mt-8 font-serif text-xl font-black">{title}</h3><p className={`mt-3 text-xs font-semibold leading-6 ${index % 2 ? 'text-black/65' : 'text-white/65'}`}>{copy}</p></article>)}</div></div></section>
 
       <section className="grid border-b border-white/15 lg:grid-cols-2"><figure className="min-h-[380px] bg-[#111]"><img src="/a2o/editorial/transformation-collage.png" alt="A2O Style Lab 為不同客戶設計的形象方向" loading="lazy" className="h-full w-full object-cover brightness-75" /></figure><div className="flex items-center bg-[#f7f6f2] px-6 py-16 text-black sm:px-12 lg:px-16"><Heading eyebrow="ABOUT A2O STYLE LAB" title="建立的不是一套造型，而是一套真正適合你的形象系統。" copy="透過髮型、比例、色彩、穿搭及整體風格，建立符合身份、工作與生活方式的個人形象。" /></div></section>
+
+      <section className="border-b border-white/15 px-5 py-20 sm:px-8 sm:py-28 lg:px-12" aria-labelledby="knowledge-centre-title">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col justify-between gap-7 border-b border-white/20 pb-10 md:flex-row md:items-end">
+            <div className="max-w-2xl">
+              <p className="mb-4 text-[10px] font-black tracking-[.25em] text-white/50">A2O IMAGE KNOWLEDGE</p>
+              <h2 id="knowledge-centre-title" className="font-serif text-4xl font-black leading-[1.12] sm:text-5xl">形象知識中心</h2>
+              <p className="mt-5 max-w-xl text-sm font-semibold leading-7 text-white/65 sm:text-base">從工作穿搭、約會形象、色彩、版型到衣櫥系統，將男士形象管理拆解成可以立即理解和實踐的方法。</p>
+            </div>
+            <a href="/image-guide/" onClick={() => trackHomepageEvent('homepage_knowledge_click', { article_slug: 'image-guide', cta_type: 'view_all', placement: 'homepage' })} className="inline-flex min-h-12 items-center gap-3 self-start border-b border-white pb-1 text-sm font-black md:self-auto">瀏覽全部指南 <ArrowUpRight size={18} /></a>
+          </div>
+
+          <div className="grid border-x border-white/15 lg:grid-cols-[1.15fr_.85fr]">
+            <a href="/image-guide/work-smart-casual/" onClick={() => trackHomepageEvent('homepage_knowledge_click', { article_slug: 'work-smart-casual', cta_type: 'article', placement: 'homepage_lead' })} className="group relative min-h-[520px] overflow-hidden border-b border-white/15 lg:border-r">
+              <img src="/a2o/knowledge/work-look.webp" alt="工作場合 Smart Casual 造型參考" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.025] motion-reduce:transform-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-black/5" />
+              <div className="absolute inset-x-0 bottom-0 p-7 sm:p-10">
+                <p className="text-[10px] font-black tracking-[.2em] text-white/55">01 · PROFESSIONAL IMAGE</p>
+                <h3 className="mt-4 max-w-xl font-serif text-3xl font-black sm:text-4xl">工作場合 Smart Casual：專業而不老氣</h3>
+                <p className="mt-4 max-w-lg text-sm font-semibold leading-7 text-white/70">了解外套、內搭、長褲與鞋履如何建立可信、俐落而容易執行的工作形象。</p>
+                <span className="mt-7 inline-flex items-center gap-2 text-sm font-black">閱讀完整指南 <ArrowRight size={17} /></span>
+              </div>
+            </a>
+
+            <div>
+              {knowledgeGuides.map((guide) => (
+                <a key={guide.slug} href={`/image-guide/${guide.slug}/`} onClick={() => trackHomepageEvent('homepage_knowledge_click', { article_slug: guide.slug, cta_type: 'article', placement: 'homepage_list' })} className="group grid min-h-36 grid-cols-[42px_1fr_24px] items-center gap-4 border-b border-white/15 p-6 transition-colors hover:bg-[#f7f6f2] hover:text-black sm:grid-cols-[56px_1fr_24px] sm:p-8">
+                  <span className="font-serif text-2xl font-black text-white/35 transition-colors group-hover:text-black/35">{guide.number}</span>
+                  <span>
+                    <strong className="block font-serif text-xl font-black sm:text-2xl">{guide.title}</strong>
+                    <span className="mt-2 block text-xs font-semibold leading-6 text-white/60 transition-colors group-hover:text-black/60">{guide.copy}</span>
+                  </span>
+                  <ArrowUpRight size={20} />
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="px-5 py-20 sm:px-8 sm:py-28 lg:px-12"><div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[.45fr_1fr] lg:gap-20"><Heading light eyebrow="FAQ" title="常見問題" /><div className="border-t border-white/30">{faqs.map((faq, index) => { const open = openFaq === index; return <div key={faq.question} className="border-b border-white/30"><h3><button type="button" aria-expanded={open} aria-controls={`faq-${index}`} onClick={() => setOpenFaq(open ? null : index)} className="flex min-h-16 w-full items-center justify-between gap-5 py-4 text-left text-sm font-black sm:text-base">{faq.question}<ChevronDown size={19} className={open ? 'rotate-180' : ''} /></button></h3><div id={`faq-${index}`} role="region" aria-hidden={!open} className={`grid transition-[grid-template-rows] ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}><div className="overflow-hidden"><p className="max-w-2xl pb-6 text-sm font-semibold leading-7 text-white/65">{faq.answer}</p></div></div></div> })}</div></div></section>
 

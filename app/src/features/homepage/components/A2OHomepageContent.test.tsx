@@ -93,6 +93,34 @@ describe('A2O monochrome homepage content', () => {
     expect(screen.getByRole('heading', { name: '常見問題' })).toBeInTheDocument()
   })
 
+  it('links the homepage to the public image knowledge centre without moving the assessment', () => {
+    renderHomepageWithAssessment()
+
+    expect(screen.getByRole('heading', { name: '形象知識中心' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '瀏覽全部指南' })).toHaveAttribute('href', '/image-guide/')
+    expect(screen.getByRole('link', { name: /工作場合 Smart Casual/ })).toHaveAttribute('href', '/image-guide/work-smart-casual/')
+    expect(screen.getByRole('link', { name: /約會穿搭與第一印象/ })).toHaveAttribute('href', '/image-guide/dating-style/')
+    expect(screen.getByRole('link', { name: /身形比例與服裝版型/ })).toHaveAttribute('href', '/image-guide/fit-proportion/')
+
+    const marquee = screen.getByRole('region', { name: 'A2O 形象方法重點' })
+    expect(marquee.nextElementSibling).toBe(screen.getByTestId('assessment-slot'))
+  })
+
+  it('scrolls static article visitors to the assessment when the start query is present', () => {
+    const scrollIntoView = vi.fn()
+    window.location.hash = '#/?start=assessment'
+    Element.prototype.scrollIntoView = scrollIntoView
+
+    render(
+      <MemoryRouter>
+        <A2OHomepageContent assessment={<section id="assessment">Assessment</section>} />
+      </MemoryRouter>,
+    )
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' })
+    window.location.hash = ''
+  })
+
   it('keeps client and transformation photography in its original colour', () => {
     renderHomepage()
 

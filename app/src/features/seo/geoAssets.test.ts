@@ -16,13 +16,33 @@ describe('A2O GEO static assets', () => {
     expect(robots).toContain('Sitemap: https://a2o-style-lab.vercel.app/sitemap.xml')
   })
 
-  it('lists only the canonical public homepage in the sitemap', () => {
+  it('lists the homepage and six canonical public knowledge pages in the sitemap', () => {
     const sitemap = readAppFile('public/sitemap.xml')
 
     expect(sitemap).toContain('<loc>https://a2o-style-lab.vercel.app/</loc>')
-    expect(sitemap.match(/<url>/g)).toHaveLength(1)
+    expect(sitemap).toContain('<loc>https://a2o-style-lab.vercel.app/image-guide/</loc>')
+    expect(sitemap).toContain('<loc>https://a2o-style-lab.vercel.app/image-guide/work-smart-casual/</loc>')
+    expect(sitemap).toContain('<loc>https://a2o-style-lab.vercel.app/image-guide/dating-style/</loc>')
+    expect(sitemap).toContain('<loc>https://a2o-style-lab.vercel.app/image-guide/colour-summer-style/</loc>')
+    expect(sitemap).toContain('<loc>https://a2o-style-lab.vercel.app/image-guide/fit-proportion/</loc>')
+    expect(sitemap).toContain('<loc>https://a2o-style-lab.vercel.app/image-guide/wardrobe-system/</loc>')
+    expect(sitemap.match(/<url>/g)).toHaveLength(7)
     expect(sitemap).not.toContain('#/portal')
     expect(sitemap).not.toContain('#/crm')
+  })
+
+  it('publishes useful AI-readable discovery files with direct topic links', () => {
+    const llms = readAppFile('public/llms.txt')
+    const full = readAppFile('public/llms-full.txt')
+    const markdownSitemap = readAppFile('public/sitemap.md')
+
+    expect(llms).toContain('# A2O Style Lab')
+    expect(llms).toContain('## 形象知識中心')
+    expect(llms).toContain('https://a2o-style-lab.vercel.app/image-guide/')
+    expect(full).toContain('## 香港男士形象顧問服務')
+    expect(full).toContain('## 男士形象知識文章')
+    expect(markdownSitemap).toContain('# A2O Style Lab 公開內容地圖')
+    expect(markdownSitemap.match(/https:\/\/a2o-style-lab\.vercel\.app\/image-guide\//g)?.length).toBeGreaterThanOrEqual(6)
   })
 
   it('publishes canonical social metadata and a truthful structured entity graph', () => {
