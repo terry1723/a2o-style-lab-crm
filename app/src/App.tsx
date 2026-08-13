@@ -11,23 +11,27 @@ import PortalPhotos from './pages/PortalPhotos'
 import PortalAdLeads from './pages/PortalAdLeads'
 import PublicProducts from './pages/PublicProducts'
 import SupabaseDebug from './pages/SupabaseDebug'
+import RouteSeoMetadata from './features/seo/RouteSeoMetadata'
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/experience" element={<Experience />} />
-      <Route path="/products" element={<PublicProducts />} />
-      <Route path="/products/:productId" element={<PublicProducts />} />
-      <Route path="/booking" element={<Booking />} />
-      <Route path="/crm/login" element={<CrmLogin />} />
-      <Route path="/crm/styling-pool" element={<CrmStylingPool />} />
-      <Route path="/crm/dashboard" element={<CrmDashboard />} />
-      <Route path="/portal" element={<Portal />} />
-      <Route path="/portal/staff" element={<PortalStaff />} />
-      <Route path="/portal/photos" element={<PortalPhotos />} />
-      <Route path="/portal/ad-leads" element={<PortalAdLeads />} />
-      <Route path="/debug/supabase" element={<SupabaseDebug />} />
-    </Routes>
+    <>
+      <RouteSeoMetadata />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/experience" element={<Experience />} />
+        <Route path="/products" element={<PublicProducts />} />
+        <Route path="/products/:productId" element={<PublicProducts />} />
+        <Route path="/booking" element={<Booking />} />
+        <Route path="/crm/login" element={<CrmLogin />} />
+        <Route path="/crm/styling-pool" element={<CrmStylingPool />} />
+        <Route path="/crm/dashboard" element={<CrmDashboard />} />
+        <Route path="/portal" element={<Portal />} />
+        <Route path="/portal/staff" element={<PortalStaff />} />
+        <Route path="/portal/photos" element={<PortalPhotos />} />
+        <Route path="/portal/ad-leads" element={<PortalAdLeads />} />
+        <Route path="/debug/supabase" element={<SupabaseDebug />} />
+      </Routes>
+    </>
   )
 }

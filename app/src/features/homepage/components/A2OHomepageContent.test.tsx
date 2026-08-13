@@ -116,4 +116,13 @@ describe('A2O monochrome homepage content', () => {
     expect(container.querySelector('[data-motion-section="services"]')).toBeInTheDocument()
     expect(container.querySelectorAll('[data-motion-row="service"]')).toHaveLength(8)
   })
+
+  it('shows the verified public business details in the footer', () => {
+    renderHomepage()
+
+    expect(screen.getByText('香港九龍荔枝角長沙灣道883號億利工業中心204A室')).toBeInTheDocument()
+    expect(screen.getByText('每日 12:00–20:00｜只接受預約')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '+852 5407 7240' })).toHaveAttribute('href', 'https://wa.me/85254077240')
+    expect(screen.getByRole('link', { name: 'Instagram @a2o.stylelab' })).toHaveAttribute('href', 'https://www.instagram.com/a2o.stylelab/')
+  })
 })

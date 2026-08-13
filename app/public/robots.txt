@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Disallow: /crm/
+Disallow: /portal/
+Disallow: /debug/
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+Sitemap: https://a2o-style-lab.vercel.app/sitemap.xml

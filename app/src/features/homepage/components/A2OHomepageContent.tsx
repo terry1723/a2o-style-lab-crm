@@ -146,7 +146,23 @@ export function A2OHomepageContent({ assessment }: { assessment?: ReactNode }) {
       <section className="px-5 py-20 sm:px-8 sm:py-28 lg:px-12"><div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[.45fr_1fr] lg:gap-20"><Heading light eyebrow="FAQ" title="常見問題" /><div className="border-t border-white/30">{faqs.map((faq, index) => { const open = openFaq === index; return <div key={faq.question} className="border-b border-white/30"><h3><button type="button" aria-expanded={open} aria-controls={`faq-${index}`} onClick={() => setOpenFaq(open ? null : index)} className="flex min-h-16 w-full items-center justify-between gap-5 py-4 text-left text-sm font-black sm:text-base">{faq.question}<ChevronDown size={19} className={open ? 'rotate-180' : ''} /></button></h3><div id={`faq-${index}`} role="region" aria-hidden={!open} className={`grid transition-[grid-template-rows] ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}><div className="overflow-hidden"><p className="max-w-2xl pb-6 text-sm font-semibold leading-7 text-white/65">{faq.answer}</p></div></div></div> })}</div></div></section>
 
       <section className="border-t border-white/15 px-5 py-20 text-center sm:px-8 sm:py-28"><div className="mx-auto max-w-4xl"><p className="text-[10px] font-black tracking-[.25em] text-white/45">A2O STYLE LAB</p><h2 className="mt-5 font-serif text-4xl font-black leading-tight sm:text-6xl">準備好，建立更適合你的形象了嗎？</h2><p className="mt-6 text-sm font-semibold text-white/60">從了解自己開始，找到真正適合你的方向。</p><div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row"><button type="button" onClick={() => scrollToSection('assessment')} className="inline-flex min-h-12 items-center justify-center bg-[#f7f6f2] px-7 text-sm font-black text-black hover:bg-black hover:text-white hover:ring-1 hover:ring-white">開始形象檢測</button><a href={bookingWhatsAppUrl} target="_blank" rel="noopener noreferrer" onClick={() => trackHomepageEvent('homepage_final_cta', { action: 'booking' })} className="inline-flex min-h-12 items-center justify-center border border-white/50 px-7 text-sm font-black hover:bg-white hover:text-black">預約一對一諮詢</a></div></div></section>
-      <footer className="border-t border-white/15 px-5 py-8 text-xs font-bold text-white/45 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:justify-between"><span className="tracking-[.16em]">A2O STYLE LAB</span><span>© {new Date().getFullYear()} A2O Style Lab. All rights reserved.</span></div></footer>
+      <footer className="border-t border-white/15 px-5 py-10 text-xs font-bold text-white/55 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-7 sm:grid-cols-2 lg:grid-cols-[1fr_1.6fr_1fr] lg:items-start">
+          <div>
+            <p className="tracking-[.16em] text-white">A2O STYLE LAB</p>
+            <p className="mt-3 leading-6 text-white/45">香港男士形象顧問</p>
+          </div>
+          <address className="not-italic leading-6">
+            <p>香港九龍荔枝角長沙灣道883號億利工業中心204A室</p>
+            <p>每日 12:00–20:00｜只接受預約</p>
+          </address>
+          <div className="flex flex-col items-start gap-2 lg:items-end">
+            <a href="https://wa.me/85254077240" target="_blank" rel="noopener noreferrer" className="underline-offset-4 hover:text-white hover:underline">+852 5407 7240</a>
+            <a href="https://www.instagram.com/a2o.stylelab/" target="_blank" rel="noopener noreferrer" className="underline-offset-4 hover:text-white hover:underline">Instagram @a2o.stylelab</a>
+          </div>
+        </div>
+        <div className="mx-auto mt-8 max-w-7xl border-t border-white/10 pt-6 text-white/35">© {new Date().getFullYear()} A2O Style Lab. All rights reserved.</div>
+      </footer>
     </main>
   )
 }
